@@ -1847,7 +1847,9 @@ body.mouseaim #screen { cursor: none; }
     // ZAMN-style hedge blocks: a tile is either hedge or empty. One full square; its top sits up like a roof.
     const blockParts = (fam, tx, ty, room) => {
       const F = (x, y) => fam.has(room.at(x, y)) || TOPHEDGE.has(room.overAt ? room.overAt(x, y) : '.'); // top-layer hedge fills join in
-      return [{ x: 0, y: 0, w: 16, h: 16, top: !F(tx, ty - 1), left: !F(tx - 1, ty), right: !F(tx + 1, ty), face: !F(tx, ty + 1) }];
+      // the bottom row of the map always shows its face: past the edge is border hedge, but nothing draws it, so
+      // without a face the last row would be a floating top with bare ground under it
+      return [{ x: 0, y: 0, w: 16, h: 16, top: !F(tx, ty - 1), left: !F(tx - 1, ty), right: !F(tx + 1, ty), face: ty >= room.h - 1 || !F(tx, ty + 1) }];
     };
     // style: { cap, hi (top edge), lo (right edge), side (left edge), face(r, x, y, w, h, tx, ty) }
     const drawThin = (r, parts, hgt, st, tx, ty) => {
@@ -1863,7 +1865,7 @@ body.mouseaim #screen { cursor: none; }
     // Brick is a full-tile block too (like the hedges): one square, its cap raised by the wall's height.
     const brickBlock = (tx, ty, room) => {
       const F = (x, y) => BRICKF.has(room.at(x, y));
-      return [{ x: 0, y: 0, w: 16, h: 16, top: !F(tx, ty - 1), left: !F(tx - 1, ty), right: !F(tx + 1, ty), face: !F(tx, ty + 1) }];
+      return [{ x: 0, y: 0, w: 16, h: 16, top: !F(tx, ty - 1), left: !F(tx - 1, ty), right: !F(tx + 1, ty), face: ty >= room.h - 1 || !F(tx, ty + 1) }];
     };
     const BRICKF = new Set([...'wxvub']), HEDGEF = new Set([...'hJSeib']), TOPHEDGE = new Set([...'LM']), INWALLF = new Set([...'WHKO^']);
     // Brick face: courses of 8x3 bricks in running bond. Each brick gets its own tone (world-space, so runs of wall

@@ -1917,15 +1917,12 @@ body.mouseaim #screen { cursor: none; }
       r(5, 6 - TALL, 6, 4, '#1a1028'); // dark gap on the cap
     };
     // ZAMN-style hedges: leaf-clump tops with a bumpy edge and bright highlights, a leafy face that darkens toward
-    // the ground. Busted (patchy) ones show brick through torn holes; secret ones are a touch brighter (a subtle tell).
+    // the ground. Breakable (patchy) ones are torn through with dark holes; secret ones are a touch brighter (a subtle tell).
     const HEDGE_LOOK = {
       normal: { dark: '#15552a', cap: '#1f6a34', mid: '#2e8a44', hi: '#4fae5a', edgeL: '#3a9a4a', edgeR: '#123f20',
         face: { dark: '#0c3418', cap: '#154c26', mid: '#1f6a34', hi: '#2a7a3e' } },
       secret: { dark: '#1a5e30', cap: '#24753a', mid: '#36964c', hi: '#5cbe66', edgeL: '#44a454', edgeR: '#123f20', // a touch brighter: the tell
         face: { dark: '#0e3a1c', cap: '#18532a', mid: '#237238', hi: '#2e8244' } },
-      // patchy (breakable) hedges: a sickly olive, so a damaged hedge stands out from the healthy maze around it
-      patchy: { dark: '#3a4a1c', cap: '#4a5e22', mid: '#5e7428', hi: '#8a9a3a', edgeL: '#6e823a', edgeR: '#2a3414',
-        face: { dark: '#222c10', cap: '#34421a', mid: '#46581e', hi: '#56682a' } },
       // short hedges: a lighter, yellower green than the tall ones, so the two never read as one hedge
       short: { dark: '#2a6a2a', cap: '#3a8436', mid: '#4f9e42', hi: '#86c860', edgeL: '#6ab452', edgeR: '#1c4a1c',
         face: { dark: '#163e16', cap: '#225a22', mid: '#2e7030', hi: '#3a8038' } },
@@ -2030,44 +2027,35 @@ body.mouseaim #screen { cursor: none; }
     const secretUp = (r, tx, ty, room) => drawHedge(r, blockParts(TALLH, tx, ty, room), TALL, HEDGE_LOOK.secret, tx, ty);
     // Patchy hedge: a hedge with torn patches you can break (rockets, bombs, the machete). The tears are laid out in
     // world space, not per tile: a hole can sit anywhere along a run (and straddle two tiles, each drawing its half),
-    // so a long run reads as one ragged hedge instead of a stamped pattern. Kept subtle: small, dark-leaf tears and
-    // the odd bare twig, a tell you notice once you look.
+    // so a long run reads as one ragged hedge instead of a stamped pattern.
     const PATCH_STEP = 11; // a candidate tear every 11 px along a run
-    // Patchy hedge (breakable): it should read as damaged at a glance (playtest: "too subtle"). Torn holes (dark
-    // inside, broken twigs across them, a yellowed rim), dead brown patches on top, and twigs and dead leaves at its
-    // foot. Everything is placed in world space, so a long run is one ragged hedge, not a repeated tile.
+    // Patchy hedge (breakable), the ZAMN way: the same green hedge as the maze around it, but torn through. Its
+    // breakable walls keep their colour and show cracks; ours show dark holes punched through the leaves, with snapped
+    // twigs inside and a lit torn edge (playtest: the olive recolour read as a different plant, the holes read as damage).
+    // Placed in world space, so a long run is one ragged hedge, not a repeated tile.
     const patchyUp = (r, tx, ty, room) => {
       const parts = blockParts(TALLH, tx, ty, room);
-      drawHedge(r, parts, TALL, HEDGE_LOOK.patchy, tx, ty);
+      drawHedge(r, parts, TALL, HEDGE_LOOK.normal, tx, ty);
       const ox = tx * 16, oy = ty * 16;
-      const tear = (wx, wy, rad) => { // one ragged tear centred at world (wx, wy); seeded by its world spot
+      const tear = (wx, wy, rad) => { // one ragged hole centred at world (wx, wy); seeded by its world spot
         const seed = Math.floor(wx * 7 + wy * 13);
         for (let y = -rad; y <= rad; y++) {
           const w = Math.max(1, Math.round(Math.sqrt(rad * rad - y * y) * (0.55 + 0.6 * G.hash(seed + y, 91))));
           const off = Math.round((G.hash(seed * 3 + y, 17) - 0.5) * 3), x0 = wx - w + off - ox, yy = wy + y - oy;
-          r(x0 - 1, yy, w * 2 + 2, 1, '#8a8a3a');                                              // yellowed, dying rim
-          r(x0, yy, w * 2, 1, Math.abs(y) < rad - 1 ? '#0c2412' : '#163a1c');                 // the dark hole
+          r(x0, yy, w * 2, 1, Math.abs(y) < rad - 1 ? '#0a1a0e' : '#123a1e');     // the dark hole, a softer rim
+          if (G.hash(y, seed) > 0.5) r(x0 - 1, yy, 1, 1, '#5cbe66');               // a lit torn edge
         }
-        for (let k = 0; k < 2; k++) { // broken twigs across the hole
-          const tx0 = wx - ox - rad + 1 + Math.floor(G.hash(seed + k, 31) * rad), ty0 = wy - oy - 1 + k * 2;
-          for (let q = 0; q < rad; q++) r(tx0 + q, ty0 + ((q + k) & 1), 1, 1, k ? '#7a5a30' : '#5a3a20');
+        for (let k = 0; k < 3; k++) { // snapped twigs showing inside
+          const px = wx - ox + Math.floor((G.hash(seed + k, 31) - 0.5) * rad * 1.4), py = wy - oy + Math.floor((G.hash(seed + k, 47) - 0.5) * rad);
+          r(px, py, 1 + (k & 1), 1, k === 1 ? '#8a5a2a' : '#5a3a20');
         }
       };
-      const dead = (wx, wy) => { // a dead brown patch of leaves
-        for (let q = 0; q < 7; q++) r(wx - ox + Math.floor(G.hash(wx + q, wy) * 6) - 3, wy - oy + Math.floor(G.hash(wy + q, wx) * 4) - 2, 2, 1, q & 1 ? '#8a6a30' : '#a07a3a');
-      };
-      // candidate tears along this row, a little past the tile on each side (so ones straddling the edge get drawn)
+      // candidate holes along this row, a little past the tile on each side (so ones straddling the edge get drawn)
       for (let gx = Math.floor((ox - 8) / PATCH_STEP) * PATCH_STEP; gx < ox + 24; gx += PATCH_STEP) {
-        const k = G.hash(gx * 5 + 1, ty * 11 + 3);
-        const jx = gx + Math.floor(G.hash(gx, ty * 7) * 6), rad = 3 + Math.floor(G.hash(gx * 3, ty) * 4);
-        if (k < 0.45) dead(jx + 4, oy + 3 - TALL + Math.floor(G.hash(gx * 2, ty) * 10)); // dead patches between tears
-        if (k > 0.78) continue; // most spots are torn
+        if (G.hash(gx * 5 + 1, ty * 11 + 3) > 0.7) continue; // most spots are torn
+        const jx = gx + Math.floor(G.hash(gx, ty * 7) * 6), rad = 3 + Math.floor(G.hash(gx * 3, ty) * 3);
         tear(jx, oy + 6 - TALL + Math.floor(G.hash(gx, ty * 5 + 1) * 8), rad);                     // through the top
-        if (parts[0].face && G.hash(gx * 7, ty * 3 + 2) < 0.8) tear(jx + 2, oy + 2 + Math.floor(G.hash(gx * 9, ty) * 9), rad); // through the face
-      }
-      if (parts[0].face) for (let q = 0; q < 6; q++) { // fallen twigs and dead leaves at its foot
-        const x = Math.floor(G.hash(ox + q * 5, oy + 1) * 15), c = ['#6a4a28', '#8a6a30', '#a07a3a'][q % 3];
-        r(x, 14 + (q & 1), q % 3 ? 2 : 3, 1, c);
+        if (parts[0].face && G.hash(gx * 7, ty * 3 + 2) < 0.75) tear(jx + 2, oy + 2 + Math.floor(G.hash(gx * 9, ty) * 9), rad); // through the face
       }
     };
     // Busted hedge (what a blown-open patchy/secret hedge leaves): walkable floor with torn, flattened hedge

@@ -205,7 +205,7 @@ body.mouseaim #screen { cursor: none; }
   };
 
   // ---- Save data (attempt count, best score, options) ----
-  const DEFAULT_OPTS = { scanlines: true, aimAssist: 1, sound: true, perk: 'charged' }; // perk: the full-health perk (G.PERKS)
+  const DEFAULT_OPTS = { scanlines: true, aimAssist: 1, sound: true, perk: 'charged', diff: 'normal' }; // diff: G.DIFFICULTY // perk: the full-health perk (G.PERKS)
   G.AIM_LABELS = ['OFF', 'LOW', 'HIGH'];
   G.AIM_CONES = [0, 14, 30]; // degrees
   const KEY = 'afk-apocalypse/save/v1';
@@ -1918,6 +1918,9 @@ body.mouseaim #screen { cursor: none; }
         face: { dark: '#0c3418', cap: '#154c26', mid: '#1f6a34', hi: '#2a7a3e' } },
       secret: { dark: '#1a5e30', cap: '#24753a', mid: '#36964c', hi: '#5cbe66', edgeL: '#44a454', edgeR: '#123f20', // a touch brighter: the tell
         face: { dark: '#0e3a1c', cap: '#18532a', mid: '#237238', hi: '#2e8244' } },
+      // patchy (breakable) hedges: a sickly olive, so a damaged hedge stands out from the healthy maze around it
+      patchy: { dark: '#3a4a1c', cap: '#4a5e22', mid: '#5e7428', hi: '#8a9a3a', edgeL: '#6e823a', edgeR: '#2a3414',
+        face: { dark: '#222c10', cap: '#34421a', mid: '#46581e', hi: '#56682a' } },
       // short hedges: a lighter, yellower green than the tall ones, so the two never read as one hedge
       short: { dark: '#2a6a2a', cap: '#3a8436', mid: '#4f9e42', hi: '#86c860', edgeL: '#6ab452', edgeR: '#1c4a1c',
         face: { dark: '#163e16', cap: '#225a22', mid: '#2e7030', hi: '#3a8038' } },
@@ -2025,27 +2028,41 @@ body.mouseaim #screen { cursor: none; }
     // so a long run reads as one ragged hedge instead of a stamped pattern. Kept subtle: small, dark-leaf tears and
     // the odd bare twig, a tell you notice once you look.
     const PATCH_STEP = 11; // a candidate tear every 11 px along a run
+    // Patchy hedge (breakable): it should read as damaged at a glance (playtest: "too subtle"). Torn holes (dark
+    // inside, broken twigs across them, a yellowed rim), dead brown patches on top, and twigs and dead leaves at its
+    // foot. Everything is placed in world space, so a long run is one ragged hedge, not a repeated tile.
     const patchyUp = (r, tx, ty, room) => {
       const parts = blockParts(TALLH, tx, ty, room);
-      drawHedge(r, parts, TALL, HEDGE_LOOK.normal, tx, ty);
+      drawHedge(r, parts, TALL, HEDGE_LOOK.patchy, tx, ty);
       const ox = tx * 16, oy = ty * 16;
       const tear = (wx, wy, rad) => { // one ragged tear centred at world (wx, wy); seeded by its world spot
         const seed = Math.floor(wx * 7 + wy * 13);
         for (let y = -rad; y <= rad; y++) {
-          const w = Math.max(1, Math.round(Math.sqrt(rad * rad - y * y) * (0.5 + 0.6 * G.hash(seed + y, 91))));
+          const w = Math.max(1, Math.round(Math.sqrt(rad * rad - y * y) * (0.55 + 0.6 * G.hash(seed + y, 91))));
           const off = Math.round((G.hash(seed * 3 + y, 17) - 0.5) * 3), x0 = wx - w + off - ox, yy = wy + y - oy;
-          r(x0, yy, w * 2, 1, Math.abs(y) < rad - 1 ? '#123a1e' : '#1a4a26'); // dark leaf shade, not a black hole
-          if (G.hash(y, seed) > 0.55) r(x0 - 1, yy, 1, 1, '#5cbe66');           // a lit torn edge
+          r(x0 - 1, yy, w * 2 + 2, 1, '#8a8a3a');                                              // yellowed, dying rim
+          r(x0, yy, w * 2, 1, Math.abs(y) < rad - 1 ? '#0c2412' : '#163a1c');                 // the dark hole
         }
-        if (G.hash(seed, 5) > 0.5) { r(wx - ox - 1, wy - oy, 1, 1, '#6a4a28'); r(wx - ox, wy - oy + 1, 1, 1, '#5a3a20'); } // a bare twig
+        for (let k = 0; k < 2; k++) { // broken twigs across the hole
+          const tx0 = wx - ox - rad + 1 + Math.floor(G.hash(seed + k, 31) * rad), ty0 = wy - oy - 1 + k * 2;
+          for (let q = 0; q < rad; q++) r(tx0 + q, ty0 + ((q + k) & 1), 1, 1, k ? '#7a5a30' : '#5a3a20');
+        }
+      };
+      const dead = (wx, wy) => { // a dead brown patch of leaves
+        for (let q = 0; q < 7; q++) r(wx - ox + Math.floor(G.hash(wx + q, wy) * 6) - 3, wy - oy + Math.floor(G.hash(wy + q, wx) * 4) - 2, 2, 1, q & 1 ? '#8a6a30' : '#a07a3a');
       };
       // candidate tears along this row, a little past the tile on each side (so ones straddling the edge get drawn)
       for (let gx = Math.floor((ox - 8) / PATCH_STEP) * PATCH_STEP; gx < ox + 24; gx += PATCH_STEP) {
         const k = G.hash(gx * 5 + 1, ty * 11 + 3);
-        if (k > 0.6) continue; // not every spot is torn
-        const jx = gx + Math.floor(G.hash(gx, ty * 7) * 6), rad = 3 + Math.floor(G.hash(gx * 3, ty) * 3);
+        const jx = gx + Math.floor(G.hash(gx, ty * 7) * 6), rad = 3 + Math.floor(G.hash(gx * 3, ty) * 4);
+        if (k < 0.45) dead(jx + 4, oy + 3 - TALL + Math.floor(G.hash(gx * 2, ty) * 10)); // dead patches between tears
+        if (k > 0.78) continue; // most spots are torn
         tear(jx, oy + 6 - TALL + Math.floor(G.hash(gx, ty * 5 + 1) * 8), rad);                     // through the top
-        if (parts[0].face && G.hash(gx * 7, ty * 3 + 2) < 0.7) tear(jx + 2, oy + 2 + Math.floor(G.hash(gx * 9, ty) * 9), rad); // through the face
+        if (parts[0].face && G.hash(gx * 7, ty * 3 + 2) < 0.8) tear(jx + 2, oy + 2 + Math.floor(G.hash(gx * 9, ty) * 9), rad); // through the face
+      }
+      if (parts[0].face) for (let q = 0; q < 6; q++) { // fallen twigs and dead leaves at its foot
+        const x = Math.floor(G.hash(ox + q * 5, oy + 1) * 15), c = ['#6a4a28', '#8a6a30', '#a07a3a'][q % 3];
+        r(x, 14 + (q & 1), q % 3 ? 2 : 3, 1, c);
       }
     };
     // Busted hedge (what a blown-open patchy/secret hedge leaves): walkable floor with torn, flattened hedge
@@ -2784,7 +2801,7 @@ body.mouseaim #screen { cursor: none; }
       stamps: { o: [2, 1], Y: [2, 2] }, // multi-tile pieces: the editors place the whole [w, h] footprint with one click
       place: { c: [3, 2] }, blocks: new Set(['c']), // the car brush places a 3x2 car; any connected block of car is one car
       searchable: new Set(['g', 'm', '%', 'k', '[']),
-      searchLoot: { k: { teen: 0, empty: 0.35, plates: 0.45 }, '[': { teen: 0.05, empty: 0.4, plates: 0.3 } }, // kitchens: dinner plates (G.WEAPONS.plates); the rest is loot
+      searchLoot: { k: { teen: 0, empty: 0.35, plates: 0.45 }, '[': { teen: 0.05, empty: 0.25, plates: 0.55 } }, // kitchens: dinner plates (G.WEAPONS.plates); the rest is loot
       leaves: new Set(['~']), leafBare: '.', // fallen leaves: a blower gust blows them off, leaving grass // a knocked-over can (kinds 'knocked') can't be searched
       // objects sit on a floor (the map's `floors` remembers which; deleting one in the editor puts that floor back)
       objects: new Set([...'otYlmgcqkzasj[%*@!']), floors: new Set([...'.,d:=-nyr~']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
@@ -3000,14 +3017,15 @@ body.mouseaim #screen { cursor: none; }
         G.sfx.play('throw');
       },
     },
-    // June: tranquilizer darts. Weak, but a teen hit goes to sleep where it stands (Zzz): it can't chase, swing or
-    // grab a neighbor until it wakes. Level 2 fires two, level 3 a spread of three.
+    // June: tranquilizer darts. A teen hit goes to sleep where it stands (Zzz): it can't chase, swing or grab a
+    // neighbor until it wakes, and while it sleeps every hit on it (anyone's) does double damage. Level 2 fires two,
+    // level 3 a spread of three.
     tranq: {
       name: 'TRANQ', icon: 'tranq', signature: true,
       ammo: 120, max: 240,
       melee: { dmg: 0.5, reach: 16, cd: 20 },
       held: { len: 7, thick: 1, butt: '#8a8aa0', body: '#e8e8f0', tip: '#c8a8ff', tipLen: 2 }, // a dart pistol
-      dmg: 0.5, sleep: 150, cdBase: 18, tapCd: 9, speed: 4, range: 30, // tunable. sleep in ticks
+      dmg: 1, sleep: 240, sleepMul: 2, cdBase: 16, tapCd: 8, speed: 4, range: 30, // tunable. sleep in ticks; sleepMul: damage a sleeping teen takes from anyone
       cd(w) { return Math.max(2, this.cdBase - (w.lv - 1)); },
       tap(w) { return Math.max(2, this.tapCd - (w.lv - 1)); },
       fire(p, st, dx, dy, w) {
@@ -3044,7 +3062,7 @@ body.mouseaim #screen { cursor: none; }
       ammo: 120, max: 240,
       melee: { dmg: 0.5, reach: 16, cd: 20 },
       held: { len: 4, thick: 2, body: '#c8c8d8', tip: '#ffffff', tipLen: 2 }, // a wad of foil
-      dmg: 0.8, speed: 3.6, range: 22, fan: 0.22, cdBase: 18, tapCd: 10, // tunable. fan = radians between stars
+      dmg: 0.6, speed: 3.6, range: 20, fan: 0.22, cdBase: 20, tapCd: 11, // tunable. fan = radians between stars
       cd() { return this.cdBase; },
       tap() { return this.tapCd; },
       fire(p, st, dx, dy, w) {
@@ -3056,19 +3074,20 @@ body.mouseaim #screen { cursor: none; }
         G.sfx.play('throw');
       },
     },
-    // Dot: hot coffee from the pot, splashed in a short arc. Hold to keep pouring. Higher levels pour more.
+    // Dot: hot coffee from the pot, splashed in a short arc. Hold to keep pouring. Higher levels pour more. Coffee
+    // that lands on a teammate perks them up: they run faster for a while (support play; `perk` ticks a drop).
     splash: {
       name: 'HOT JOE', icon: 'splash', signature: true,
       ammo: 240, max: 480,
       melee: { dmg: 0.5, reach: 16, cd: 20 },
       held: { can: { body: '#5a3018', band: '#ffffff', lid: '#202028' } }, // a diner coffee pot
-      dmg: 0.4, rate: 5, range: 15, // tunable: damage per drop, fire delay, ticks a drop flies
+      dmg: 0.4, rate: 5, range: 15, perk: 20, perkMax: 300, // tunable: damage per drop, fire delay, ticks a drop flies; speed-up ticks a drop gives a teammate, most it builds to
       cd() { return this.rate; },
       fire(p, st, dx, dy, w) {
         const base = Math.atan2(dy, dx);
         for (let i = 0; i < 1 + w.lv; i++) {
           const a = base + G.rand(-0.3, 0.3), s = G.rand(2.4, 3.2);
-          st.shots.push({ kind: 'drop', x: p.x + dx * 6, y: p.y + dy * 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s, z: 9, vz: G.rand(0.6, 1.2), life: Math.round(this.range * G.rand(0.85, 1.15)), dmg: this.dmg });
+          st.shots.push({ kind: 'drop', owner: p, x: p.x + dx * 6, y: p.y + dy * 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s, z: 9, vz: G.rand(0.6, 1.2), life: Math.round(this.range * G.rand(0.85, 1.15)), dmg: this.dmg });
         }
         if (st.t % 8 === 0) G.sfx.play('blow');
       },
@@ -3158,11 +3177,12 @@ body.mouseaim #screen { cursor: none; }
       },
     },
     coffee: {
-      name: 'COFFEE', icon: 'coffee', max: 1, // can only carry one
-      dur: 7, speed: 40, rate: 30, // tunable: seconds, % faster movement, % faster firing
-      use(p, st) {
-        p.buzz = Math.round(this.dur * 60);
-        st.floater(p.x, p.y - 30, 'WIRED!', '#ffd23a');
+      name: 'COFFEE', icon: 'coffee', max: 3, // carry up to three
+      dur: 7, speed: 40, rate: 30, stack: 3, // tunable: seconds, % faster movement, % faster firing; how many cups' worth the boost builds to
+      use(p, st) { // another cup while you're still buzzing adds on (up to `stack` cups' worth)
+        const cup = Math.round(this.dur * 60), was = p.buzz || 0;
+        p.buzz = Math.min(cup * this.stack, was + cup);
+        st.floater(p.x, p.y - 30, was > 0 ? 'MORE COFFEE!' : 'WIRED!', '#ffd23a');
         G.sfx.play('heal');
         return true;
       },
@@ -3260,6 +3280,7 @@ body.mouseaim #screen { cursor: none; }
     { group: 'SKILLET (LOU)', label: 'FIRE DELAY', o: W.skillet, k: 'rate', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
     { group: 'TRANQ (JUNE)', label: 'DAMAGE', o: W.tranq, k: 'dmg', min: 0, max: 10, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'SLEEP', o: W.tranq, k: 'sleep', min: 0, max: 600, step: 15, note: (v) => (v / 60).toFixed(1) + 'S' },
+    { group: 'TRANQ (JUNE)', label: 'ASLEEP: DAMAGE X', o: W.tranq, k: 'sleepMul', min: 1, max: 4, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'HOLD DELAY', o: W.tranq, k: 'cdBase', min: 3, max: 40, step: 1, note: (v) => perSec(v) },
     { group: 'TRANQ (JUNE)', label: 'RANGE', o: W.tranq, k: 'range', min: 10, max: 120, step: 2 },
     { group: 'EMP (ROOT)', label: 'DAMAGE', o: W.emp, k: 'dmg', min: 0, max: 10, step: 0.1 },
@@ -3509,6 +3530,14 @@ body.mouseaim #screen { cursor: none; }
         if (--s.life <= 0 || s.z <= 0 || st.room.blocksShot(s.x, s.y)) { st.burst(s.x, s.y, 2, ['#8a5030', '#c89060'], 0.6, 1, 10, true); return false; }
         const t = hitTarget(st, s.x, s.y, 7);
         if (t) { t.hit(st, s.dmg, s.x, s.y); st.burst(s.x, s.y, 2, ['#ffffff', '#c89060'], 0.8, 9, 8); return false; }
+        const mate = st.players.find((p) => p !== s.owner && !p.dead && Math.abs(s.x - p.x) < 7 && Math.abs(s.y - (p.y - 2)) < 7);
+        if (mate) { // a teammate gets splashed: perked up (faster), never hurt
+          const W = G.WEAPONS.splash, was = mate.buzz || 0;
+          mate.buzz = Math.min(W.perkMax, was + W.perk);
+          if (was <= 0) st.floater(mate.x, mate.y - 30, 'PERKED UP!', '#ffd23a');
+          st.burst(s.x, s.y, 2, ['#ffd23a', '#c89060'], 0.8, 9, 8);
+          return false;
+        }
         return true;
       },
       draw(ctx, s, v) {
@@ -3757,7 +3786,7 @@ body.mouseaim #screen { cursor: none; }
     rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2 } },
   };
   window.G.ENEMY_SPAWN = {
-    culdesac: { cap: 12, every: [60, 120], near: [40, 140], rest: 180, hunt: true, linger: 600, types: { phoneTeen: 6, sprinter: 1 } },
+    culdesac: { cap: 10, every: [80, 150], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
   };
 })();
 </script>
@@ -4090,7 +4119,7 @@ body.mouseaim #screen { cursor: none; }
         const T = R.theme, mine = this.gate && T.pass && T.pass[this.gate] && T.pass[this.gate].has(ahead), ax = this.x + (mx / m) * 10, ay = this.y - 4 + (my / m) * 8;
         if (T.patchy && T.patchy.has(ahead) && !armed) { this.lockCd = 120; this.say('NEEDS ROCKETS OR A MACHETE', '#ff8a2a'); }
         else if (T.melee && T.melee.has(ahead)) { this.lockCd = 150; this.say('LOOSE BOARDS: WHACK IT (FIRE)', '#c8945a'); }
-        else if (this.gate === 'secret' && T.secretWall && T.secretWall.has(ahead)) { this.lockCd = 30; this.say('I KNEW IT!', '#7ff0ff'); st.breakWalls(ax, ay, 4, T.secretWall); } // Ted: a secret hedge gives way
+        else if (this.gate === 'secret' && T.secretWall && T.secretWall.has(ahead)) { this.lockCd = 30; this.say('I KNEW IT!', '#7ff0ff'); st.breakWalls(ax, ay, 4, T.secretWall, true); } // Ted: the whole secret hedge gives way
         else if (T.douse && T.douse.has(ahead) && !mine) { this.lockCd = 120; this.hurt(st, 1, ax, ay); this.say('TOO HOT! (DOT, OR SODA)', '#ff8a2a'); } // fire burns
         else if (T.scatter && T.scatter.has(ahead) && !mine) { this.lockCd = 150; this.say('TOO MANY OF THEM (JUNE, OR A SODA BOMB)', '#a87ab0'); }
       }
@@ -4331,6 +4360,21 @@ body.mouseaim #screen { cursor: none; }
       // fired from up in the air (a jump, a trampoline's mat): the shots leave the weapon up there, not your feet
       const up = (this.z || 0) + this.matLift();
       if (up > 0) for (let i = before; i < st.shots.length; i++) { const s = st.shots[i]; if (s.z !== undefined) s.z += up; else s.alt = up; }
+      // Point blank: shots start a few px out in front (at the weapon), so a teen right on top of you would be skipped.
+      // Each new flying shot starts at your feet instead and runs its own update up to the weapon, hitting whatever's
+      // in between the normal way.
+      const fresh = st.shots.splice(before);
+      for (const s of fresh) {
+        const sp = s.vx !== undefined ? Math.hypot(s.vx, s.vy) : 0, d = Math.hypot(s.x - this.x, s.y - this.y);
+        if (sp > 0.5 && d > 1 && s.kind !== 'skillet') {
+          const ux = (s.x - this.x) / d, uy = (s.y - this.y) / d;
+          s.x = this.x + ux; s.y = this.y + uy; // just in front of your feet
+          let alive = true;
+          for (let k = Math.ceil((d - 1) / sp); k > 0 && alive; k--) alive = G.SHOTS[s.kind].update(s, st) !== false;
+          if (!alive) continue;
+        }
+        st.shots.push(s);
+      }
       const boost = (this.buzz > 0 ? 1 - G.ITEMS.coffee.rate / 100 : 1) * (perk === 'rapid' ? 1 - G.PERK.rapid / 100 : 1);
       this.fireCd = this.fireCdSet = Math.max(1, Math.round(def.cd(w) * boost));
       this.sinceShot = 0;
@@ -5035,7 +5079,7 @@ body.mouseaim #screen { cursor: none; }
   //   o.feel  px: anyone this close is noticed whichever way it's facing (you bumped into it)
   // Nobody is chased inside the stage's safe zone. A neighbor within o.neighbors px is always a target.
   const sees = (e, p, d, o) => {
-    if (d < (o.feel || 0) || !o.cone) return true;
+    if (d < (o.feel || 0) * G.diff().sight || !o.cone) return true;
     return ((p.x - e.x) * e.fx + (p.y - e.y) * e.fy) / (d || 1) >= Math.cos((o.cone * Math.PI) / 180);
   };
   B.target = {
@@ -5051,9 +5095,10 @@ body.mouseaim #screen { cursor: none; }
       }
       if (e.lost > 0) e.lost--;
       const F = flowFor(st, e), canReach = !F || F.reachable(e.x, e.y - 3); // seeing you through a fence with no way round isn't enough
-      const spotted = tgt && td < (o.notice || 120) && sees(e, tgt, td, o) && canReach;
+      const sight = G.diff().sight; // the difficulty setting shortens (or keeps) every sight range
+      const spotted = tgt && td < (o.notice || 120) * sight && sees(e, tgt, td, o) && canReach;
       if (!e.aggro && (spotted || (e.provoked && tgt && canReach))) { e.aggro = true; e.alert = Math.max(e.alert, 24); e.lost = 0; } // "!"
-      else if (e.aggro && td > (o.giveUp || 190) && !(e.huntT > 0)) { e.aggro = false; e.lost = 40; e.wanderT = 0; }   // "?"
+      else if (e.aggro && td > (o.giveUp || 190) * sight && !(e.huntT > 0)) { e.aggro = false; e.lost = 40; e.wanderT = 0; }   // "?"
       e.provoked = false;
       if (!e.aggro) { tgt = null; td = Infinity; }
       for (const n of st.neighbors || []) {
@@ -5093,7 +5138,7 @@ body.mouseaim #screen { cursor: none; }
         e.moving = false;
         return true;
       }
-      if (G.chance(o.chance || 0.004)) {
+      if (!(e.noPathT > 0) && G.chance(o.chance || 0.004)) { // (not while walled off from its target: it has to give up first)
         e.idle = G.randi(o.min || 40, o.max || 100);
         e.chat = G.chance(0.5) ? G.pick(CHAT) : null; // sometimes they react to what they're reading
         if (st.onScreen(e.x, e.y)) G.sfx.play('ping');
@@ -5365,7 +5410,7 @@ body.mouseaim #screen { cursor: none; }
     // Depth sort: high in a trampoline launch it's drawn over what it flies past (like a player)
     get sortY() { return this.z > 12 ? this.y + 48 : this.y; }
     // Walk speed: its archetype's tuned speed, give or take a little per enemy (read live, so tuning applies at once)
-    get spd() { return this.tune.speed * this.jitter; }
+    get spd() { return this.tune.speed * this.jitter * G.diff().speed; }
     // Turn speed mirrors walk speed: the same fraction of the player's turn rate as of the player's speed
     get turnRate() { return G.PLAYER_TURN * (this.spd / G.PLAYER_SPEED); }
     hittable() { return !this.dead && this.rise < this.riseMax * 0.5 && (this.sink === 0 || this.sink > SINK / 2); }
@@ -5429,6 +5474,7 @@ body.mouseaim #screen { cursor: none; }
     }
     hit(st, dmg, x, y) {
       if (!this.hittable()) return;
+      if (this.stunT > 0 && this.stunKind === 'sleep') { dmg *= G.WEAPONS.tranq.sleepMul; if (this.flash <= 0) st.burst(this.x, this.y - 14, 3, ['#c8a8ff', '#ffffff'], 0.8, 14, 10); } // June's team play: a sleeping teen takes double
       this.hp -= dmg; this.flash = 4; this.idle = 0; this.alert = 20; this.provoked = true; // getting hit gets its attention
       const kx = this.x - x, ky = this.y - y, km = Math.hypot(kx, ky) || 1, k = 1.6 * Math.min(1, dmg);
       this.kx = (kx / km) * k; this.ky = (ky / km) * k;
@@ -5588,6 +5634,17 @@ body.mouseaim #screen { cursor: none; }
   //   safe   radius (px) of the safe zone around the player start: no spawns, no enemies, no chasing in it
   //   linger ticks an enemy can go without chasing anyone before it sinks back into the ground (keeps spawns fresh)
   //   neighborBuffer  px: no enemy rises this close to a neighbor who's still waiting (so you have a chance to reach them)
+  // ===== Difficulty (an option: title screen and pause menu; the host's counts online) =====
+  // Multiplies what tuning.js and each level set. speed: walk speed; sight: notice / give-up / feel ranges; cap and
+  // every: how many at once and how often they rise; hunt: ticks a fresh riser comes for you whatever its give-up
+  // range (null = the level's own); aggro: whether a fresh riser comes for you at all, or just looks around first.
+  G.DIFFICULTY = {
+    easy: { name: 'EASY', speed: 0.8, sight: 0.7, cap: 0.6, every: 1.4, hunt: 0, aggro: false, desc: 'SLOWER, LATE TO NOTICE YOU' },
+    normal: { name: 'NORMAL', speed: 0.9, sight: 0.85, cap: 0.85, every: 1.15, hunt: 180, aggro: true, desc: 'THE WAY IT SHOULD FEEL' },
+    hard: { name: 'HARD', speed: 1, sight: 1, cap: 1, every: 1, hunt: null, aggro: true, desc: 'RISERS HUNT YOU DOWN' },
+  };
+  G.DIFF_ORDER = Object.keys(G.DIFFICULTY);
+  G.diff = () => G.DIFFICULTY[G.opts().diff] || G.DIFFICULTY.normal;
   G.ENEMY_DEFAULTS = { cap: 6, every: [80, 160], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, types: { phoneTeen: 1 } };
   class Spawner {
     constructor(x, y) { this.x = x; this.y = y; this.rest = 0; }
@@ -5596,7 +5653,8 @@ body.mouseaim #screen { cursor: none; }
   function spawnTick(st, cfg) {
     for (const s of st.spawners) if (s.rest > 0) s.rest--;
     if (st.spawnT > 0) { st.spawnT--; return; }
-    if (st.enemies.length >= cfg.cap) return;
+    const D = G.diff();
+    if (st.enemies.length >= (cfg.cap > 0 ? Math.max(1, Math.round(cfg.cap * D.cap)) : 0)) return; // (a cap of 0 stays 0)
     const ok = st.spawners.filter((s) => {
       if (s.rest > 0 || st.inSafeZone(s.x, s.y, 24)) return false; // never in (or right at the edge of) the safe zone
       if ((st.neighbors || []).some((n) => !n.gone && Math.hypot(n.x - s.x, n.y - s.y) < cfg.neighborBuffer)) return false; // give neighbors a fair chance
@@ -5607,12 +5665,13 @@ body.mouseaim #screen { cursor: none; }
     if (!ok.length) return;
     const s = G.pick(ok);
     const e = new Enemy(G.weightedPick(cfg.types), s.x + G.rand(-4, 4), s.y + G.rand(-2, 2));
-    e.aggro = true; // it rose because you're near: it comes for you (and gives up if you get far enough away)
-    if (cfg.hunt) e.huntT = cfg.hunt === true ? 600 : cfg.hunt; // hunt: for this long it keeps coming whatever its give-up range
+    e.aggro = D.aggro; // it rose because you're near: it comes for you (and gives up if you get far enough away); on EASY it looks around first
+    const hunt = cfg.hunt === true ? 600 : cfg.hunt || 0, h = D.hunt === null ? hunt : Math.min(hunt, D.hunt);
+    if (h && D.aggro) e.huntT = h; // hunt: for this long it keeps coming whatever its give-up range
     st.enemies.push(e);
     G.sfx.play('rise');
     s.rest = cfg.rest;
-    st.spawnT = G.randi(cfg.every[0], cfg.every[1]);
+    st.spawnT = Math.round(G.randi(cfg.every[0], cfg.every[1]) * D.every);
   }
 
   // ===== Grip: enemies on you slow you down =====
@@ -6159,7 +6218,7 @@ body.mouseaim #screen { cursor: none; }
       name: '86 IT!', cd: 360, dmg: 1, r: 48, daze: 90, // tunable
       use(p, st) {
         for (const t of near(st, p.x, p.y, this.r)) { t.hit(st, this.dmg, p.x, p.y); shove(t, p.x, p.y, 6); if (t.stun) t.stun(st, this.daze, 'dizzy'); }
-        const T = st.room.theme, out = T.douse && st.breakWalls(p.x, p.y - 4, this.r, T.douse); // fires go out too
+        const T = st.room.theme, out = T.douse && st.breakWalls(p.x, p.y - 4, this.r, T.douse, true); // fires go out too
         p.say(out ? 'FIRE: 86ED!' : '86 IT!', '#ff5ab0');
         st.shake(5, 2);
         ring(st, p.x, p.y - 8, this.r, ['#ff5ab0', '#ffffff', '#ffd23a']);
@@ -7564,14 +7623,16 @@ body.mouseaim #screen { cursor: none; }
       // blasts open the map: rockets and soda bombs both break anything breakable
       const th = this.room.theme;
       this.breakWalls(x, y, r, o.big || o.rocket ? th.breakable : null);
-      if ((o.big || o.rocket) && th.melee) this.breakWalls(x, y, r, th.melee); // loose boards go too
+      if ((o.big || o.rocket) && th.melee) this.breakWalls(x, y, r, th.melee, true); // loose boards go too
       if (o.big && th.bombable) this.breakWalls(x, y, r, th.bombable); // cracked plaster: only a soda bomb
-      if ((o.big || o.fizz) && th.douse) this.breakWalls(x, y, r, th.douse); // soda puts out fires
-      if (o.big && th.scatter && this.breakWalls(x, y, r, th.scatter)) this.floater(x, y - 30, 'SCATTERED!', '#7ff0ff'); // a soda bomb scatters a crowd
+      if ((o.big || o.fizz) && th.douse) this.breakWalls(x, y, r, th.douse, true); // soda puts out fires
+      if (o.big && th.scatter && this.breakWalls(x, y, r, th.scatter, true)) this.floater(x, y - 30, 'SCATTERED!', '#7ff0ff'); // a soda bomb scatters a crowd
     }
-    // Break every wall tile of the `breaks` kinds within r of (x, y) (rockets, bombs, a machete's chop). A breakable
-    // wall goes as one piece: any cell touched takes its whole connected run. Returns how many cells broke.
-    breakWalls(x, y, r, breaks) {
+    // Break the wall tiles of the `breaks` kinds within r px of (x, y). Walls break where they're hit (playtest): a
+    // machete's chop takes one section, a rocket a few, a soda bomb a wide hole. whole: any cell touched takes its
+    // whole connected run instead (a fire put out, a crowd scattered, loose boards, Ted's secret wall). Returns how
+    // many cells broke.
+    breakWalls(x, y, r, breaks, whole = false) {
       const th = this.room.theme;
       if (breaks && breaks.size) {
         const R = Math.ceil(r / 16) + 1, cx = Math.floor(x / 16), cy = Math.floor(y / 16);
@@ -7589,7 +7650,10 @@ body.mouseaim #screen { cursor: none; }
         for (let ty = cy - R; ty <= cy + R; ty++) for (let tx = cx - R; tx <= cx + R; tx++) {
           if (tx < 0 || ty < 0 || tx >= this.room.w || ty >= this.room.h) continue;
           const ch = this.room.at(tx, ty);
-          if (breaks.has(ch) && Math.hypot(tx * 16 + 8 - x, ty * 16 + 8 - y) <= r + 8) grab(tx, ty, ch);
+          if (!breaks.has(ch)) continue;
+          if (whole) { if (Math.hypot(tx * 16 + 8 - x, ty * 16 + 8 - y) <= r + 8) grab(tx, ty, ch); continue; }
+          const ex = Math.max(tx * 16 - x, 0, x - (tx * 16 + 16)), ey = Math.max(ty * 16 - y, 0, y - (ty * 16 + 16)); // to the cell's edge
+          if (Math.hypot(ex, ey) <= r) hit.set(ty * this.room.w + tx, [tx, ty, ch]);
         }
         for (const [tx, ty, ch] of hit.values()) {
           const kept = th.objects && th.objects.has(ch) && this.room.floors && this.room.floors[tx + ',' + ty]; // a fire or a crowd leaves the floor it was on
@@ -7640,7 +7704,7 @@ body.mouseaim #screen { cursor: none; }
         }
         const hits = R.wallHits(tx, ty) + 1;
         this.burst(x, y - 6, 6, ['#c8945a', '#8a5a32', '#5a3418'], 1.4, 8, 16, true);
-        if (hits >= (T.meleeHits || 3)) { this.breakWalls(tx * 16 + 8, ty * 16 + 8, 4, T.melee); for (const [a, b] of run) R.wallHit.delete(b * R.w + a); }
+        if (hits >= (T.meleeHits || 3)) { this.breakWalls(tx * 16 + 8, ty * 16 + 8, 4, T.melee, true); for (const [a, b] of run) R.wallHit.delete(b * R.w + a); }
         else { for (const [a, b] of run) { R.wallHit.set(b * R.w + a, hits); G.rebuildUpright(R, a, b); } G.sfx.play('crack'); this.shake(2, 1); }
         return true;
       }
@@ -8301,6 +8365,7 @@ body.mouseaim #screen { cursor: none; }
         { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; } },
         { label: 'SOUND', val: () => (o.sound ? 'ON' : 'OFF'), act: () => { o.sound = !o.sound; G.sfx.unlock(); G.sfx.play('pickup'); }, // a test beep
           help: () => 'AUDIO ' + (G.sfx.ctx ? G.sfx.ctx.state.toUpperCase() : 'NOT STARTED') + (G.sfx.mediaOn() ? ' + MEDIA' : '') }, // what's going on, when it's quiet
+        ...(game.remote ? [] : [{ label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; }, help: () => G.diff().desc }]), // online: the host's counts
         { label: 'FULL HP PERK', val: () => (G.PERKS[o.perk] || G.PERKS.off).name, act: (d = 1) => { // a prototype: try each
           const L = G.PERK_ORDER, i = L.indexOf(o.perk);
           o.perk = L[((i < 0 ? L.length - 1 : i) + d + L.length) % L.length];
@@ -8352,6 +8417,7 @@ body.mouseaim #screen { cursor: none; }
       return [
         { label: '1 PLAYER', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.Recruit()); } },
         { label: '2 PLAYERS (ONE SCREEN)', act: () => G.setState(new G.states.Join()) },
+        { label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const o = G.opts(), L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; G.save.write(); } },
         { label: 'ONLINE (UP TO 4)', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.states.OnlineMenu()); } },
         { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)) },
         { label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); } },
@@ -8360,7 +8426,7 @@ body.mouseaim #screen { cursor: none; }
     update() {
       this.t++;
       if (this.secret()) { G.sfx.play('secret'); G.setState(new G.states.TuningLab()); return; }
-      runMenu(this, this.items(), 136, 13, 40, 216);
+      runMenu(this, this.items(), 128, 13, 40, 216);
     }
     draw(ctx) {
       const t = this.t, HZ = 128;
@@ -8394,13 +8460,14 @@ body.mouseaim #screen { cursor: none; }
       G.text('APOCALYPSE', 128, 58, '#3ad0ff', { align: 'center', scale: 2, shadow: '#0a2a5a' });
       G.text('ATTEMPT #' + G.save.data.attempt, 128, 82, '#ffd23a', { align: 'center', shadow: '#140c1c' });
       const items = this.items();
-      ctx.fillStyle = 'rgba(11,6,20,.75)'; ctx.fillRect(40, 130, 176, items.length * 13 + 6);
+      ctx.fillStyle = 'rgba(11,6,20,.75)'; ctx.fillRect(40, 122, 176, items.length * 13 + 6);
       items.forEach((it, i) => {
-        const y = 136 + i * 13, on = i === this.sel;
-        if (on && (t >> 4) % 2 === 0) G.text('>', 70, y, '#ffd23a');
-        G.text(it.label, 128, y, on ? '#ffd23a' : '#ffffff', { align: 'center', shadow: '#140c1c' });
+        const y = 128 + i * 13, on = i === this.sel, label = it.val ? it.label + ': ' + it.val() : it.label;
+        if (on && (t >> 4) % 2 === 0) G.text(it.val ? '<' : '>', 46, y, '#ffd23a');
+        if (on && it.val && (t >> 4) % 2 === 0) G.text('>', 210, y, '#ffd23a', { align: 'right' });
+        G.text(label, 128, y, on ? '#ffd23a' : '#ffffff', { align: 'center', shadow: '#140c1c' });
       });
-      G.text('BUILD STEP 4 - CO-OP, ONLINE', 128, 210, '#6a5a9a', { align: 'center' });
+      G.text('BUILD STEP 4 - CO-OP, ONLINE', 128, 214, '#6a5a9a', { align: 'center' });
     }
   }
   G.states = { Boot, Stage, Pause, MapView, LevelClear };

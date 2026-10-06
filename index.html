@@ -2034,28 +2034,39 @@ body.mouseaim #screen { cursor: none; }
     // twigs inside and a lit torn edge (playtest: the olive recolour read as a different plant, the holes read as damage).
     // Placed in world space, so a long run is one ragged hedge, not a repeated tile.
     const patchyUp = (r, tx, ty, room) => {
-      const parts = blockParts(TALLH, tx, ty, room);
+      const parts = blockParts(TALLH, tx, ty, room), q = parts[0];
       drawHedge(r, parts, TALL, HEDGE_LOOK.normal, tx, ty);
       const ox = tx * 16, oy = ty * 16;
+      // Holes stay inside the hedge: 2px of leaves are kept along every open side (a hole never hangs off the edge
+      // onto the ground), and nothing is drawn past this tile's own top and face, so a hole is never half-covered.
+      const X0 = q.left ? 2 : 0, X1 = q.right ? 14 : 16, Y0 = -TALL + (q.top ? 2 : 0), Y1 = q.face ? 13 : 16 - TALL;
+      const rc = (x, y, w, h, col) => {
+        const x0 = Math.max(x, X0), x1 = Math.min(x + w, X1), y0 = Math.max(y, Y0), y1 = Math.min(y + h, Y1);
+        if (x1 > x0 && y1 > y0) r(x0, y0, x1 - x0, y1 - y0, col);
+      };
+      const fit = (c, rad, lo, hi) => Math.max(lo + rad + 1, Math.min(hi - rad - 2, c)); // centre so the hole fits [lo, hi)
       const tear = (wx, wy, rad) => { // one ragged hole centred at world (wx, wy); seeded by its world spot
         const seed = Math.floor(wx * 7 + wy * 13);
+        // across an open side no other hedge tile draws this hole, so it is pulled in whole instead of cut off
+        if (wx - ox - rad - 2 < X0 && X0 > 0) wx = ox + X0 + rad + 2;
+        if (wx - ox + rad + 2 > X1 && X1 < 16) wx = ox + X1 - rad - 2;
         for (let y = -rad; y <= rad; y++) {
           const w = Math.max(1, Math.round(Math.sqrt(rad * rad - y * y) * (0.55 + 0.6 * G.hash(seed + y, 91))));
           const off = Math.round((G.hash(seed * 3 + y, 17) - 0.5) * 3), x0 = wx - w + off - ox, yy = wy + y - oy;
-          r(x0, yy, w * 2, 1, Math.abs(y) < rad - 1 ? '#0a1a0e' : '#123a1e');     // the dark hole, a softer rim
-          if (G.hash(y, seed) > 0.5) r(x0 - 1, yy, 1, 1, '#5cbe66');               // a lit torn edge
+          rc(x0, yy, w * 2, 1, Math.abs(y) < rad - 1 ? '#0a1a0e' : '#123a1e');    // the dark hole, a softer rim
+          if (G.hash(y, seed) > 0.5) rc(x0 - 1, yy, 1, 1, '#5cbe66');               // a lit torn edge
         }
         for (let k = 0; k < 3; k++) { // snapped twigs showing inside
           const px = wx - ox + Math.floor((G.hash(seed + k, 31) - 0.5) * rad * 1.4), py = wy - oy + Math.floor((G.hash(seed + k, 47) - 0.5) * rad);
-          r(px, py, 1 + (k & 1), 1, k === 1 ? '#8a5a2a' : '#5a3a20');
+          rc(px, py, 1 + (k & 1), 1, k === 1 ? '#8a5a2a' : '#5a3a20');
         }
       };
       // candidate holes along this row, a little past the tile on each side (so ones straddling the edge get drawn)
       for (let gx = Math.floor((ox - 8) / PATCH_STEP) * PATCH_STEP; gx < ox + 24; gx += PATCH_STEP) {
         if (G.hash(gx * 5 + 1, ty * 11 + 3) > 0.7) continue; // most spots are torn
         const jx = gx + Math.floor(G.hash(gx, ty * 7) * 6), rad = 3 + Math.floor(G.hash(gx * 3, ty) * 3);
-        tear(jx, oy + 6 - TALL + Math.floor(G.hash(gx, ty * 5 + 1) * 8), rad);                     // through the top
-        if (parts[0].face && G.hash(gx * 7, ty * 3 + 2) < 0.75) tear(jx + 2, oy + 2 + Math.floor(G.hash(gx * 9, ty) * 9), rad); // through the face
+        tear(jx, oy + fit(6 - TALL + Math.floor(G.hash(gx, ty * 5 + 1) * 8), rad, Y0, 16 - TALL), rad);           // through the top
+        if (q.face && G.hash(gx * 7, ty * 3 + 2) < 0.75) tear(jx + 2, oy + fit(2 + Math.floor(G.hash(gx * 9, ty) * 9), rad, 16 - TALL, Y1), rad); // through the face
       }
     };
     // Busted hedge (what a blown-open patchy/secret hedge leaves): walkable floor with torn, flattened hedge

@@ -1932,6 +1932,7 @@ body.mouseaim #screen { cursor: none; }
     // Tall hedges and short hedges are separate blocks: where they meet, the tall one shows its edge (and its face, if
     // the short one is in front) and casts a dark shadow across the short one's top. You always see the step.
     const TALLH = new Set([...'JSeb']), SHORTH = new Set(['h']);
+    const FULLH = new Set([...'JSb']); // full-height tall hedges: a patchy one `e` is a little lower, so they show their step down to it
     // How tall tall things stand (px of face, the cap sits on top): taller than a person, so a tall hedge or brick wall
     // reads as "can't get over that" (only a trampoline's launch clears a tall hedge; nothing clears brick)
     const TALL = 24;
@@ -1979,7 +1980,7 @@ body.mouseaim #screen { cursor: none; }
       for (let yy = y + 2; yy < y + h; yy += 3) r(x, yy, w, 1, '#8a3a3a');
       for (let yy = y; yy < y + h; yy += 3) r(x + ((yy >> 1) & 1) * 2 + 1, yy, 1, 2, '#8a3a3a');
     };
-    const hedgeTallUp = (r, tx, ty, room) => drawHedge(r, blockParts(TALLH, tx, ty, room), TALL, HEDGE_LOOK.normal, tx, ty); // maze hedge block
+    const hedgeTallUp = (r, tx, ty, room) => drawHedge(r, blockParts(FULLH, tx, ty, room), TALL, HEDGE_LOOK.normal, tx, ty); // maze hedge block
     // Brick hedge 'b': a hedge grown over a brick wall. Unbreakable, and it shows: brick peeks through the leaves.
     // Brick walls that run into it step down and get overgrown (see brickTallUp), so walls and hedges join up.
     // Three variants, one per run of brick hedge (picked from where the run starts, so a run matches): ivy (brick
@@ -2001,7 +2002,7 @@ body.mouseaim #screen { cursor: none; }
       }
     };
     const brickHedgeUp = (r, tx, ty, room) => {
-      const parts = blockParts(TALLH, tx, ty, room), { v, col } = brickHedgeVariant(tx, ty, room);
+      const parts = blockParts(FULLH, tx, ty, room), { v, col } = brickHedgeVariant(tx, ty, room);
       drawHedge(r, parts, TALL, HEDGE_LOOK.normal, tx, ty);
       if (v === 'flower') { // in bloom (one color per run): flowers dotted about, a small glimpse of brick on the face
         blooms(r, 0, -TALL, 16, 16, tx, ty, col);
@@ -2026,7 +2027,7 @@ body.mouseaim #screen { cursor: none; }
         brickPeek(r, x, -TALL + 5, 6, 4);
       }
     };
-    const secretUp = (r, tx, ty, room) => drawHedge(r, blockParts(TALLH, tx, ty, room), TALL, HEDGE_LOOK.secret, tx, ty);
+    const secretUp = (r, tx, ty, room) => drawHedge(r, blockParts(FULLH, tx, ty, room), TALL, HEDGE_LOOK.secret, tx, ty);
     // Patchy hedge: a hedge with torn patches you can break (rockets, bombs, the machete). The tears are laid out in
     // world space, not per tile: a hole can sit anywhere along a run (and straddle two tiles, each drawing its half),
     // so a long run reads as one ragged hedge instead of a stamped pattern.
@@ -2034,14 +2035,49 @@ body.mouseaim #screen { cursor: none; }
     // Patchy hedge (breakable), the ZAMN way: the same green hedge as the maze around it, but torn through. Its
     // breakable walls keep their colour and show cracks; ours show dark holes punched through the leaves, with snapped
     // twigs inside and a lit torn edge (playtest: the olive recolour read as a different plant, the holes read as damage).
-    // Placed in world space, so a long run is one ragged hedge, not a repeated tile.
+    // It stands a little lower than a healthy hedge (PATCHY_H) and its open sides are ragged: bites taken out of the
+    // edges and stray tufts poking up, so it never reads as a clean box. Placed in world space, so a long run is one
+    // ragged hedge, not a repeated tile.
+    const PATCHY_H = TALL - 4;
     const patchyUp = (r, tx, ty, room) => {
-      const parts = blockParts(TALLH, tx, ty, room), q = parts[0];
-      drawHedge(r, parts, TALL, HEDGE_LOOK.normal, tx, ty);
-      const ox = tx * 16, oy = ty * 16;
-      // Holes stay inside the hedge: 2px of leaves are kept along every open side (a hole never hangs off the edge
-      // onto the ground), and nothing is drawn past this tile's own top and face, so a hole is never half-covered.
-      const X0 = q.left ? 2 : 0, X1 = q.right ? 14 : 16, Y0 = -TALL + (q.top ? 2 : 0), Y1 = q.face ? 13 : 16 - TALL;
+      const parts = blockParts(TALLH, tx, ty, room), q = parts[0], H = PATCHY_H, L = HEDGE_LOOK.normal;
+      const ox = tx * 16, oy = ty * 16, top = -H;
+      // How deep the ragged edge bites in at a spot along it (0-3 px; world space so runs and corners line up)
+      const bite = (a, b, c) => { const k = 0.7 * G.hash(a >> c, b) + 0.3 * G.hash(a, b + 5); return k > 0.8 ? 4 : k > 0.62 ? 3 : k > 0.45 ? 2 : k > 0.28 ? 1 : 0; };
+      const topBite = (x) => bite(ox + x, ty * 7 + 1, 1), sideBite = (y, s) => bite(oy + y + 64, tx * 5 + s, 1); // 2px chunks
+      const gone = (x, y) => // a pixel bitten out of an open side
+        (q.top && y - top < topBite(x)) || (q.left && x < sideBite(y, 2)) || (q.right && 15 - x < sideBite(y, 3));
+      const edgy = (x, y, w, h) => (q.top && y < top + 4) || (q.left && x < 4) || (q.right && x + w > 12);
+      const rr = (x, y, w, h, col) => { // r, minus the bitten pixels
+        if (!edgy(x, y, w, h)) { r(x, y, w, h, col); return; }
+        for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (!gone(i, j)) r(i, j, 1, 1, col);
+      };
+      drawHedge(rr, parts, H, L, tx, ty);
+      // the torn rim: a lit leaf at the bottom of each bite on top, a dark one in each bite down the sides
+      if (q.top) for (let x = 0; x < 16; x++) { const d = topBite(x); if (d && !gone(x, top + d)) r(x, top + d, 1, 1, d > 1 ? L.hi : L.mid); }
+      const bottom = q.face ? 14 : 16 - H; // where this tile's hedge ends (the next one down carries on without a face)
+      for (let y = top; y < bottom; y++) {
+        if (q.left) { const d = sideBite(y, 2); if (d && !gone(d, y)) r(d, y, 1, 1, L.dark); }
+        if (q.right) { const d = sideBite(y, 3); if (d && !gone(15 - d, y)) r(15 - d, y, 1, 1, L.edgeR); }
+      }
+      if (q.top) for (let x = 0; x < 16; x++) { // stray tufts and torn leaves sticking up past the ragged top
+        const k = G.hash(ox + x, ty * 13 + 4);
+        if (k < 0.62 || topBite(x)) continue;
+        const tall = k > 0.92 ? 3 : k > 0.8 ? 2 : 1, lean = G.hash(ox + x, ty * 13 + 9) > 0.5 ? 1 : -1;
+        for (let j = 1; j <= tall; j++) r(x + (j === 3 ? lean : 0), top - j, 1, 1, j === tall ? L.hi : L.mid);
+      }
+      for (let y = top + 1; y < bottom - 1; y++) { // and out past the open sides (the sprite is `wide` for these)
+        for (const [open, s, x0, dir] of [[q.left, 2, 0, -1], [q.right, 3, 15, 1]]) {
+          if (!open || sideBite(y, s)) continue;
+          const k = G.hash(oy + y + 64, tx * 5 + s + 20);
+          if (k < 0.55) continue;
+          const len = k > 0.88 ? 2 : 1, col = y < 16 - H ? L.mid : L.face.cap; // top leaves, or the shadowed face
+          for (let j = 1; j <= len; j++) r(x0 + dir * j, y - (j === 2 ? 1 : 0), 1, 1, col);
+        }
+      }
+      // Holes stay inside the hedge, clear of its ragged sides (a hole never hangs off the edge onto the ground), and
+      // nothing is drawn past this tile's own top and face, so a hole is never half-covered.
+      const X0 = q.left ? 5 : 0, X1 = q.right ? 11 : 16, Y0 = top + (q.top ? 5 : 0), YM = 16 - H, Y1 = q.face ? 13 : YM;
       const rc = (x, y, w, h, col) => {
         const x0 = Math.max(x, X0), x1 = Math.min(x + w, X1), y0 = Math.max(y, Y0), y1 = Math.min(y + h, Y1);
         if (x1 > x0 && y1 > y0) r(x0, y0, x1 - x0, y1 - y0, col);
@@ -2067,8 +2103,8 @@ body.mouseaim #screen { cursor: none; }
       for (let gx = Math.floor((ox - 8) / PATCH_STEP) * PATCH_STEP; gx < ox + 24; gx += PATCH_STEP) {
         if (G.hash(gx * 5 + 1, ty * 11 + 3) > 0.7) continue; // most spots are torn
         const jx = gx + Math.floor(G.hash(gx, ty * 7) * 6), rad = 3 + Math.floor(G.hash(gx * 3, ty) * 3);
-        tear(jx, oy + fit(6 - TALL + Math.floor(G.hash(gx, ty * 5 + 1) * 8), rad, Y0, 16 - TALL), rad);           // through the top
-        if (q.face && G.hash(gx * 7, ty * 3 + 2) < 0.75) tear(jx + 2, oy + fit(2 + Math.floor(G.hash(gx * 9, ty) * 9), rad, 16 - TALL, Y1), rad); // through the face
+        tear(jx, oy + fit(top + 6 + Math.floor(G.hash(gx, ty * 5 + 1) * 8), rad, Y0, YM), rad);                       // through the top
+        if (q.face && G.hash(gx * 7, ty * 3 + 2) < 0.75) tear(jx + 2, oy + fit(2 + Math.floor(G.hash(gx * 9, ty) * 9), rad, YM, Y1), rad); // through the face
       }
     };
     // Busted hedge (what a blown-open patchy/secret hedge leaves): walkable floor with torn, flattened hedge
@@ -2765,7 +2801,7 @@ body.mouseaim #screen { cursor: none; }
     };
     const shadow = (r, x, y, w, h) => r(x, y, w, h, 'rgba(10,4,24,.35)');
     const UPRIGHT = {
-      h: { rise: 10, draw: hedgeUp }, i: { rise: 17, draw: sparseUp }, J: { rise: TALL + 2, draw: hedgeTallUp }, b: { rise: TALL + 2, draw: brickHedgeUp }, S: { rise: TALL + 2, draw: secretUp }, e: { rise: TALL + 2, draw: patchyUp }, u: { rise: 8, draw: brickShortUp }, f: { rise: 6, draw: fenceUp }, I: { rise: 16, draw: plankUp }, V: { rise: 16, draw: plankUp }, D: { rise: 24, draw: gateUp }, G: { rise: 6, draw: latchUp },
+      h: { rise: 10, draw: hedgeUp }, i: { rise: 17, draw: sparseUp }, J: { rise: TALL + 2, draw: hedgeTallUp }, b: { rise: TALL + 2, draw: brickHedgeUp }, S: { rise: TALL + 2, draw: secretUp }, e: { rise: TALL + 2, draw: patchyUp, wide: 2 }, u: { rise: 8, draw: brickShortUp }, f: { rise: 6, draw: fenceUp }, I: { rise: 16, draw: plankUp }, V: { rise: 16, draw: plankUp }, D: { rise: 24, draw: gateUp }, G: { rise: 6, draw: latchUp },
       t: { rise: 32, draw: treeUp, wide: 12 }, Y: { rise: 114, draw: bigTreeUp, wide: 32 }, o: { rise: 16, draw: trampolineUp }, l: { rise: 25, draw: lampUp }, m: { rise: 2, draw: mailUp }, g: { rise: 2, draw: canUp },
       c: { rise: CAR_RISE, draw: carUp }, w: { rise: TALL, draw: brickTallUp }, x: { rise: TALL, draw: crackUp }, v: { rise: TALL, draw: ventUp },
       H: { rise: 16, draw: wallUp }, K: { rise: 16, draw: wallUp }, O: { rise: 16, draw: doorUp }, W: { rise: 16, draw: wallInUp }, '^': { rise: 16, draw: plasterUp },

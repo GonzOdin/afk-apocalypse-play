@@ -560,6 +560,7 @@ body.mouseaim #screen { cursor: none; }
     splash: (a) => { a.noise(0.25, 0.16, 1400, 0, 0.7); a.noise(0.12, 0.08, 4000, 0.05, 1.5); },              // into / out of water
     boing: (a) => { a.tone('triangle', 180, 720, 0.22, 0.09); a.tone('sine', 360, 1080, 0.16, 0.04, 0.03); },     // trampoline / pogo bounce
     ping: (a) => { a.tone('sine', 1568, 1568, 0.06, 0.025); a.tone('sine', 2093, 2093, 0.09, 0.025, 0.07); }, // a teen's notification
+    mow: (a) => { a.noise(0.16, 0.05, 220, 0, 1.4); a.tone('sawtooth', 70, 64, 0.16, 0.025); }, // a push mower's engine
     clang: (a) => { a.tone('square', 1240, 1180, 0.09, 0.05); a.tone('triangle', 620, 600, 0.14, 0.05); a.noise(0.04, 0.08, 5000); }, // Lou's skillet hitting something
     zap: (a) => { a.tone('sawtooth', 1800, 300, 0.12, 0.04); a.noise(0.06, 0.06, 6000, 0, 2); },                 // Root's EMP
     crack: (a) => { a.noise(0.05, 0.1, 6000, 0, 3); a.tone('square', 2400, 900, 0.04, 0.02); },              // a phone screen cracking
@@ -1159,6 +1160,10 @@ body.mouseaim #screen { cursor: none; }
     darts(r) {
       for (let i = 0; i < 6; i++) r(2 + i, 8 - i, 2, 2, '#ff8a2a');
       r(8, 1, 2, 2, '#3ad0ff'); r(9, 1, 2, 1, '#8ae8ff'); r(1, 9, 2, 2, '#ffffff');
+    },
+    mower(r) { // a push mower: red housing, engine, wheels, the handle up the back
+      r(1, 6, 9, 3, '#d02838'); r(1, 6, 9, 1, '#ff6a78'); r(3, 4, 4, 2, '#3a3a48'); r(1, 9, 2, 2, '#101018'); r(8, 9, 2, 2, '#101018');
+      for (let i = 0; i < 5; i++) r(9 + (i >> 1), 5 - i, 1, 1, '#2a2a38'); r(10, 0, 2, 1, '#2a2a38');
     },
     skillet(r) { // Lou's cast-iron skillet, handle down-left
       r(4, 1, 7, 7, '#3a3a48'); r(5, 0, 5, 1, '#3a3a48'); r(5, 8, 5, 1, '#3a3a48'); r(5, 2, 5, 5, '#24242e'); r(6, 2, 3, 1, '#6a6a7a');
@@ -2596,8 +2601,11 @@ body.mouseaim #screen { cursor: none; }
       tongue(8, 15 + Math.floor(h(9) * 5), 9, h(3) * 6);
     };
     // Sports gear lying on the lawn (flat, walk over it): a ball, a skateboard, a frisbee, a glove, from the cell's hash
+    // Which piece of sports gear lies on a '*' cell (from the cell's hash): 0 basketball, 1 soccer ball, 2 skateboard,
+    // 3 frisbee, 4 glove. The balls can be blown or batted away (G.launchBall).
+    const gearKind = (tx, ty) => Math.floor(G.hash(tx * 13 + 1, ty * 7 + 2) * 5);
     const sportsGear = (r, tx, ty) => {
-      const k = Math.floor(G.hash(tx * 13 + 1, ty * 7 + 2) * 5), x = 3 + Math.floor(G.hash(tx, ty * 3) * 6), y = 4 + Math.floor(G.hash(ty, tx * 5) * 6);
+      const k = gearKind(tx, ty), x = 3 + Math.floor(G.hash(tx, ty * 3) * 6), y = 4 + Math.floor(G.hash(ty, tx * 5) * 6);
       if (k === 0) { r(x, y, 5, 5, '#e07030'); r(x + 1, y - 1, 3, 7, '#e07030'); r(x - 1, y + 1, 7, 3, '#e07030'); r(x + 2, y - 1, 1, 7, '#3a1a10'); r(x - 1, y + 2, 7, 1, '#3a1a10'); r(x + 1, y, 1, 1, '#ffb070'); } // basketball
       else if (k === 1) { r(x, y, 5, 5, '#f0f0f8'); r(x + 1, y - 1, 3, 7, '#f0f0f8'); r(x - 1, y + 1, 7, 3, '#f0f0f8'); r(x + 2, y + 2, 2, 2, '#1a1a20'); r(x, y, 1, 1, '#1a1a20'); r(x + 4, y + 4, 1, 1, '#1a1a20'); } // soccer ball
       else if (k === 2) { r(x - 2, y + 1, 10, 2, '#e03048'); r(x - 2, y + 1, 10, 1, '#ff6a78'); r(x - 1, y + 3, 2, 2, '#f0e0a0'); r(x + 5, y + 3, 2, 2, '#f0e0a0'); } // skateboard
@@ -2802,6 +2810,7 @@ body.mouseaim #screen { cursor: none; }
       place: { c: [3, 2] }, blocks: new Set(['c']), // the car brush places a 3x2 car; any connected block of car is one car
       searchable: new Set(['g', 'm', '%', 'k', '[']),
       searchLoot: { k: { teen: 0, empty: 0.35, plates: 0.45 }, '[': { teen: 0.05, empty: 0.25, plates: 0.55 } }, // kitchens: dinner plates (G.WEAPONS.plates); the rest is loot
+      ballAt: (room, tx, ty) => (room.at(tx, ty) === '*' ? ['basket', 'soccer'][gearKind(tx, ty)] || null : null), // a ball on the lawn (G.launchBall)
       leaves: new Set(['~']), leafBare: '.', // fallen leaves: a blower gust blows them off, leaving grass // a knocked-over can (kinds 'knocked') can't be searched
       // objects sit on a floor (the map's `floors` remembers which; deleting one in the editor puts that floor back)
       objects: new Set([...'otYlmgcqkzasj[%*@!']), floors: new Set([...'.,d:=-nyr~']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
@@ -3117,10 +3126,15 @@ body.mouseaim #screen { cursor: none; }
       },
     },
     // Leaf blower: short-range spray, hold to blow (ammo = fuel)
+    // Leaf blower: more push than punch (playtest). Its gusts shove teens back, and do more besides: they clear fallen
+    // leaves (sometimes there's something under them), can blow a phone out of a teen's hand (they go off looking for
+    // it), knock a teen off a trampoline mid-jump (it lands hard), and send a basketball or soccer ball flying into
+    // whoever's in the way (a heavy hit, then it pops and knocks back the teens round it).
     blower: {
       name: 'BLOWER', icon: 'blower',
       held: { len: 8, thick: 2, butt: '#d8c040', body: '#8a8aa0', tip: '#3a3a48', tipLen: 1 }, // yellow motor, grey tube
-      ammo: 160, max: 320, dmg: 0.35, rate: 2, range: 16, // tunable
+      ammo: 160, max: 320, dmg: 0.12, rate: 2, range: 16, // tunable
+      push: 0.9, leafLoot: 0.12, phone: 0.05, fall: 1.5, ballDmg: 4, ballPop: 1.5, // tunable: shove per gust, chance a leaf pile hides loot, chance per gust a phone flies, damage landing off a trampoline, a ball's hit, its pop
       cd() { return this.rate; },
       fire(p, st, dx, dy) {
         const base = Math.atan2(dy, dx);
@@ -3302,6 +3316,10 @@ body.mouseaim #screen { cursor: none; }
     rarity('SODA', 'w:soda'),
     { group: 'BLOWER', label: 'DAMAGE', o: W.blower, k: 'dmg', min: 0.05, max: 3, step: 0.05 },
     { group: 'BLOWER', label: 'FIRE DELAY', o: W.blower, k: 'rate', min: 1, max: 10, step: 1 },
+    { group: 'BLOWER', label: 'SHOVE', o: W.blower, k: 'push', min: 0, max: 3, step: 0.1 },
+    { group: 'BLOWER', label: 'LOOT IN LEAVES', o: W.blower, k: 'leafLoot', min: 0, max: 1, step: 0.02, note: (v) => Math.round(v * 100) + '%' },
+    { group: 'BLOWER', label: 'PHONE BLOWN AWAY', o: W.blower, k: 'phone', min: 0, max: 0.5, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
+    { group: 'BLOWER', label: 'BALL HIT', o: W.blower, k: 'ballDmg', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'RANGE', o: W.blower, k: 'range', min: 4, max: 40, step: 1 },
     { group: 'BLOWER', label: 'FUEL/PICKUP', o: W.blower, k: 'ammo', min: 10, max: 400, step: 10 },
     { group: 'BLOWER', label: 'MAX FUEL', o: W.blower, k: 'max', min: 10, max: 900, step: 10 },
@@ -3368,6 +3386,17 @@ body.mouseaim #screen { cursor: none; }
   }
   const groundShadow = (ctx, s, v) => { ctx.fillStyle = 'rgba(10,4,24,.3)'; ctx.fillRect(Math.round(s.x - v.x) - 1, Math.round(s.y - v.y), 3, 1); };
 
+  // A ball lying on the lawn at (tx, ty) (sports gear, theme.ballAt) goes flying along (vx, vy): the tile becomes plain
+  // floor again. Returns whether there was one.
+  G.launchBall = (st, tx, ty, vx, vy, speed = 3.6) => {
+    const R = st.room, kind = R.theme.ballAt && R.theme.ballAt(R, tx, ty);
+    if (!kind) return false;
+    R.setTile(tx, ty, (R.floors && R.floors[tx + ',' + ty]) || R.theme.ground);
+    const m = Math.hypot(vx, vy) || 1;
+    st.shots.push({ kind: 'ball', ball: kind, x: tx * 16 + 8, y: ty * 16 + 10, vx: (vx / m) * speed, vy: (vy / m) * speed, z: 2, t: 0, life: 80, dmg: G.WEAPONS.blower.ballDmg });
+    G.sfx.play('boing');
+    return true;
+  };
   G.SHOTS = {
     dart: {
       update(s, st) {
@@ -3420,15 +3449,61 @@ body.mouseaim #screen { cursor: none; }
       update(s, st) {
         s.x += s.vx; s.y += s.vy; s.vx *= 0.96; s.vy *= 0.96;
         const lx = Math.floor(s.x / 16), ly = Math.floor(s.y / 16); // fallen leaves get blown away
-        if (st.room.theme.leaves && st.room.theme.leaves.has(st.room.at(lx, ly)) && st.scatterLeaves) st.scatterLeaves(lx, ly, s.vx, s.vy);
-        if (--s.life <= 0 || st.room.blocksShot(s.x, s.y)) return false;
+        const R = st.room, W = G.WEAPONS.blower;
+        if (R.theme.leaves && R.theme.leaves.has(R.at(lx, ly)) && st.scatterLeaves) {
+          st.scatterLeaves(lx, ly, s.vx, s.vy);
+          if (G.chance(W.leafLoot)) { st.dropLoot(lx * 16 + 8, ly * 16 + 10); st.floater(lx * 16 + 8, ly * 16 - 6, 'UNDER THE LEAVES!', '#ffd23a'); }
+        }
+        if (G.launchBall(st, lx, ly, s.vx, s.vy)) return false; // a ball on the lawn: off it goes
+        if (--s.life <= 0 || R.blocksShot(s.x, s.y)) return false;
         const t = hitTarget(st, s.x, s.y, 7);
-        if (t) { t.hit(st, s.dmg, s.x, s.y); return false; }
+        if (t) {
+          t.hit(st, s.dmg, s.x, s.y);
+          if (t.isEnemy && !t.dead) {
+            t.kx += s.vx * W.push; t.ky += s.vy * W.push; // the shove
+            if (t.tj && t.z > 6) { // blown off a trampoline mid-jump: it comes down hard
+              t.tj = null; t.z = 0; t.trampCd = 90;
+              st.floater(t.x, t.y - 28, 'THUD!', '#ff8a2a'); st.shake(3, 1);
+              t.hit(st, W.fall, t.x, t.y - 6); if (!t.dead && t.stun) t.stun(st, 60, 'dizzy');
+            } else if (!t.phoneHunt && G.LOOKS[t.look] && G.LOOKS[t.look].holdPhone && G.chance(W.phone)) t.losePhone(st, s.vx, s.vy);
+          }
+          return false;
+        }
         return true;
       },
       draw(ctx, s, v) {
         ctx.fillStyle = s.life > 8 ? '#e8f8ff' : '#90c8e0';
         ctx.fillRect(Math.round(s.x - v.x), Math.round(s.y - v.y - 8 - (s.alt || 0)), 2, 1);
+      },
+    },
+    // A basketball or soccer ball sent flying (a blower gust, a bat): bounces along, hits the first teen it reaches
+    // hard, then pops, knocking back (and stinging) the teens round it. Pops on a wall, or when it runs out of steam.
+    ball: {
+      update(s, st) {
+        s.t++; s.x += s.vx; s.y += s.vy; s.vx *= 0.99; s.vy *= 0.99;
+        s.z = 2 + Math.abs(Math.sin(s.t / 5)) * 7;
+        const W = G.WEAPONS.blower, pop = () => {
+          st.burst(s.x, s.y - 4, 10, s.ball === 'basket' ? ['#e07030', '#3a1a10', '#ffffff'] : ['#f0f0f8', '#1a1a20', '#ffffff'], 1.6, 6, 18, true);
+          for (const t of st.targets()) {
+            const d = Math.hypot(t.x - s.x, t.y - s.y);
+            if (d > 22) continue;
+            t.hit(st, W.ballPop, s.x, s.y);
+            if (t.kx !== undefined) { t.kx += ((t.x - s.x) / (d || 1)) * 3; t.ky += ((t.y - s.y) / (d || 1)) * 3; }
+          }
+          st.floater(s.x, s.y - 20, 'POP!', '#ffffff'); st.shake(3, 1); G.sfx.play('crack');
+          return false;
+        };
+        if (st.room.blocksShot(s.x, s.y) || --s.life <= 0 || Math.hypot(s.vx, s.vy) < 0.8) return pop();
+        const t = hitTarget(st, s.x, s.y, 8);
+        if (t) { t.hit(st, s.dmg, s.x, s.y); return pop(); }
+        return true;
+      },
+      draw(ctx, s, v) {
+        groundShadow(ctx, s, v);
+        const x = Math.round(s.x - v.x), y = Math.round(s.y - v.y - s.z), bb = s.ball === 'basket';
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 3, y - 3, 6, 6);
+        ctx.fillStyle = bb ? '#e07030' : '#f0f0f8'; ctx.fillRect(x - 2, y - 2, 4, 4);
+        ctx.fillStyle = bb ? '#3a1a10' : '#1a1a20'; if ((s.t >> 2) & 1) ctx.fillRect(x - 2, y, 4, 1); else ctx.fillRect(x, y - 2, 1, 4);
       },
     },
     plate: {
@@ -3833,7 +3908,7 @@ body.mouseaim #screen { cursor: none; }
 
   // ===== Room =====
   G.PICKUP_CHARS = { A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
-  const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', ...Object.keys(G.PICKUP_CHARS)]);
+  const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', ...Object.keys(G.PICKUP_CHARS)]); // &: a lawn mower (mower.js)
 
   class Room {
     constructor(def) {
@@ -4052,8 +4127,13 @@ body.mouseaim #screen { cursor: none; }
         if (this.dashT % 2 === 0) st.addGhost(this);
       } else {
         this.slowed = st.enemies ? G.gripOn(st, this) : 0; // enemies on you drag you down (a dash breaks free)
-        const sp = this.speed * (this.buzz > 0 ? 1 + G.ITEMS.coffee.speed / 100 : 1) * (1 - this.slowed) * (this.swimming ? SWIM_SPEED : 1);
+        const sp = this.speed * (this.buzz > 0 ? 1 + G.ITEMS.coffee.speed / 100 : 1) * (1 - this.slowed) * (this.swimming ? SWIM_SPEED : 1) * (this.mower ? G.MOWER.speed : 1);
+        const bx = this.x, by = this.y;
         moveEntity(st.room, this, mx * sp, my * sp);
+        if (this.mower) { // pushing a mower: it goes in front, and where it can't go, neither can you
+          const f = Math.hypot(mx, my) > 0.15 ? [mx / Math.hypot(mx, my), my / Math.hypot(mx, my)] : [this.fx, this.fy];
+          if (st.room.boxHits(this.x + f[0] * G.MOWER.ahead, this.y + f[1] * G.MOWER.ahead * 0.75, 5, 3)) { this.x = bx; this.y = by; }
+        }
       }
       if (!this.jump) {
         this.updateSwim(st, m);
@@ -4132,13 +4212,17 @@ body.mouseaim #screen { cursor: none; }
       if (c.inextP) this.cycleItem(1);
       // Tapping fires faster than holding: a fresh press only has to wait the (shorter) tap delay
       const def = G.WEAPONS[this.weapon.id];
-      if (!acted && !this.swimming && this.dashT === 0 && ((c.fireP && def.tap && this.sinceShot >= def.tap(this.weapon)) || (c.fire && this.fireCd <= 0))) this.shoot(st);
+      if (!acted && !this.mower && !this.swimming && this.dashT === 0 && ((c.fireP && def.tap && this.sinceShot >= def.tap(this.weapon)) || (c.fire && this.fireCd <= 0))) this.shoot(st);
       this.sinceShot++;
       if (c.skillP) { if (this.swimming) G.sfx.play('deny'); else this.skill(st, mx, my, m); } // no dashing in water
       // the item / action button: open a door or search a trash can you're facing, otherwise use your item
       if (c.itemP && !acted) {
         const fd = st.room.doorTouching(this, this.fx, this.fy, 6), fc = !fd && st.room.searchTouching(this, this.fx, this.fy, 6);
-        if (fd) st.openHouseDoor(fd, this); else if (fc) st.search(fc.tx, fc.ty, this); else this.useItem(st);
+        const mw = !fd && !fc && !this.mower && (st.mowers || []).find((w) => w.near(this));
+        if (this.mower) { this.mower.letGo(st); this.say('LET GO', '#a8a0c8'); } // the mower stays where it is
+        else if (fd) st.openHouseDoor(fd, this); else if (fc) st.search(fc.tx, fc.ty, this);
+        else if (mw) { mw.grab(this); this.say('MOWING TIME!', '#38f0a0'); G.sfx.play('mow'); }
+        else this.useItem(st);
       }
     }
     // ---- Jumping (trampolines, the pogo stick): a fixed arc to a landing spot picked up front ----
@@ -4402,6 +4486,8 @@ body.mouseaim #screen { cursor: none; }
         if (M.knock && t.kx !== undefined) { t.kx *= M.knock; t.ky *= M.knock; }
         hit = true;
       }
+      // a ball lying in front of you gets whacked away (a bat or a punch: any swing)
+      if (G.launchBall(st, Math.floor(hx / 16), Math.floor((hy + 4) / 16), this.fx, this.fy, 4.2)) hit = true;
       // a chopping blade (the machete) cuts through a breakable hedge in front of you
       if (M.chops && st.breakWalls(hx, hy + 4, 4, st.room.theme.chop)) hit = true; // hedges only, never brick
       if (st.whack && st.whack(hx, hy + 4, 7)) hit = true; // any swing whacks loose boards (theme.melee)
@@ -4508,7 +4594,7 @@ body.mouseaim #screen { cursor: none; }
     // beside the head instead of over it. Kicks back a pixel when it fires.
     drawAim(ctx, sx, sy) {
       const H = G.WEAPONS[this.weapon.id].held;
-      if (!H) return;
+      if (!H || this.riding) return; // both hands on a mower's handle
       const a = Math.round(Math.atan2(this.fy, this.fx) / (Math.PI / 4)) * (Math.PI / 4);
       const ux = Math.round(Math.cos(a) * 100) / 100, uy = Math.round(Math.sin(a) * 100) / 100;
       const kick = this.recoil > 0 ? 1 : 0, side = ux === 0 ? 4 : 0, up = uy < 0 ? -2 : 0;
@@ -5018,6 +5104,86 @@ body.mouseaim #screen { cursor: none; }
 })();
 </script>
 <script>
+/* AFK APOCALYPSE — the lawn mower (playtest 2): not an inventory item but something you push. Walk up to one and
+   press the item/action button to take the handle; it goes in front of you the way you walk, and its blades mow
+   down any teen it runs into (and the fallen leaves it passes over). You walk a little slower, you can't shoot, and
+   it runs out of gas after a while (then it just sits there). Press the button again to let go; a jump, a dash, a
+   swim or going down lets go too.
+   Where they come from: the lawn mower dad leaves his behind when he's beamed out, and levels can place them (`&`). */
+(function () {
+  'use strict';
+  const G = window.G;
+  G.MOWER = { fuel: 1200, speed: 0.8, dmg: 0.09, reach: 11, ahead: 14 }; // tunable: gas (ticks), push speed (x walk), blade damage a tick, blade reach (px), how far in front of you it sits
+
+  // A push mower drawn the way it's going (16 x 11 before outline, wheels on the ground at the bottom); its handle
+  // rises from the back toward whoever's pushing. dead = out of gas (dull paint).
+  const art = (dir, dead) => {
+    const c = G.makeCanvas(18, 12), x = c.getContext('2d');
+    const r = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(dir > 0 ? a : 18 - a - w, b, w, h); }; // drawn facing right, mirrored for left
+    const red = dead ? '#7a3a40' : '#d02838', lit = dead ? '#8a5a60' : '#ff6a78';
+    for (let i = 0; i < 6; i++) r(1 + i, 1 + i, 1, 1, '#2a2a38'); r(0, 0, 3, 1, '#3a3a48'); // the handle, up and back
+    r(3, 6, 14, 3, red); r(3, 6, 14, 1, lit); r(16, 7, 1, 2, '#ffd23a');                       // housing, a light at the front
+    r(8, 3, 6, 3, '#3a3a48'); r(9, 3, 4, 1, '#6a6a7a'); r(13, 4, 2, 1, '#c8c8d8');                // engine, pull cord
+    r(4, 9, 3, 3, '#101018'); r(13, 9, 3, 3, '#101018'); r(5, 10, 1, 1, '#6a6a7a'); r(14, 10, 1, 1, '#6a6a7a'); // wheels
+    return G.outline(c);
+  };
+  const ART = {};
+  const sprite = (dir, dead) => ART[dir + '' + !!dead] || (ART[dir + '' + !!dead] = art(dir, dead));
+
+  class Mower {
+    constructor(x, y) { Object.assign(this, { x, y, fx: 1, fy: 0, fuel: G.MOWER.fuel, rider: null, riderNum: 0, dead: false, t: 0, hw: 6, hh: 3 }); }
+    get sortY() { return this.riderNum && this.fy > -0.3 ? this.y + 1 : this.y; } // pushed along beside or ahead of you: drawn over your legs
+    // Who's pushing it (online guests only get the number)
+    update(st) {
+      this.t++;
+      const p = this.rider;
+      if (!p) return;
+      if (p.dead || p.jump || p.tramp || p.swimming || p.dashT > 0 || p.mower !== this) { this.letGo(st); return; }
+      // in front of the player, the way they face (snapped to 8 directions so it reads)
+      const a = Math.round(Math.atan2(p.fy, p.fx) / (Math.PI / 4)) * (Math.PI / 4);
+      this.fx = Math.round(Math.cos(a) * 100) / 100; this.fy = Math.round(Math.sin(a) * 100) / 100;
+      this.x = p.x + this.fx * G.MOWER.ahead; this.y = p.y + this.fy * G.MOWER.ahead * 0.75;
+      if (--this.fuel <= 0) { this.fuel = 0; this.dead = true; st.floater(this.x, this.y - 18, 'OUT OF GAS!', '#ff8a2a'); G.sfx.play('deny'); this.letGo(st); return; }
+      // the blades
+      let cut = false;
+      for (const t of st.targets()) {
+        if (Math.hypot(t.x - this.x, (t.y - this.y) * 1.3) > G.MOWER.reach) continue;
+        t.hit(st, G.MOWER.dmg, this.x, this.y);
+        if (t.kx !== undefined) { t.kx += this.fx * 0.6; t.ky += this.fy * 0.6; }
+        cut = true;
+      }
+      if (cut && st.t % 3 === 0) st.burst(this.x, this.y - 2, 2, ['#7ff0ff', '#1a1a28', '#3a8a46'], 1.4, 4, 14);
+      const R = st.room, tx = Math.floor(this.x / 16), ty = Math.floor(this.y / 16);
+      if (R.theme.leaves && R.theme.leaves.has(R.at(tx, ty)) && st.scatterLeaves) st.scatterLeaves(tx, ty, this.fx * 2, this.fy * 2); // mulched
+      if (p.moving && st.t % 4 === 0) st.burst(this.x - this.fx * 6, this.y, 1, ['#3a8a46', '#5cbe66', '#2e7e3e'], 0.8, 2, 12, true); // clippings
+      if (st.t % 10 === 0) G.sfx.play('mow');
+    }
+    grab(p) { this.rider = p; this.riderNum = p.num || 1; p.mower = this; p.riding = true; }
+    letGo(st) {
+      const p = this.rider;
+      if (p && p.mower === this) { p.mower = null; p.riding = false; }
+      this.rider = null; this.riderNum = 0;
+      void st;
+    }
+    // Can player p push it from where they stand? (out of gas: no)
+    near(p) { return !this.dead && !this.rider && Math.hypot(this.x - p.x, (this.y - p.y) * 1.3) < 18; }
+    draw(ctx, v) {
+      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
+      G.drawShadow(ctx, sx, sy, 6);
+      const dir = this.fx < -0.1 ? -1 : 1, img = sprite(dir, this.dead), shake = this.riderNum && !this.dead ? (this.t >> 1) & 1 : 0;
+      ctx.drawImage(img, sx - 10, sy - 12 - shake);
+      if (this.riderNum && !this.dead) { // the gas left: a small gauge over it
+        const k = this.fuel / G.MOWER.fuel;
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - 7, sy - 17, 14, 3);
+        ctx.fillStyle = k < 0.25 && (this.t >> 3) & 1 ? '#ff3a5a' : '#ffd23a'; ctx.fillRect(sx - 6, sy - 16, Math.max(1, Math.round(12 * k)), 1);
+      }
+      if (this.dead && (this.t % 40) < 20) { ctx.fillStyle = 'rgba(160,160,170,.6)'; ctx.fillRect(sx - 1, sy - 12 - ((this.t % 40) >> 2), 2, 2); } // a wisp of smoke
+    }
+  }
+  G.Mower = Mower;
+})();
+</script>
+<script>
 /* AFK APOCALYPSE — enemies, built from reusable behaviors.
  *
  * How it fits together (see docs/engine/enemies.md for the long version):
@@ -5428,6 +5594,7 @@ body.mouseaim #screen { cursor: none; }
         if (this.stunKind === 'zap' && this.stunT % 6 === 0) st.burst(this.x + G.fx.rand(-4, 4), this.y - 14, 1, ['#7ff0ff', '#ffffff'], 0.8, 14, 8);
         return;
       }
+      if (this.phoneHunt && !this.tj) { this.huntPhone(st); return; } // its phone got blown away: nothing else matters
       this.steerX = this.steerY = 0; this.speedMul = 1;
       let held = false;
       for (const [name, o] of this.brain) if (B[name].update(this, st, o)) { held = true; break; }
@@ -5463,6 +5630,35 @@ body.mouseaim #screen { cursor: none; }
           this.wx = Math.cos(a); this.wy = Math.sin(a); this.wanderT = G.randi(30, 60);
         }
       } else this.stuck = 0;
+    }
+    // The leaf blower blew its phone out of its hand: the phone tumbles off downwind and the teen goes after it,
+    // ignoring everyone, picks it up (a moment), and carries on. Gives up if it can't get there.
+    losePhone(st, vx, vy) {
+      const m = Math.hypot(vx, vy) || 1, ux = vx / m, uy = vy / m;
+      let x = this.x + ux * 36, y = this.y + uy * 24;
+      for (let k = 36; k > 0 && st.room.boxHits(x, y, 3, 3); k -= 6) { x = this.x + ux * k; y = this.y + uy * k * 0.66; } // not inside a wall
+      st.tossPhone(this.x, this.y, Math.sign(ux) || 1);
+      const prop = st.props[st.props.length - 1];
+      if (prop) { prop.life = 900; prop.vx = (x - this.x) / 22; prop.vy = (y - this.y) / 22; }
+      this.phoneHunt = { x, y, t: 0, grab: 0, prop };
+      this.aggro = false; this.target = null; this.idle = 0; this.swipeT = this.windT = this.lungeT = 0;
+      st.floater(this.x, this.y - 30, 'MY PHONE!', '#7ff0ff');
+    }
+    huntPhone(st) {
+      const h = this.phoneHunt;
+      B.knockback.update(this, st);
+      if (++h.t > 360) { this.phoneHunt = null; return; } // couldn't get to it
+      const dx = h.x - this.x, dy = h.y - this.y, d = Math.hypot(dx, dy);
+      if (d > 5) {
+        this.turnToward(dx, dy);
+        const sp = Math.min(d, this.spd * 1.3);
+        G.moveEntity(st.room, this, (dx / d) * sp, (dy / d) * sp);
+        this.moving = true; this.anim++;
+      } else {
+        this.moving = false;
+        if (++h.grab > 40) { if (h.prop) h.prop.life = 0; this.phoneHunt = null; this.alert = 20; } // got it
+      }
+      this.dir = G.facing(this.fx, this.fy);
     }
     // Put it out of action for `ticks`: kind 'sleep' (tranq darts: Zzz), 'zap' (EMP, Override: sparks) or 'dizzy'
     // (a skill's blast: stars round the head). Asleep it doesn't
@@ -6489,13 +6685,13 @@ body.mouseaim #screen { cursor: none; }
   const G = window.G;
   const K = (G.EditKit = {});
 
-  K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'],
+  K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'], ['&', 'LAWN MOWER (PUSH IT: MOWS TEENS TILL IT RUNS OUT OF GAS)'],
     ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ZOMBIE SPAWN'], ['B', 'PACKAGE'], ['Q', 'PDA'],
     ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
   ];
   K.MARK = new Set(K.MARKERS.map((m) => m[0]));
-  const ICON_OF = { A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
+  const ICON_OF = { '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
 
   let exitIcon = null;
   function makeExitIcon() {
@@ -6580,7 +6776,7 @@ body.mouseaim #screen { cursor: none; }
     return c;
   };
   // Palette sections: theme.groups is [[title, 'chars'], ...]; anything not listed lands in OTHER
-  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT'], ['PICKUPS', 'QA8CU1234567890FX']];
+  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT'], ['PICKUPS', 'QA8CU1234567890FX&']];
   const sections = (entries, groups) => {
     if (!groups) return [['TILES', entries]];
     const out = groups.map(([t, chars]) => [t, entries.filter((e) => chars.includes(e[0]))]);
@@ -7494,7 +7690,7 @@ body.mouseaim #screen { cursor: none; }
       this.seed = seed; G.rng.seed(seed);
       this.room = new G.Room(def);
       this.players = []; this.shots = []; this.dummies = []; this.pickups = []; this.chests = [];
-      this.neighbors = []; this.enemies = []; this.spawners = [];
+      this.neighbors = []; this.enemies = []; this.spawners = []; this.mowers = [];
       this.enemyCfg = { ...G.ENEMY_DEFAULTS, ...(def.enemies || {}) };
       this.overT = 0; // ticks since everyone ran out of lives
       this.saved = 0; this.lost = 0; this.beams = []; this.tallyFlash = 0; // neighbors beamed out / turned
@@ -7516,6 +7712,7 @@ body.mouseaim #screen { cursor: none; }
             this.safeZone = { x: s.x, y: s.y, r: this.enemyCfg.safe };
             break;
           case 'T': this.dummies.push(tag(new G.Dummy(s.x, s.y))); break;
+          case '&': this.mowers.push(tag(new G.Mower(s.x, s.y))); break; // a lawn mower to push (mower.js)
           case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y))); break; // phone teens rise here, again and again
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
           case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || G.weightedPick(G.LOOT)))); break;
@@ -7797,9 +7994,11 @@ body.mouseaim #screen { cursor: none; }
       for (const n of this.neighbors) n.update(this);
       G.compact(this.neighbors, (n) => !n.gone);
       for (const k of this.pickups) k.update(this);
+      for (const w of this.mowers) w.update(this);
       for (const c of this.chests) c.update(this);
       if (this.exit) this.exit.update(this);
-      this.shots = this.shots.filter((s) => G.SHOTS[s.kind].update(s, this));
+      const flying = this.shots; this.shots = []; // a shot can launch another while it updates (a gust sends a ball flying): it lands in the fresh list
+      this.shots = flying.filter((s) => G.SHOTS[s.kind].update(s, this)).concat(this.shots);
       G.compact(this.pickups, (k) => !k.taken);
       this.updateLooks();
       G.sfxLog = null;
@@ -7875,7 +8074,7 @@ body.mouseaim #screen { cursor: none; }
       }
       // characters and upright objects back-to-front (tall things in front of you get a peek window)
       if (this.exit) this.exit.drawFloor(ctx, v);
-      G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players]);
+      G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players]);
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
       // shots and sparks under the roofs; roofs on top of everything in the world; then x-ray and hints
       for (const o of this.props) this.drawPhone(ctx, o, cx, cy);
@@ -7958,6 +8157,7 @@ body.mouseaim #screen { cursor: none; }
       n.gone = true; this.saved++; this.tallyFlash = 60;
       this.beams.push({ x: n.x, y: n.y, spr: n.frame(), t: 0 });
       if (this.out) this.out.push(['m', Math.round(n.x), Math.round(n.y), n.nid || 0]);
+      if (n.kind === 'mower' && !this.remote) { this.mowers.push(new G.Mower(n.x + 10, n.y)); this.floater(n.x, n.y - 50, 'HE LEFT HIS MOWER!', '#38f0a0'); } // push it: it mows teens
       this.addScore(n.score); // each kind is worth its own points (neighbors.js)
       this.floater(n.x, n.y - 30, 'SAVED!', '#7ff0ff');
       this.floater(n.x, n.y - 40, '+' + n.score, '#ffd23a');
@@ -9258,11 +9458,12 @@ body.mouseaim #screen { cursor: none; }
       k: packList(st, st.pickups.filter((k) => !k.taken)),
       c: packList(st, st.chests),
       d: packList(st, st.dummies),
+      w: packList(st, st.mowers || []),
       x,
       s: st.shots.map((s) => pack(s)),
     };
   }
-  const SECTIONS = ['p', 'e', 'n', 'k', 'c', 'd'];
+  const SECTIONS = ['p', 'e', 'n', 'k', 'c', 'd', 'w'];
   const same = (a, b) => a === b || (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null && JSON.stringify(a) === JSON.stringify(b));
   function objDiff(a, b) { let d = null; for (const k in b) if (!a || !same(a[k], b[k])) (d || (d = {}))[k] = b[k]; return d; }
   // What changed from snapshot a (null: nothing yet) to b
@@ -9334,9 +9535,10 @@ body.mouseaim #screen { cursor: none; }
     k: (q) => new G.Pickup(q.kind, q.x, q.y, { color: q.color }),
     c: (q) => new G.Chest(q.x, q.y, ''),
     d: (q) => new G.Dummy(q.x, q.y),
+    w: (q) => new G.Mower(q.x, q.y),
   };
-  const LIST = { p: 'players', e: 'enemies', n: 'neighbors', k: 'pickups', c: 'chests', d: 'dummies' };
-  const GLIDE = new Set(['p', 'e', 'n']); // moving things glide toward where the host says they are
+  const LIST = { p: 'players', e: 'enemies', n: 'neighbors', k: 'pickups', c: 'chests', d: 'dummies', w: 'mowers' };
+  const GLIDE = new Set(['p', 'e', 'n', 'w']); // moving things glide toward where the host says they are
   function apply(st, snap) {
     st.mirrors = st.mirrors || {};
     for (const sec of SECTIONS) {
@@ -9396,7 +9598,7 @@ body.mouseaim #screen { cursor: none; }
   // remembers where each input left it. When the host's snapshot says where it really is after input `ack`, the
   // difference is added on, so any disagreement (a teen in the way, a door) is fixed without rubber-banding.
   // Jumps, dashes, trampolines, swimming and being down are left to the host.
-  const predictable = (m) => m && !m.dead && !m.jump && !m.tramp && !(m.dashT > 0) && !m.swimming && !m.z;
+  const predictable = (m) => m && !m.dead && !m.jump && !m.tramp && !(m.dashT > 0) && !m.swimming && !m.z && !m.riding; // (pushing a mower: the host's)
   N.pred = new Map();
   function reconcile(st, m, q, x, y) {
     if (!st.predicting || !predictable(m)) { N.pred.clear(); return false; }

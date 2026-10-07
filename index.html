@@ -61,14 +61,20 @@ body.touch { background: #522d93; }
 .tbtn.on { transform: translateY(2px); box-shadow: 0 1px 0 #2a0a22, 0 2px 4px rgba(0,0,0,.35); filter: brightness(1.15); }
 .tbtn[data-cap]::after { content: attr(data-cap); position: absolute; top: 100%; margin-top: 6px; left: 50%; transform: translateX(-50%);
   font: italic 900 11px/1 'Arial Black', Arial, sans-serif; letter-spacing: 1px; color: #2b1460; text-shadow: 0 1px 0 rgba(255,255,255,.28); }
-#btnSkill, #btnItem { font-size: 11px; }
+#btnSkill { font-size: 11px; }
 /* each one its own color: A red, B blue, ITEM yellow, ITM green */
 #btnFire { background: radial-gradient(circle at 35% 30%, #ff7a7a 0%, #d8303e 55%, #8a1424 100%); border-color: #4a0a14; box-shadow: 0 3px 0 #3a0810, 0 5px 10px rgba(0,0,0,.35); }
 #btnSkill { background: radial-gradient(circle at 35% 30%, #7ab0ff 0%, #2f64d0 55%, #18347a 100%); border-color: #0c1a44; box-shadow: 0 3px 0 #0a1436, 0 5px 10px rgba(0,0,0,.35); color: #e2eeff; }
-#btnItem { background: radial-gradient(circle at 35% 30%, #ffe680 0%, #e8b818 55%, #9a7408 100%); border-color: #4a3404; box-shadow: 0 3px 0 #3a2804, 0 5px 10px rgba(0,0,0,.35); color: #3a2400; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
-#btnItm { background: radial-gradient(circle at 35% 30%, #7af0a8 0%, #22a860 55%, #0e6234 100%); border-color: #063018; box-shadow: 0 3px 0 #04240e, 0 5px 10px rgba(0,0,0,.35); color: #e2ffee; }
-#btnWpn { background: radial-gradient(circle at 35% 30%, #ffb070 0%, #f07a20 55%, #9a4408 100%); border-color: #4a2004; box-shadow: 0 3px 0 #3a1804, 0 5px 10px rgba(0,0,0,.35); color: #2a1200; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
-#btnFire.on, #btnSkill.on, #btnItem.on, #btnItm.on, #btnWpn.on { box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.35); }
+/* ITEM, WPN and ITM: curved "bean" buttons hugging A (like the two beside a certain cube's big green button). Each is
+   an SVG drawing (input.js beanArt) stretched over a box turned to follow the arc round A (--rot); its label stays level */
+.tbtn.bean { background: none center / 100% 100% no-repeat; border: none; box-shadow: none; border-radius: 0;
+  transform: rotate(var(--rot, 0deg)); filter: drop-shadow(0 3px 0 rgba(20, 6, 30, .55)); font-size: 8px; letter-spacing: 0; }
+.tbtn.bean.on { transform: rotate(var(--rot, 0deg)) translateY(2px); filter: drop-shadow(0 1px 0 rgba(20, 6, 30, .55)) brightness(1.15); }
+.tbtn.bean span { transform: rotate(calc(-1 * var(--rot, 0deg))); }
+#btnItem { color: #3a2400; text-shadow: 0 1px 0 rgba(255,255,255,.45); }
+#btnItm { color: #eafff2; }
+#btnWpn { color: #2a1200; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
+#btnFire.on, #btnSkill.on { box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.35); }
 /* hidden by you (TOUCH LAYOUT) */
 .tbtn.hid { display: none; }
 /* the layout editor: everything shows (hidden ones faint), the picked one outlined, a toolbar at the top */
@@ -182,11 +188,11 @@ body.mouseaim #screen { cursor: none; }
   <div id="dpad"><div class="dbtn" id="dUp" data-b="dup">&#9650;</div><div class="dbtn" id="dDown" data-b="ddown">&#9660;</div><div class="dbtn" id="dLeft" data-b="dleft">&#9664;</div><div class="dbtn" id="dRight" data-b="dright">&#9654;</div><div id="dMid"></div></div>
   <div class="tbtn" id="btnFire" data-b="fire" data-cap="A">FIRE</div>
   <div class="tbtn" id="btnSkill" data-b="skill" data-cap="B">SKILL</div>
-  <div class="tbtn" id="btnItem" data-b="item">ITEM</div>
+  <div class="tbtn bean" id="btnItem" data-b="item"><span>ITEM</span></div>
   <div class="tbtn pill" id="btnPause" data-b="pause" data-cap="START"></div>
   <div class="tbtn pill" id="btnSelect" data-b="select" data-cap="SELECT"></div>
-  <div class="tbtn small" id="btnWpn" data-b="wpn">WPN</div>
-  <div class="tbtn small" id="btnItm" data-b="itm">ITM</div>
+  <div class="tbtn bean" id="btnWpn" data-b="wpn"><span>WPN</span></div>
+  <div class="tbtn bean" id="btnItm" data-b="itm"><span>ITM</span></div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
 <script>
@@ -832,9 +838,8 @@ body.mouseaim #screen { cursor: none; }
       const top = r.top + r.h + bz + 26, bottom = vh - sf.b, pillY = bottom - 30, cy = top + (pillY - 22 - top) * 0.5;
       els.brand.style.display = ''; els.brand.style.left = vw / 2 + 'px'; els.brand.style.top = r.top + r.h + bz + 7 + 'px';
       B = G.clamp(vw * 0.19, 58, 96);
-      const ax = vw - sf.r - 16 - B / 2;
-      fire = [ax, cy - B * 0.35, B]; skill = [ax - B * 1.12, cy + B * 0.3, B];
-      item = [ax - B * 1.12, cy - B * 0.78, B * 0.6]; itm = [ax + B * 0.05, cy - B * 1.2, B * 0.42]; wpn = [ax - B * 0.5, cy - B * 1.3, B * 0.42];
+      const ax = vw - sf.r - 38 - B / 2;
+      fire = [ax, cy - B * 0.15, B]; skill = [ax - B * 1.35, cy + B * 0.55, B];
       pill = [G.clamp(vw * 0.13, 42, 56), 15];
       sel = [vw / 2 - pill[0] * 0.8, pillY]; start = [vw / 2 + pill[0] * 0.8, pillY];
       stickR = G.clamp(vw * 0.13, 44, 64);
@@ -845,25 +850,31 @@ body.mouseaim #screen { cursor: none; }
     } else {
       const rightL = r.left + r.w + bz, rx = (rightL + vw - sf.r) / 2, colW = vw - sf.r - rightL;
       els.brand.style.display = 'none'; els.grille.style.display = 'none';
-      B = Math.min(G.clamp(vh * 0.21, 54, 90), colW * 0.42);
-      const ax = vw - sf.r - 14 - B / 2, ay = vh - sf.b - 18 - B;
-      fire = [ax, ay, B]; skill = [ax - B * 1.1, ay + B * 0.5, B];
-      item = [ax - B * 0.45, ay - B * 1.05, B * 0.6]; itm = [ax + B * 0.25, ay - B * 1.55, B * 0.42]; wpn = [ax - B * 0.35, ay - B * 1.78, B * 0.42];
+      B = Math.min(G.clamp(vh * 0.2, 54, 86), colW * 0.34);
+      const ax = vw - sf.r - Math.max(14, B * 0.5) - B / 2, ay = vh - sf.b - 14 - B * 0.95; // (room for ITM's curve on the right)
+      fire = [ax, ay, B]; skill = [ax - B * 1.32, ay + B * 0.42, B];
       pill = [G.clamp(colW * 0.3, 40, 54), 15];
       sel = [rx - pill[0] * 0.75, sf.t + 30]; start = [rx + pill[0] * 0.75, sf.t + 30];
       stickR = G.clamp(vh * 0.14, 44, 64);
       idle = [sf.l + 24 + stickR * 1.3, vh - sf.b - 24 - stickR * 1.3];
     }
+    // ITEM, WPN and ITM: beans curving round A, from its left over its top: [x, y, length, thickness, turn]
+    const bean = (deg) => { const a = (deg * Math.PI) / 180, d = B * 0.74, L = B * 0.8; return [fire[0] + Math.cos(a) * d, fire[1] + Math.sin(a) * d, L, L * 0.6, deg + 90]; };
+    wpn = bean(-176); item = bean(-113); itm = bean(-50);
     // Your own placement (TOUCH LAYOUT), per orientation: each button's centre as a fraction of the screen, a size
     // multiplier and whether it's hidden. Anything you haven't moved stays where it is above.
-    const at = { fire: [fire[0], fire[1], fire[2], fire[2]], skill: [skill[0], skill[1], skill[2], skill[2]], item: [item[0], item[1], item[2], item[2]],
-      itm: [itm[0], itm[1], itm[2], itm[2]], weapon: [wpn[0], wpn[1], wpn[2], wpn[2]], select: [sel[0], sel[1], ...pill], pause: [start[0], start[1], ...pill], pad: [idle[0], idle[1], stickR, stickR] };
+    const at = { fire: [fire[0], fire[1], fire[2], fire[2]], skill: [skill[0], skill[1], skill[2], skill[2]], item,
+      itm, weapon: wpn, select: [sel[0], sel[1], ...pill], pause: [start[0], start[1], ...pill], pad: [idle[0], idle[1], stickR, stickR] };
     lay = { vw, vh, orient: portrait ? 'portrait' : 'landscape' };
     const mine = myLayout();
     for (const k in at) {
       const o = mine[k], a = at[k];
       if (o) { if (o.x !== undefined) { a[0] = o.x * vw; a[1] = o.y * vh; } if (o.s) { a[2] *= o.s; a[3] *= o.s; } }
-      if (k !== 'pad') { place(els[KEYS[k]], ...a); els[KEYS[k]].classList.toggle('hid', !!(o && o.hide)); els[KEYS[k]].classList.toggle('picked', I.layoutEdit && pick === k); }
+      if (k === 'pad') continue;
+      const el = els[KEYS[k]];
+      place(el, a[0], a[1], a[2], a[3]);
+      if (a[4] !== undefined) el.style.setProperty('--rot', a[4] + 'deg'); // a bean: turned to follow the arc round A
+      el.classList.toggle('hid', !!(o && o.hide)); el.classList.toggle('picked', I.layoutEdit && pick === k);
     }
     idle = [at.pad[0], at.pad[1]]; stickR = at.pad[2];
     place(els.dpad, idle[0], idle[1], Math.round(stickR * 2.3)); // the menus' D-pad sits where the joystick rests
@@ -920,12 +931,26 @@ body.mouseaim #screen { cursor: none; }
     document.body.classList.toggle('layoutedit', on);
     if (els.lbName) setPick(null);
   };
+  // A bean button's art: a thick curved stroke with round ends (dark rim, a top-lit body, a highlight), as an SVG
+  // data URI stretched over the button's box. Concave side down (toward A once the box is turned).
+  const beanArt = (hi, mid, lo, rim) => {
+    const arc = 'M18 40 A56 56 0 0 1 82 40';
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>" +
+      "<stop offset='0' stop-color='" + hi + "'/><stop offset='.55' stop-color='" + mid + "'/><stop offset='1' stop-color='" + lo + "'/></linearGradient></defs>" +
+      "<path d='" + arc + "' fill='none' stroke='" + rim + "' stroke-width='40' stroke-linecap='round'/>" +
+      "<path d='" + arc + "' fill='none' stroke='url(#g)' stroke-width='34' stroke-linecap='round'/>" +
+      "<path d='M20 28 A50 50 0 0 1 54 18' fill='none' stroke='rgba(255,255,255,.55)' stroke-width='4' stroke-linecap='round'/></svg>";
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  };
   function initTouch() {
     els.layer = document.getElementById('touch');
     els.base = document.getElementById('stickBase'); els.knob = document.getElementById('stickKnob');
     els.fire = document.getElementById('btnFire'); els.skill = document.getElementById('btnSkill');
     els.item = document.getElementById('btnItem'); els.pause = document.getElementById('btnPause');
     els.wpn = document.getElementById('btnWpn'); els.itm = document.getElementById('btnItm'); els.select = document.getElementById('btnSelect');
+    els.item.style.backgroundImage = beanArt('#fff0a0', '#ecc020', '#a07a08', '#4a3404'); // yellow
+    els.wpn.style.backgroundImage = beanArt('#ffc890', '#f07a20', '#9a4408', '#4a2004');  // orange
+    els.itm.style.backgroundImage = beanArt('#a0f8c0', '#22a860', '#0e6234', '#063018');  // green
     els.dpad = document.getElementById('dpad');
     els.lbName = document.getElementById('lbName');
     els.bezel = document.getElementById('bezel'); els.led = document.getElementById('led'); els.brand = document.getElementById('brand'); els.grille = document.getElementById('grille');

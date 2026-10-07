@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 04:35';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 05:02';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -3688,7 +3688,7 @@ body.mouseaim #screen { cursor: none; }
       held: { len: 8, thick: 2, butt: '#d8c040', body: '#8a8aa0', tip: '#3a3a48', tipLen: 1 }, // yellow motor, grey tube
       ammo: 160, max: 320, dmg: 0.12, rate: 2, range: 16, // tunable
       push: 0.9, leafLoot: 0.12, phone: 0.05, fall: 1.5, ballDmg: 4, ballPop: 1.5, // tunable: shove per gust, chance a leaf pile hides loot, chance per gust a phone flies, damage landing off a trampoline, a ball's hit, its pop
-      droneToss: 6, droneGlide: 0.9, droneTumble: 50, droneHit: 2, // tunable: a drone's shove (x a teen's), how far it glides (speed kept per tick), ticks it tumbles, damage to each enemy it crashes into
+      droneToss: 3, droneSpeed: 2, droneGlide: 0.975, droneTumble: 120, droneHit: 2, // tunable: a drone's shove (x a teen's), its top drift speed (px/tick), how far it glides (speed kept per tick), most ticks it tumbles, damage to each enemy it crashes into
       cd() { return this.rate; },
       fire(p, st, dx, dy) {
         const base = Math.atan2(dy, dx);
@@ -3875,7 +3875,8 @@ body.mouseaim #screen { cursor: none; }
     { group: 'BLOWER', label: 'PHONE BLOWN AWAY', o: W.blower, k: 'phone', min: 0, max: 0.5, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'BALL HIT', o: W.blower, k: 'ballDmg', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'DRONE TOSS', o: W.blower, k: 'droneToss', min: 1, max: 10, step: 0.5, note: (v) => 'X' + v + ' A TEEN' },
-    { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.95, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
+    { group: 'BLOWER', label: 'DRONE SPEED', o: W.blower, k: 'droneSpeed', min: 0.5, max: 12, step: 0.25, note: (v) => Math.round((v / G.PLAYER_SPEED) * 100) + '% OF YOU' },
+    { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.99, step: 0.005, note: (v) => '~' + Math.round(W.blower.droneSpeed / (1 - v)) + 'PX' },
     { group: 'BLOWER', label: 'DRONE CRASH HIT', o: W.blower, k: 'droneHit', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'RANGE', o: W.blower, k: 'range', min: 4, max: 40, step: 1 },
     { group: 'BLOWER', label: 'FUEL/PICKUP', o: W.blower, k: 'ammo', min: 10, max: 400, step: 10 },
@@ -4024,6 +4025,7 @@ body.mouseaim #screen { cursor: none; }
           t.hit(st, s.dmg, s.x, s.y);
           if (t.isEnemy && !t.dead) {
             const k = t.flying ? W.droneToss : 1; t.kx += s.vx * W.push * k; t.ky += s.vy * W.push * k; // the shove (a drone is light: it gets blown away)
+            if (t.flying) { const sp = Math.hypot(t.kx, t.ky); if (sp > W.droneSpeed) { t.kx *= W.droneSpeed / sp; t.ky *= W.droneSpeed / sp; } } // ...drifting off, never faster than droneSpeed
             if (t.flying) { t.tumbleT = W.droneTumble; if (!t._tumbled) t._tumbled = new Set(); } // ...tumbling into the others (enemies.js: tumble)
             if (t.tj && t.z > 6) { // blown off a trampoline mid-jump: it comes down hard
               t.tj = null; t.z = 0; t.trampCd = 90;
@@ -5887,7 +5889,7 @@ body.mouseaim #screen { cursor: none; }
   // crashes into every other enemy it passes (droneHit damage, knocked aside), each once per tumble.
   const tumble = (e, st) => {
     const W = G.WEAPONS.blower, sp = Math.hypot(e.kx, e.ky);
-    if (--e.tumbleT <= 0 || sp < 0.5) { e.tumbleT = 0; return; }
+    if (--e.tumbleT <= 0 || sp < 0.25) { e.tumbleT = 0; return; } // (coasts right down before it rights itself)
     const hit = e._tumbled || (e._tumbled = new Set());
     if (e.tumbleT % 3 === 0) st.burst(e.x, e.y - (e.z || 0) - 6, 1, ['#ffd23a', '#ffffff', '#8a8aa0'], 0.6, 8, 10);
     for (const o of st.enemies) {

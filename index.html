@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 08:14 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 11:22 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -252,6 +252,8 @@ body.mouseaim #screen { cursor: none; }
   // Can you step around what's solid in this cell? Only if all of it together is small (a lamp pole, a tree trunk, a
   // mailbox): its overall bounding box fits in 8x8 px. Judged as a whole, because a thin wall is drawn as several
   // small pieces (a center plus arms) that together span the cell.
+  // A theme's box(...) result as a list of rects: one rect, a list of them, or [] (nothing solid: a big tree's back row)
+  G.boxRects = (b) => (!b.length || Array.isArray(b[0]) ? b : [b]);
   G.smallObstacle = (rects) => {
     if (!rects || !rects.length) return true;
     const x0 = Math.min(...rects.map((q) => q[0])), y0 = Math.min(...rects.map((q) => q[1]));
@@ -1862,7 +1864,7 @@ body.mouseaim #screen { cursor: none; }
   //   tile(r, ch, tx, ty, room)       ground art for one cell, drawn with r(x, y, w, h, color)
   //   up { ch: { rise, draw, wide } } upright objects, depth-sorted with characters (see buildUpright); wide: px
   //                                   the sprite may spill past its tile on each side
-  //   box(ch, tx, ty, room)           collision footprint inside the cell (null = whole cell)
+  //   box(ch, tx, ty, room)           collision footprint inside the cell (null = whole cell; [] = nothing solid, e.g. a big tree's back row)
   //   interior, roofLift, overTile, canopyTile   houses and the top layer
   //   post(x, room, x0, y0, x1, y1)  optional lighting pass;  mini(ch) PDA map color
   G.THEMES = {};
@@ -1878,7 +1880,7 @@ body.mouseaim #screen { cursor: none; }
     if (T.water && T.water.has(ch)) return true;
     if (!T.solid.has(ch)) return true;
     const b = T.box && T.box(ch, x, y, R);
-    return !!b && G.smallObstacle(Array.isArray(b[0]) ? b : [b]);
+    return !!b && G.smallObstacle(G.boxRects(b));
   };
   // ===== Per-cell variants (the map's `kinds` { "x,y": value }, set in edit mode by clicking a cell again) =====
   // Keycard gates (D) and keycards (8) come in colors, each card opening only the gate of its color (DOOM-style);
@@ -1969,7 +1971,7 @@ body.mouseaim #screen { cursor: none; }
     const alpha = new Uint8Array(W * c.height); // which pixels are solid: a peek window only opens where it really covers someone
     for (let py = 0; py < c.height; py++) for (let px = 0; px < W; px++) if (d[(py * W + px) * 4 + 3]) { alpha[py * W + px] = 1; x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
     const bx = room.theme.box && room.theme.box(ch, tx, ty, room);
-    const bxs = !bx ? null : Array.isArray(bx[0]) ? bx : [bx];
+    const bxs = !bx ? null : G.boxRects(bx).length ? G.boxRects(bx) : [[0, 0, 16, 16]]; // (nothing solid: sorts as the whole cell)
     // base: the world y it sorts at. A wide sprite (a tree crown) sorts a hair after the rest of its row, so the hedge
     // next door doesn't draw over the crown hanging above it.
     room.upr.set(i, { img: c, alpha, rise: u.rise, ox: wide, tx, ty, base: ty * 16 + (bxs ? Math.max(...bxs.map((q) => q[1] + q[3])) : 16) + (wide ? 0.5 : 0),
@@ -3030,7 +3032,8 @@ body.mouseaim #screen { cursor: none; }
       crown(L, tx, ty, roundClumps(tx, ty, cx, cy, R, kind === 'birch' ? 4 : 5), pal, gaps, [-12, cy - R - 4, 27, cy + R + 2]);
       L.flush(r);
     };
-    // Big trees ('Y', 2x2): obstacles you go round. The whole 2x2 base is solid (shots and jumps stop at it too); a
+    // Big trees ('Y', 2x2): obstacles you go round. Only the front row of the base is solid (1 high, 2 wide: you can
+    // walk behind the trunk, under the crown; shots stop at the trunk row, jumps at the whole tree); a
     // thick trunk on spreading roots under a crown 6-8 tiles up: a big oak or a tall pine, picked per tree. Only the
     // bottom-left cell draws (its sprite is wide and tall enough for the whole tree).
     const bigTreeUp = (r, tx, ty, room) => {
@@ -3416,6 +3419,7 @@ body.mouseaim #screen { cursor: none; }
         case 'w': case 'x': case 'v': case 'u': return null; // brick blocks fill their cell
         case 'W': case '^': return thinBox(INWALLF)(tx, ty, room);
         case 't': return [5, 9, 6, 7];
+        case 'Y': return room && G.pieceAnchor(room, tx, ty)[1] === ty ? [] : null; // a big tree blocks along its front row only (1 high, 2 wide): walk behind the trunk, under the crown
         case 'l': return [6, 11, 4, 5];
         case 'm': return [6, 9, 4, 6];
         case 'g': return G.cellKind(room, tx, ty) === 'knocked' ? [1, 7, 14, 8] : [3, 7, 10, 8];
@@ -5092,7 +5096,7 @@ body.mouseaim #screen { cursor: none; }
         "........................................................................................",
         "........................................................................................",
       ],
-      kinds: { "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
+      kinds: { "14,1": "mopbot", "82,4": "drone", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
     },
     "mansion": {
       name: "FOUNDER'S MANSION", theme: "suburb",
@@ -5220,7 +5224,7 @@ body.mouseaim #screen { cursor: none; }
         "..........................................................................................",
         "..........................................................................................",
       ],
-      kinds: { "14,12": "blue", "44,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "78,55": "left//burnt/shut" },
+      kinds: { "49,1": "drone", "88,3": "robodog", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "78,55": "left//burnt/shut" },
     },
     "serverfarm": {
       name: "SERVER FARM", theme: "servers",
@@ -5286,7 +5290,7 @@ body.mouseaim #screen { cursor: none; }
         "#..9.x........l...............#=====i======================#====#............==Z=========#",
         "##########################################################################################",
       ],
-      kinds: { "82,20": "blue", "74,30": "blue" },
+      kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "3,35": "clone", "81,38": "robodog" },
     },
     "core": {
       name: "THE CORE", theme: "servers",
@@ -5356,7 +5360,7 @@ body.mouseaim #screen { cursor: none; }
         "#..9#.......m..Z.............Z#.........................i...9#............................B#",
         "############################################################################################",
       ],
-      kinds: { "81,21": "blue", "15,31": "blue" },
+      kinds: { "2,1": "clone", "89,7": "mopbot", "81,21": "blue", "17,28": "clone", "15,31": "blue", "84,33": "robodog", "3,47": "drone", "54,56": "clone", "72,56": "drone", "38,57": "robodog" },
     },
     "root": {
       name: "/ROOT", theme: "root",
@@ -5418,7 +5422,7 @@ body.mouseaim #screen { cursor: none; }
         "#..4.x..................#================i=====#......................B#",
         "########################################################################",
       ],
-      kinds: { "36,22": "blue", "60,28": "blue" },
+      kinds: { "3,1": "clone", "61,1": "clone", "26,8": "drone", "45,17": "robodog", "14,20": "mopbot", "36,22": "blue", "1,23": "clone", "70,23": "clone", "60,28": "blue", "2,42": "robodog", "69,43": "drone" },
     },
   };
 })();
@@ -5474,7 +5478,7 @@ body.mouseaim #screen { cursor: none; }
   window.G.ENEMY_TUNING = {
     shambler: { hp: 3, speed: 0.34, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { pace: 0.55, chance: 0.01 }, hurry: { chance: 0.25, mul: 1.6 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
     rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2, windup: 14, cooldown: 120 } },
-    flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 150, radius: 16, dmg: 2, lead: 0.4, red: 5, blue: 3, green: 2, fuse: 150, fuseRadius: 26, fuseDmg: 3, open: 40, pool: 'level' } },
+    flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 240, radius: 16, dmg: 2, lead: 0.4, red: 5, blue: 3, green: 2, fuse: 150, fuseRadius: 26, fuseDmg: 3, open: 40, pool: 'level' } },
     hound: { hp: 3, speed: 0.9, sight: { notice: 100, giveUp: 150, cone: 70, feel: 30, neighbors: 0 }, grip: { drag: 0.15 }, mosey: { pace: 0.5, chance: 0.012 }, lunge: { range: 64, speed: 2.6, windup: 18, cooldown: 110, dmg: 1 }, circle: { dist: 44 }, retreat: { time: 36 }, bark: { radius: 130, cooldown: 360, hunt: 240 }, fetch: { range: 120 } },
     mimic: { hp: 4, speed: 0.7, sight: { notice: 130, giveUp: 200, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, keep: { min: 50, max: 100 }, shoot: { range: 120, windup: 24, cooldown: 70, dmg: 1 }, blink: { chance: 0.35, dist: 40, cooldown: 90 } },
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
@@ -5676,7 +5680,8 @@ body.mouseaim #screen { cursor: none; }
       if (ch === 'O') { const d = this.hdoorAt(tx, ty); if (!d || d.open) return null; } // house door: solid while closed
       const b = this.theme.box && this.theme.box(ch, tx, ty, this);
       if (!b) return [[tx * 16, ty * 16, 16, 16]];
-      return (Array.isArray(b[0]) ? b : [b]).map((q) => [tx * 16 + q[0], ty * 16 + q[1], q[2], q[3]]);
+      if (!b.length) return null; // nothing solid in it (a big tree's back row: you walk behind the trunk)
+      return G.boxRects(b).map((q) => [tx * 16 + q[0], ty * 16 + q[1], q[2], q[3]]);
     }
     solidAt(px, py, who) {
       const rs = this.solidRects(Math.floor(px / 16), Math.floor(py / 16), who);
@@ -6628,7 +6633,7 @@ body.mouseaim #screen { cursor: none; }
       this.t++; this.age++;
       if (this.z > 0 || this.vz > 0) {
         this.z += this.vz; this.vz -= 0.2;
-        if (!st.room.solidAt(this.x + this.vx, this.y + this.vy)) { this.x += this.vx; this.y += this.vy; }
+        if (!st.room.boxHits(this.x + this.vx, this.y + this.vy, 4, 3, null)) { this.x += this.vx; this.y += this.vy; } // never into a wall or a car (somewhere you can still reach it)
         if (this.z <= 0) { this.z = 0; this.vz = 0; }
         return;
       }
@@ -7532,7 +7537,7 @@ body.mouseaim #screen { cursor: none; }
       const box = e.ally > 0 ? 'red' : G.PARCELS[e.pkgKind] ? e.pkgKind : 'red'; // (a hacked drone only drops bursts)
       st.shots.push({ kind: 'parcel', box, ally: e.ally > 0, x, y, x0: e.x, y0: e.y, z0: (e.z || 0) + 6, t: 0, T, r: o.radius || 16, dmg: o.dmg || 2,
         fuse: o.fuse || 150, fr: o.fuseRadius || 26, fd: o.fuseDmg || 3, open: o.open || 40, pool: o.pool || 'level' });
-      e.hasPkg = false; e.dropCd = o.cooldown || 150;
+      e.hasPkg = false; e.dropCd = o.cooldown || 240;
       G.sfx.play('whistle');
       return false;
     },
@@ -7557,7 +7562,9 @@ body.mouseaim #screen { cursor: none; }
       if (s.T + s.open - s.t > 0) return true; // green: something's in there
       st.burst(s.x, s.y - 4, 14, [G.PARCELS.green.body, G.PARCELS.green.light, '#c8945a', '#ffffff'], 1.6, 6, 20, true);
       G.sfx.play('open');
-      const type = G.pickFromPool(st, s.pool), A = type && G.ARCHETYPES[G.ENEMY_TYPES[type].archetype];
+      let type = G.pickFromPool(st, s.pool);
+      if (type && G.isFlyingType(type) && G.flyersFull(st)) { const w = G.poolTypes(st, s.pool); for (const t of Object.keys(w)) if (G.isFlyingType(t)) delete w[t]; type = Object.keys(w).length ? G.weightedPick(w) : null; } // no more drones past the limit
+      const A = type && G.ARCHETYPES[G.ENEMY_TYPES[type].archetype];
       if (!type || st.enemies.length >= 40 || (!A.stats.flying && st.room.boxHits(s.x, s.y, 4, 4))) { st.floater(s.x, s.y - 20, 'EMPTY!', '#a8a0c8'); return false; }
       const e = new Enemy(type, s.x, s.y);
       e.provoked = true; e.aggro = true; e.huntT = 600; // out of the box and straight at you
@@ -8243,6 +8250,10 @@ body.mouseaim #screen { cursor: none; }
   //   safe   radius (px) of the safe zone around the player start: no spawns, no enemies, no chasing in it
   //   linger ticks an enemy can go without chasing anyone before it sinks back into the ground (keeps spawns fresh)
   //   neighborBuffer  px: no enemy rises this close to a neighbor who's still waiting (so you have a chance to reach them)
+  //   flyers most flying enemies (drones) alive at once: a sky full of drones is too busy to read
+  // Typed spawners (ZAMN-style): a Z spawn point with a type (the map's kinds: "x,y": 'drone') only ever sends that
+  // type, and a type with spawners of its own comes only from them (never from the plain Z points), so a robot pad
+  // is where the robots come from. Plain Z points send the rest of the level's mix.
   // ===== Difficulty (an option: title screen and pause menu; the host's counts online) =====
   // Multiplies what tuning.js and each level set. speed: walk speed; sight: notice / give-up / feel ranges; cap and
   // every: how many at once and how often they rise; hunt: ticks a fresh riser comes for you whatever its give-up
@@ -8254,18 +8265,49 @@ body.mouseaim #screen { cursor: none; }
   };
   G.DIFF_ORDER = Object.keys(G.DIFFICULTY);
   G.diff = () => G.DIFFICULTY[G.opts().diff] || G.DIFFICULTY.normal;
-  G.ENEMY_DEFAULTS = { cap: 6, every: [80, 160], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, types: { phoneTeen: 1 } };
+  G.ENEMY_DEFAULTS = { cap: 6, every: [80, 160], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, types: { phoneTeen: 1 } };
   class Spawner {
-    constructor(x, y) { this.x = x; this.y = y; this.rest = 0; }
+    constructor(x, y, type) { this.x = x; this.y = y; this.rest = 0; this.type = G.ENEMY_TYPES[type] ? type : null; } // type: a typed spawner (only that type)
+    // A typed spawner shows on the floor, so you learn where they come from: robots beam down onto a charging pad
+    // (its lights in the robot's color), clones flicker out of a glitch in the floor, teens claw out of cracked dirt.
+    // Plain spawn points stay invisible. Looks only.
+    drawFloor(ctx, v, t) {
+      if (!this.type) return;
+      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y - 2);
+      if (sx < -16 || sy < -16 || sx > G.W + 16 || sy > G.H + 16) return;
+      const r = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(sx + x, sy + y, w, h); };
+      const T = G.ENEMY_TYPES[this.type], A = G.ARCHETYPES[T.archetype], hot = this.rest > 0 ? 0 : (t >> 4) & 1;
+      if (A.stats.bot) { // a charging pad: a steel disc, hazard ticks round its rim, a light in the middle
+        const col = { drone: '#ffd23a', robodog: '#ff8a2a', mopbot: '#3ad0ff' }[this.type] || '#38f0a0';
+        r(-7, -2, 14, 5, '#14161e'); r(-8, -1, 16, 3, '#14161e'); r(-6, -1, 12, 3, '#5a6278'); r(-5, -1, 10, 1, '#8a92a8');
+        for (const [x, y] of [[-7, 0], [6, 0], [-3, -2], [2, -2], [-3, 2], [2, 2]]) r(x, y, 1, 1, col);
+        r(-2, 0, 4, 1, hot ? '#ffffff' : col);
+      } else if (A.stats.glitch) { // a glitch in the floor: dark, with pixels of the FEED flickering in and out
+        r(-8, -3, 16, 7, 'rgba(10,4,24,.8)');
+        for (let x = -8; x < 8; x += 2) { r(x, -3, 1, 1, '#ff5ab0'); r(x + 1, 3, 1, 1, '#7ff0ff'); } // a dashed scanline frame
+        for (let i = 0; i < 10; i++) { const k = G.hash(i * 7 + (t >> 3), this.x); if (k > 0.35) r(-7 + Math.floor(k * 13), -2 + (i % 5), 2, 1, i & 1 ? '#ff5ab0' : '#7ff0ff'); }
+      } else { // cracked earth: a dark mound with a phone's glow down a crack
+        r(-6, -1, 12, 3, 'rgba(20,10,8,.55)'); r(-4, -2, 8, 1, 'rgba(20,10,8,.45)');
+        r(-4, 0, 3, 1, '#0a0608'); r(-1, 1, 3, 1, '#0a0608'); r(2, 0, 2, 1, '#0a0608');
+        if (hot) r(0, 0, 1, 1, '#7ff0ff');
+      }
+    }
   }
   G.Spawner = Spawner;
+  G.isFlyingType = (t) => !!(G.ENEMY_TYPES[t] && G.ARCHETYPES[G.ENEMY_TYPES[t].archetype].stats.flying);
+  // Flyers alive now vs the level's limit (hacked ones don't count: they're yours)
+  G.flyersFull = (st) => st.enemies.filter((e) => e.flying && !e.dead && !(e.ally > 0)).length >= ((st.enemyCfg && st.enemyCfg.flyers !== undefined) ? st.enemyCfg.flyers : G.ENEMY_DEFAULTS.flyers);
   function spawnTick(st, cfg) {
     for (const s of st.spawners) if (s.rest > 0) s.rest--;
     if (st.spawnT > 0) { st.spawnT--; return; }
     const D = G.diff();
     if (st.enemies.length >= (cfg.cap > 0 ? Math.max(1, Math.round(cfg.cap * D.cap)) : 0)) return; // (a cap of 0 stays 0)
+    const flyFull = G.flyersFull(st), padded = new Set(st.spawners.filter((s) => s.type).map((s) => s.type));
+    const mix = {}; // what a plain Z point can send: the mix less the types that have spawners of their own (and flyers, when there are enough)
+    for (const [t, w] of Object.entries(cfg.types || {})) if (w > 0 && !padded.has(t) && !(flyFull && G.isFlyingType(t))) mix[t] = w;
     const ok = st.spawners.filter((s) => {
       if (s.rest > 0 || st.inSafeZone(s.x, s.y, 24)) return false; // never in (or right at the edge of) the safe zone
+      if (s.type ? flyFull && G.isFlyingType(s.type) : !Object.keys(mix).length) return false; // nothing it could send right now
       if ((st.neighbors || []).some((n) => !n.gone && Math.hypot(n.x - s.x, n.y - s.y) < cfg.neighborBuffer)) return false; // give neighbors a fair chance
       let near = Infinity;
       for (const p of st.players) if (!p.dead) near = Math.min(near, Math.hypot(p.x - s.x, p.y - s.y));
@@ -8273,7 +8315,7 @@ body.mouseaim #screen { cursor: none; }
     });
     if (!ok.length) return;
     const s = G.pick(ok);
-    const e = new Enemy(G.weightedPick(cfg.types), s.x + G.rand(-4, 4), s.y + G.rand(-2, 2));
+    const e = new Enemy(s.type || G.weightedPick(mix), s.x + G.rand(-4, 4), s.y + G.rand(-2, 2));
     if (!e.flying && st.room.boxHits(e.x, e.y, e.hw, e.hh, e)) { e.x = s.x; e.y = s.y; }
     e.aggro = D.aggro; // it rose because you're near: it comes for you (and gives up if you get far enough away); on EASY it looks around first
     const hunt = cfg.hunt === true ? 600 : cfg.hunt || 0, h = D.hunt === null ? hunt : Math.min(hunt, D.hunt);
@@ -8941,6 +8983,7 @@ body.mouseaim #screen { cursor: none; }
     ['hunt', 'FRESH ONES HUNT', 60, (c) => (c.hunt ? secs(c.hunt === true ? 600 : c.hunt) : 'off')],
     ['linger', 'DESPAWN AFTER', 60, (c) => secs(c.linger) + ' idle'],
     ['neighborBuffer', 'NO SPAWNS NEAR NEIGHBORS', 10, (c) => px(c.neighborBuffer)],
+    ['flyers', 'DRONES AT ONCE', 1, (c, st) => st.enemies.filter((e) => e.flying && !e.dead).length + ' / ' + c.flyers],
   ];
   // The mix: one row per enemy type, its weight among this level's spawns
   const mixRows = () => Object.entries(G.ENEMY_TYPES).map(([id, T]) => ['type:' + id, T.name, 1, (c) => {
@@ -8955,6 +8998,7 @@ body.mouseaim #screen { cursor: none; }
     else if (field === 'near') c.near = [full.near[0], G.clamp(full.near[1] + step, full.near[0] + 20, 300)]; // the far edge moves
     else if (field === 'rest') c.rest = G.clamp(full.rest + step, 30, 1200);
     else if (field === 'hunt') c.hunt = G.clamp((full.hunt === true ? 600 : full.hunt || 0) + step, 0, 1800);
+    else if (field === 'flyers') c.flyers = G.clamp(full.flyers + step, 0, 10);
     else if (field === 'neighborBuffer') c.neighborBuffer = G.clamp(full.neighborBuffer + step, 0, 300);
     else if (field === 'every') { const [a, b] = full.every; c.every = [G.clamp(a + step, 15, 1200), G.clamp(b + step, 30, 1800)]; }
     else if (field.startsWith('type:')) { // the mix: never all zero (something has to rise)
@@ -9508,7 +9552,7 @@ body.mouseaim #screen { cursor: none; }
   const K = (G.EditKit = {});
 
   K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'], ['&', 'LAWN MOWER (PUSH IT: MOWS TEENS TILL IT RUNS OUT OF GAS)'],
-    ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ZOMBIE SPAWN'], ['B', 'PACKAGE'], ['Q', 'PDA'],
+    ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ENEMY SPAWN (CLICK ONE AGAIN: ONE TYPE ONLY)'], ['B', 'PACKAGE'], ['Q', 'PDA'],
     ['+', 'DATA DISK (ONE PER LEVEL, BEHIND A SECRET: ALL FIVE UNLOCK THE SECRET LEVEL)'], ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
   ];
@@ -10027,7 +10071,7 @@ body.mouseaim #screen { cursor: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$Z'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -10075,7 +10119,7 @@ body.mouseaim #screen { cursor: none; }
   function spawnAt(st, x, y, ch) {
     if (!LIVE(ch)) return;
     const px = x * 16 + 8, py = y * 16 + 12;
-    const e = ch === '$' ? new G.SpawnButton(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'T' ? new G.Dummy(px, py) : ch === 'Z' ? new G.Spawner(px, py) : ch === 'N' ? G.makeNeighbor(st.room, x, y, st.def.kinds)
+    const e = ch === '$' ? new G.SpawnButton(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'T' ? new G.Dummy(px, py) : ch === 'Z' ? new G.Spawner(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'N' ? G.makeNeighbor(st.room, x, y, st.def.kinds)
       : new G.Pickup(G.PICKUP_CHARS[ch], px, py, { respawn: st.test, color: G.cardColor(st.room, x, y) });
     e.tile = x + ',' + y;
     (ch === '$' ? st.buttons : ch === 'T' ? st.dummies : ch === 'Z' ? st.spawners : ch === 'N' ? st.neighbors : st.pickups).push(e);
@@ -10276,16 +10320,17 @@ body.mouseaim #screen { cursor: none; }
   // the same brush to step it: a neighbor's kind (else picked from where it stands, G.neighborKind), a gate's or
   // keycard's color (else red), a house door locked or not (every cell of the door together).
   const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'],
+    Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === '$' ? k || 'phoneTeen' : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === '$' ? 'phoneTeen' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
     let a = x; while (ch === 'O' && R.at(a - 1, y) === 'O') a--;
     const cells = []; if (ch === 'O') for (let b = a; R.at(b, y) === 'O'; b++) cells.push(b); else cells.push(x);
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
-    if (ch === 'N' || ch === '8' || ch === '$') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
+    if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
     if (ch === 'g') G.rebuildUpright(R, x, y);
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
@@ -10344,7 +10389,7 @@ body.mouseaim #screen { cursor: none; }
     const ch = st.raw[y][x], label = K.labelOf(st.room.theme, ch);
     if (ch === 'c') { const { props: p } = G.carAt(st.room, x, y); return 'CAR (' + [p.color, p.style, 'facing ' + p.facing, p.trunk === 'open' ? 'trunk open' : ''].filter(Boolean).join(', ').toUpperCase() + ')'; }
     if (!VARIANTS[ch]) return label;
-    return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
+    return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : ch === 'Z' && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
   };
   function paintLine(st, a, b) {
     const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -10546,7 +10591,7 @@ body.mouseaim #screen { cursor: none; }
             break;
           case 'T': this.dummies.push(tag(new G.Dummy(s.x, s.y))); break;
           case '&': this.mowers.push(tag(new G.Mower(s.x, s.y))); break; // a lawn mower to push (mower.js)
-          case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y))); break; // phone teens rise here, again and again
+          case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // enemies rise here, again and again (a typed one: only its type)
           case '$': this.buttons.push(tag(new G.SpawnButton(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // step on it: an enemy rises (practice.js)
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
           case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || G.weightedPick(G.LOOT)))); break;
@@ -10916,6 +10961,7 @@ body.mouseaim #screen { cursor: none; }
       // characters and upright objects back-to-front (tall things in front of you get a peek window)
       if (this.exit) this.exit.drawFloor(ctx, v);
       for (const b of this.buttons) b.drawFloor(ctx, v);
+      for (const s of this.spawners) if (s.type) s.drawFloor(ctx, v, this.t); // typed spawners: pads, glitches, cracked dirt
       G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players, ...(this.critters || [])]);
       G.drawSmoke(ctx, this, v); // smoke from wrecks and burning drums
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
@@ -10931,6 +10977,7 @@ body.mouseaim #screen { cursor: none; }
       const peeks = this.players.filter((p) => !p.dead && G.roofCover(this.room, p).covered > 0).map((p) => ({ x: p.x - cx, y: p.y - 11 - cy }));
       G.drawRoofs(ctx, this.room, v, 1, peeks);
       if (this.pda || this.players.some((p) => p.revealT > 0)) this.drawShimmer(ctx, v); // the PDA, or Ted's I Knew It!
+      if (this.exit) this.exit.drawSign(ctx, v);
       for (const f of this.floaters) {
         if (f.life < 12 && f.life % 2) continue;
         G.text(f.text, f.x - cx, f.y - cy, f.col, { align: 'center', shadow: '#140c1c' });
@@ -10949,6 +10996,7 @@ body.mouseaim #screen { cursor: none; }
       drawHud(ctx, this);
       G.Debug.draw(this, ctx, v);
       this.drawNeighborMarkers(ctx, cx, cy);
+      this.drawExitMarker(ctx, cx, cy);
       this.drawCrosshair(ctx);
       this.drawNeighborCount(ctx);
       if (this.overT > 0) this.drawGameOver(ctx);
@@ -10980,18 +11028,25 @@ body.mouseaim #screen { cursor: none; }
       const x = tx * 16 + 8, y = ty * 16 + 14, roll = G.rng.next(), T = (R.theme.searchLoot || {})[R.at(tx, ty)], S = T || G.SEARCH;
       this.burst(x, y - 10, 8, ['#6a7a6a', '#a89878', '#ffffff'], 1.2, 10, 18, true);
       G.sfx.play('open');
+      const out = (d) => { // where something comes out: d px toward the searcher, slid on out of anything solid (a car)
+        const dx = by ? by.x - x : 0, dy = by ? by.y - y : 1, n = Math.hypot(dx, dy) || 1;
+        return this.freeSpot(x + (dx / n) * d, y + (dy / n) * d * 0.85, by);
+      };
       if (roll < S.teen) { // surprise!
-        const e = new G.Enemy('phoneTeen', x, y + 6); e.rise = 0; e.aggro = true; e.alert = 30;
+        const [ex, ey] = out(6), e = new G.Enemy('phoneTeen', ex, ey); e.rise = 0; e.aggro = true; e.alert = 30;
         this.enemies.push(e);
         this.floater(x, y - 26, '!?', '#ff3a5a');
       } else if (roll < S.teen + S.empty) this.floater(x, y - 26, 'EMPTY', '#9a8ec0');
       else if (T && T.plates && roll < S.teen + S.empty + T.plates) { // a kitchen: a stack of dinner plates
-        const dx = by ? by.x - x : 0, dy = by ? by.y - y : 1, d = Math.hypot(dx, dy) || 1;
-        this.pickups.push(new G.Pickup('w:plates', x + (dx / d) * 12, y + (dy / d) * 10, { pop: true }));
-      } else {
-        const dx = by ? by.x - x : 0, dy = by ? by.y - y : 1, d = Math.hypot(dx, dy) || 1;
-        this.dropLoot(x + (dx / d) * 12, y + (dy / d) * 10, by);
-      }
+        const [lx, ly] = out(12); this.pickups.push(new G.Pickup('w:plates', lx, ly, { pop: true }));
+      } else { const [lx, ly] = out(12); this.dropLoot(lx, ly, by); }
+    }
+    // A spot near (x, y) that someone can stand on to grab what's there: if it's inside something solid (the far end
+    // of a car whose trunk you opened, a counter), slide toward `by` (the searcher) until it's clear
+    freeSpot(x, y, by) {
+      const R = this.room, tx = by ? by.x : x, ty = by ? by.y : y + 16;
+      for (let k = 0; k <= 24; k++) { const f = k / 24, px = x + (tx - x) * f, py = y + (ty - y) * f; if (!R.boxHits(px, py, 5, 4, null)) return [px, py]; }
+      return [tx, ty];
     }
     // ---- Neighbors ----
     neighborsLeft() { return this.neighbors.length; }
@@ -11054,25 +11109,47 @@ body.mouseaim #screen { cursor: none; }
     }
     // Arrows at the screen edge pointing to the nearest neighbors you can't see (only the closest few, so it's a
     // nudge, not a radar). Yellow and blinking when that neighbor is panicking (a teen is near them).
+    // Where on the screen's edge an arrow toward world point (wx, wy) goes, from the player: { x, y, a } (a: angle),
+    // or null if it's on screen (or nobody's standing)
+    edgeMark(wx, wy, cx, cy, inset = 0) {
+      const p = this.players.find((q) => !q.dead);
+      if (!p) return null;
+      const sx = wx - cx, sy = wy - 12 - cy;
+      if (sx >= 0 && sx <= G.W && sy >= 21 && sy <= G.H - 11) return null;
+      const L = 6 + inset, R = G.W - 6 - inset, T = 34 + inset, B = G.H - 16 - inset; // inside the HUD and the hint bar
+      const ox = p.x - cx, oy = p.y - 12 - cy, dx = sx - ox, dy = sy - oy; // from the player on screen
+      const k = Math.min(dx > 0 ? (R - ox) / dx : dx < 0 ? (L - ox) / dx : Infinity, dy > 0 ? (B - oy) / dy : dy < 0 ? (T - oy) / dy : Infinity);
+      return { x: Math.round(ox + dx * k), y: Math.round(oy + dy * k), a: Math.atan2(dy, dx) };
+    }
+    // An arrowhead at (x, y) pointing along angle a (ARROW scaled by s): each pixel outlined dark first, then filled in
+    drawArrow(ctx, x, y, a, col, s = 1) {
+      const pts = [];
+      for (const [px, py] of ARROW) for (let i = 0; i < s; i++) for (let j = 0; j < s; j++) pts.push([Math.round(x + Math.cos(a) * (px * s + i) - Math.sin(a) * (py * s + j)), Math.round(y + Math.sin(a) * (px * s + i) + Math.cos(a) * (py * s + j))]);
+      ctx.fillStyle = '#140c1c'; for (const [rx, ry] of pts) ctx.fillRect(rx - 1, ry - 1, 3, 3);
+      ctx.fillStyle = col; for (const [rx, ry] of pts) ctx.fillRect(rx, ry, 1, 1);
+    }
     drawNeighborMarkers(ctx, cx, cy) {
       const p = this.players.find((q) => !q.dead);
       if (!p) return;
-      const L = 6, R = G.W - 6, T = 34, B = G.H - 16; // inside the HUD and the hint bar
-      const off = this.neighbors.filter((n) => { const x = n.x - cx, y = n.y - 12 - cy; return x < 0 || x > G.W || y < 21 || y > G.H - 11; });
-      off.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
-      const ox = p.x - cx, oy = p.y - 12 - cy; // from the player on screen
-      off.slice(0, NEIGHBOR_MARKERS).forEach((n, i) => {
-        const dx = n.x - cx - ox, dy = n.y - 12 - cy - oy;
-        const k = Math.min(dx > 0 ? (R - ox) / dx : dx < 0 ? (L - ox) / dx : Infinity, dy > 0 ? (B - oy) / dy : dy < 0 ? (T - oy) / dy : Infinity);
-        const x = Math.round(ox + dx * k), y = Math.round(oy + dy * k), a = Math.atan2(dy, dx);
+      const off = this.neighbors.map((n) => [n, this.edgeMark(n.x, n.y, cx, cy)]).filter(([, m]) => m);
+      off.sort(([a], [b]) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
+      off.slice(0, NEIGHBOR_MARKERS).forEach(([n, m], i) => {
         if (n.panic && (this.t >> 3) & 1) return; // blink
         ctx.globalAlpha = 1 - i * 0.22;
-        // a little arrowhead pointing at them: each pixel outlined dark first, then filled in
-        const pts = ARROW.map(([px, py]) => [Math.round(x + Math.cos(a) * px - Math.sin(a) * py), Math.round(y + Math.sin(a) * px + Math.cos(a) * py)]);
-        ctx.fillStyle = '#140c1c'; for (const [rx, ry] of pts) ctx.fillRect(rx - 1, ry - 1, 3, 3);
-        ctx.fillStyle = n.panic ? '#ffd23a' : '#7ff0ff'; for (const [rx, ry] of pts) ctx.fillRect(rx, ry, 1, 1);
+        this.drawArrow(ctx, m.x, m.y, m.a, n.panic ? '#ffd23a' : '#7ff0ff');
         ctx.globalAlpha = 1;
       });
+    }
+    // The time door, once it's open and off screen: a big flashing arrow at the edge with EXIT next to it
+    drawExitMarker(ctx, cx, cy) {
+      const X = this.exit;
+      if (!X || !X.open) return;
+      const m = this.edgeMark(X.x, X.y, cx, cy, 4);
+      if (!m) return;
+      const col = (this.t >> 3) & 1 ? '#ff5ab0' : '#ffffff';
+      this.drawArrow(ctx, m.x, m.y, m.a, col, 2);
+      const tx = G.clamp(m.x - Math.cos(m.a) * 22, 14, G.W - 14), ty = G.clamp(m.y - Math.sin(m.a) * 14 - 3, 34, G.H - 22);
+      G.text('EXIT', tx, ty, col, { align: 'center', shadow: '#140c1c' });
     }
     // Saved / lost / left, just under the HUD (flashes when it changes)
     drawNeighborCount(ctx) {
@@ -11358,10 +11435,30 @@ body.mouseaim #screen { cursor: none; }
         ctx.fillRect(Math.round(sx + Math.cos(a) * rx), Math.round(sy + Math.sin(a) * ry), 2, 1);
       }
       if (!this.open) return;
-      const h = 26 + Math.sin(this.t / 10) * 2; // a column of light
-      ctx.globalAlpha = 0.25; ctx.fillStyle = '#ff5ab0'; ctx.fillRect(sx - 9, Math.round(sy - h), 18, Math.round(h));
+      const h = 40 + Math.sin(this.t / 10) * 3; // a column of light, with bands of light running up it
+      ctx.globalAlpha = 0.22; ctx.fillStyle = '#ff5ab0'; ctx.fillRect(sx - 12, Math.round(sy - h), 24, Math.round(h));
       ctx.globalAlpha = 0.5; ctx.fillStyle = '#ffffff'; ctx.fillRect(sx - 3, Math.round(sy - h), 6, Math.round(h));
+      ctx.globalAlpha = 0.6; ctx.fillStyle = '#7ff0ff';
+      for (let k = 0; k < 3; k++) { const y = sy - ((this.t * 0.8 + k * 14) % h); ctx.fillRect(sx - 11, Math.round(y), 22, 1); }
       ctx.globalAlpha = 1;
+      for (let i = 0; i < 6; i++) { // sparkles rising round it
+        const a = i * 1.7 + this.t / 30, up = (this.t * 0.6 + i * 9) % 36;
+        ctx.fillStyle = i & 1 ? '#ffffff' : '#ff9ad0'; ctx.fillRect(Math.round(sx + Math.cos(a) * 13), Math.round(sy - up), 1, 1);
+      }
+    }
+    // The sign over it, drawn on top of the world: a dim EXIT while it's shut; once open a big flashing EXIT in a box
+    // with arrows bouncing down at the door. (Its compass arrow at the screen edge: Stage.drawExitMarker.)
+    drawSign(ctx, v) {
+      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
+      if (sx < -40 || sy < -10 || sx > G.W + 40 || sy > G.H + 70) return;
+      if (!this.open) { G.text('EXIT', sx, sy - 24, '#6a5a8a', { align: 'center', shadow: '#140c1c' }); return; }
+      const bob = Math.round(Math.sin(this.t / 9) * 2), y = sy - 62 + bob, col = ['#ffffff', '#ff5ab0', '#7ff0ff', '#ffd23a'][(this.t >> 3) & 3];
+      ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - 18, y - 4, 36, 15);
+      ctx.fillStyle = col; ctx.fillRect(sx - 17, y - 3, 34, 13); ctx.fillStyle = '#2a0e2a'; ctx.fillRect(sx - 15, y - 1, 30, 9);
+      G.text('EXIT', sx, y, col, { align: 'center' });
+      const d = (this.t >> 2) % 6; // chevrons dropping toward the door
+      ctx.fillStyle = col;
+      for (const k of [0, 7]) for (let i = 0; i < 4; i++) { ctx.fillRect(sx - 4 + i, y + 14 + k + d + i, 1, 1); ctx.fillRect(sx + 3 - i, y + 14 + k + d + i, 1, 1); }
     }
   }
 
@@ -11572,9 +11669,10 @@ body.mouseaim #screen { cursor: none; }
         { label: '1 PLAYER', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.Recruit()); } },
         { label: '2 PLAYERS (ONE SCREEN)', act: () => G.setState(new G.states.Join()) },
         { label: 'ONLINE (UP TO 4)', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.states.OnlineMenu()); } },
-        sub('PRACTICE', 'TRY WEAPONS AND ENEMIES', () => [
+        sub('PRACTICE', 'TRY WEAPONS, ENEMIES, ANY LEVEL', () => [
           { label: 'WEAPON PRACTICE', act: () => { const back = G.state; practiceRecruit(() => G.setState(back)); }, help: () => 'EVERY WEAPON, TARGETS, SPAWN BUTTONS' },
           { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)), help: () => 'THE DINER KITCHEN: TRY ANY ENEMY' },
+          { label: 'LEVEL SELECT', act: () => G.setState(new G.states.LevelSelect()), help: () => 'PLAY ANY LEVEL (AND SEE YOUR DATA DISKS)' },
           // (the map editor wants a mouse and keyboard)
           ...(I.touchUI ? [] : [{ label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); }, help: () => 'EDIT LEVEL 1 (OR PRESS ` IN GAME)' }]),
         ]),

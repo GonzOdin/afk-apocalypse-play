@@ -67,13 +67,14 @@ body.touch { background: #522d93; }
 #btnSkill { background: radial-gradient(circle at 35% 30%, #7ab0ff 0%, #2f64d0 55%, #18347a 100%); border-color: #0c1a44; box-shadow: 0 3px 0 #0a1436, 0 5px 10px rgba(0,0,0,.35); color: #e2eeff; }
 #btnItem { background: radial-gradient(circle at 35% 30%, #ffe680 0%, #e8b818 55%, #9a7408 100%); border-color: #4a3404; box-shadow: 0 3px 0 #3a2804, 0 5px 10px rgba(0,0,0,.35); color: #3a2400; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
 #btnItm { background: radial-gradient(circle at 35% 30%, #7af0a8 0%, #22a860 55%, #0e6234 100%); border-color: #063018; box-shadow: 0 3px 0 #04240e, 0 5px 10px rgba(0,0,0,.35); color: #e2ffee; }
-#btnFire.on, #btnSkill.on, #btnItem.on, #btnItm.on { box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.35); }
+#btnWpn { background: radial-gradient(circle at 35% 30%, #ffb070 0%, #f07a20 55%, #9a4408 100%); border-color: #4a2004; box-shadow: 0 3px 0 #3a1804, 0 5px 10px rgba(0,0,0,.35); color: #2a1200; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
+#btnFire.on, #btnSkill.on, #btnItem.on, #btnItm.on, #btnWpn.on { box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.35); }
 /* hidden by you (TOUCH LAYOUT) */
 .tbtn.hid { display: none; }
 /* the layout editor: everything shows (hidden ones faint), the picked one outlined, a toolbar at the top */
 body.layoutedit #dpad { display: block; pointer-events: auto; }
 body.layoutedit #stickBase { display: none; }
-body.layoutedit .tbtn, body.layoutedit #btnItem, body.layoutedit #btnItm { display: flex; }
+body.layoutedit .tbtn, body.layoutedit #btnItem, body.layoutedit #btnItm, body.layoutedit #btnWpn { display: flex; }
 body.layoutedit .tbtn.hid { opacity: .3; outline: 2px dashed rgba(255,255,255,.6); }
 body.layoutedit .picked { outline: 3px dashed #ffd23a; outline-offset: 4px; }
 #layoutbar { display: none; position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 2; padding: 6px 8px; border-radius: 10px;
@@ -104,7 +105,7 @@ body.layoutedit #layoutbar { display: block; }
 /* the menus' D-pad: a black cross where the joystick rests */
 #dpad { position: absolute; display: none; pointer-events: none; filter: drop-shadow(0 3px 0 #120a1e) drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
 body.menumode #dpad { display: block; }
-body.menumode #stickBase, body.menumode #btnItem, body.menumode #btnItm { display: none; }
+body.menumode #stickBase, body.menumode #btnItem, body.menumode #btnItm, body.menumode #btnWpn { display: none; }
 .dbtn, #dMid { position: absolute; width: 34%; height: 34%; box-sizing: border-box; background: #22222c; }
 .dbtn { pointer-events: auto; display: flex; align-items: center; justify-content: center; border-radius: 4px;
   color: #4c4c5e; font: bold 14px/1 ui-monospace, Menlo, Consolas, monospace; }
@@ -183,7 +184,8 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn" id="btnSkill" data-b="skill" data-cap="B">SKILL</div>
   <div class="tbtn" id="btnItem" data-b="item">ITEM</div>
   <div class="tbtn pill" id="btnPause" data-b="pause" data-cap="START"></div>
-  <div class="tbtn pill" id="btnWpn" data-b="wpn" data-cap="SELECT"></div>
+  <div class="tbtn pill" id="btnSelect" data-b="select" data-cap="SELECT"></div>
+  <div class="tbtn small" id="btnWpn" data-b="wpn">WPN</div>
   <div class="tbtn small" id="btnItm" data-b="itm">ITM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
@@ -736,9 +738,9 @@ body.mouseaim #screen { cursor: none; }
 
   // ---- Touch: floating joystick on the left, Fire/Skill/Item buttons on the right ----
   // In menus (any state with `menu` set: title, pause, recruit, lobby...) the joystick makes way for a D-pad, FIRE
-  // reads OK and SKILL reads BACK, SELECT moves down a row; ITEM and ITM hide (I.menuMode, body.menumode). Back in the
-  // game, the joystick returns and SELECT swaps your weapon. START pauses (and is Start in menus).
-  const T = (I.touch = { stick: { id: null, bx: 0, by: 0, mx: 0, my: 0 }, btn: { fire: 0, skill: 0, item: 0, pause: 0, wpn: 0, itm: 0, dup: 0, ddown: 0, dleft: 0, dright: 0 }, hit: {}, ptr: new Map() });
+  // reads OK and SKILL reads BACK; ITEM, WPN and ITM hide (I.menuMode, body.menumode). Back in the game, the joystick
+  // returns. START pauses (and is Start in menus). SELECT does nothing yet.
+  const T = (I.touch = { stick: { id: null, bx: 0, by: 0, mx: 0, my: 0 }, btn: { fire: 0, skill: 0, item: 0, pause: 0, wpn: 0, itm: 0, select: 0, dup: 0, ddown: 0, dleft: 0, dright: 0 }, hit: {}, ptr: new Map() });
   const els = {};
   let stickR = 54, idle = [80, 300];
   function touchRaw() {
@@ -819,20 +821,20 @@ body.mouseaim #screen { cursor: none; }
   }
   // The touch controls as a handheld: a bezel round the screen (r.bez px), the wordmark under it (portrait), a D-pad
   // or joystick on the left, A (FIRE / OK) and B (SKILL / BACK) on the right with ITEM and ITM by them, and the
-  // SELECT (swap weapon) and START (pause) pills.
+  // WPN (swap weapon) by them, and the SELECT (nothing yet) and START (pause) pills.
   I.layoutTouch = (r, vw, vh, portrait, sf) => {
     if (!els.layer) return;
     const bz = r.bez || 0;
     Object.assign(els.bezel.style, { left: r.left - bz + 'px', top: r.top - bz + 'px', width: r.w + bz * 2 + 'px', height: r.h + bz * 2 + 'px' });
     Object.assign(els.led.style, { left: Math.round(bz / 2 - 3) + 'px', top: Math.round(r.h * 0.3) + 'px' });
-    let B, fire, skill, item, itm, sel, start, pill;
+    let B, fire, skill, item, itm, wpn, sel, start, pill;
     if (portrait) {
       const top = r.top + r.h + bz + 26, bottom = vh - sf.b, pillY = bottom - 30, cy = top + (pillY - 22 - top) * 0.5;
       els.brand.style.display = ''; els.brand.style.left = vw / 2 + 'px'; els.brand.style.top = r.top + r.h + bz + 7 + 'px';
       B = G.clamp(vw * 0.19, 58, 96);
       const ax = vw - sf.r - 16 - B / 2;
       fire = [ax, cy - B * 0.35, B]; skill = [ax - B * 1.12, cy + B * 0.3, B];
-      item = [ax - B * 1.12, cy - B * 0.78, B * 0.6]; itm = [ax + B * 0.05, cy - B * 1.2, B * 0.42];
+      item = [ax - B * 1.12, cy - B * 0.78, B * 0.6]; itm = [ax + B * 0.05, cy - B * 1.2, B * 0.42]; wpn = [ax - B * 0.5, cy - B * 1.3, B * 0.42];
       pill = [G.clamp(vw * 0.13, 42, 56), 15];
       sel = [vw / 2 - pill[0] * 0.8, pillY]; start = [vw / 2 + pill[0] * 0.8, pillY];
       stickR = G.clamp(vw * 0.13, 44, 64);
@@ -846,7 +848,7 @@ body.mouseaim #screen { cursor: none; }
       B = Math.min(G.clamp(vh * 0.21, 54, 90), colW * 0.42);
       const ax = vw - sf.r - 14 - B / 2, ay = vh - sf.b - 18 - B;
       fire = [ax, ay, B]; skill = [ax - B * 1.1, ay + B * 0.5, B];
-      item = [ax - B * 0.45, ay - B * 1.05, B * 0.6]; itm = [ax + B * 0.25, ay - B * 1.55, B * 0.42];
+      item = [ax - B * 0.45, ay - B * 1.05, B * 0.6]; itm = [ax + B * 0.25, ay - B * 1.55, B * 0.42]; wpn = [ax - B * 0.35, ay - B * 1.78, B * 0.42];
       pill = [G.clamp(colW * 0.3, 40, 54), 15];
       sel = [rx - pill[0] * 0.75, sf.t + 30]; start = [rx + pill[0] * 0.75, sf.t + 30];
       stickR = G.clamp(vh * 0.14, 44, 64);
@@ -855,7 +857,7 @@ body.mouseaim #screen { cursor: none; }
     // Your own placement (TOUCH LAYOUT), per orientation: each button's centre as a fraction of the screen, a size
     // multiplier and whether it's hidden. Anything you haven't moved stays where it is above.
     const at = { fire: [fire[0], fire[1], fire[2], fire[2]], skill: [skill[0], skill[1], skill[2], skill[2]], item: [item[0], item[1], item[2], item[2]],
-      itm: [itm[0], itm[1], itm[2], itm[2]], wpn: [sel[0], sel[1], ...pill], pause: [start[0], start[1], ...pill], pad: [idle[0], idle[1], stickR, stickR] };
+      itm: [itm[0], itm[1], itm[2], itm[2]], weapon: [wpn[0], wpn[1], wpn[2], wpn[2]], select: [sel[0], sel[1], ...pill], pause: [start[0], start[1], ...pill], pad: [idle[0], idle[1], stickR, stickR] };
     lay = { vw, vh, orient: portrait ? 'portrait' : 'landscape' };
     const mine = myLayout();
     for (const k in at) {
@@ -870,10 +872,15 @@ body.mouseaim #screen { cursor: none; }
     if (T.stick.id === null) setStickEl(idle[0], idle[1], false);
   };
   // ---- TOUCH LAYOUT (pause menu): drag the buttons where you like them, resize or hide them; saved per orientation ----
-  const KEYS = { fire: 'fire', skill: 'skill', item: 'item', itm: 'itm', wpn: 'wpn', pause: 'pause' }; // layout key -> els entry
-  const NAMES = { fire: 'A: FIRE / OK', skill: 'B: SKILL / BACK', item: 'ITEM', itm: 'ITM: SWAP ITEM', wpn: 'SELECT: SWAP WEAPON', pause: 'START: PAUSE', pad: 'D-PAD / JOYSTICK' };
+  const KEYS = { fire: 'fire', skill: 'skill', item: 'item', itm: 'itm', weapon: 'wpn', select: 'select', pause: 'pause' }; // layout key -> els entry
+  const NAMES = { fire: 'A: FIRE / OK', skill: 'B: SKILL / BACK', item: 'ITEM', itm: 'ITM: SWAP ITEM', weapon: 'WPN: SWAP WEAPON', select: 'SELECT (NOTHING YET)', pause: 'START: PAUSE', pad: 'D-PAD / JOYSTICK' };
   let lay = { vw: 1, vh: 1, orient: 'portrait' }, pick = null, drag = null;
-  const myLayout = () => { const o = G.opts(); o.touchLayout = o.touchLayout || {}; return (o.touchLayout[lay.orient] = o.touchLayout[lay.orient] || {}); };
+  const myLayout = () => {
+    const o = G.opts(); o.touchLayout = o.touchLayout || {};
+    const L = (o.touchLayout[lay.orient] = o.touchLayout[lay.orient] || {});
+    if (L.wpn && !L.select) { L.select = L.wpn; delete L.wpn; } // (layouts saved when the SELECT pill was called 'wpn')
+    return L;
+  };
   const keyOf = (el) => (!el ? null : el.id === 'dpad' ? 'pad' : Object.keys(KEYS).find((k) => els[KEYS[k]] === el) || null);
   function setPick(k) {
     pick = k;
@@ -918,7 +925,7 @@ body.mouseaim #screen { cursor: none; }
     els.base = document.getElementById('stickBase'); els.knob = document.getElementById('stickKnob');
     els.fire = document.getElementById('btnFire'); els.skill = document.getElementById('btnSkill');
     els.item = document.getElementById('btnItem'); els.pause = document.getElementById('btnPause');
-    els.wpn = document.getElementById('btnWpn'); els.itm = document.getElementById('btnItm');
+    els.wpn = document.getElementById('btnWpn'); els.itm = document.getElementById('btnItm'); els.select = document.getElementById('btnSelect');
     els.dpad = document.getElementById('dpad');
     els.lbName = document.getElementById('lbName');
     els.bezel = document.getElementById('bezel'); els.led = document.getElementById('led'); els.brand = document.getElementById('brand'); els.grille = document.getElementById('grille');
@@ -1007,7 +1014,7 @@ body.mouseaim #screen { cursor: none; }
     setMenuMode(!!(G.state && G.state.menu));
     const D = (k) => !!(T.btn[k] || T.hit[k]);
     const r = {
-      up: anyDown(['ArrowUp', 'KeyW']) || D('dup'), down: anyDown(['ArrowDown', 'KeyS']) || D('ddown') || (I.menuMode && D('wpn')), // SELECT moves down a row in menus
+      up: anyDown(['ArrowUp', 'KeyW']) || D('dup'), down: anyDown(['ArrowDown', 'KeyS']) || D('ddown'),
       left: anyDown(['ArrowLeft', 'KeyA']) || D('dleft'), right: anyDown(['ArrowRight', 'KeyD']) || D('dright'),
       confirm: anyDown(['Enter', 'Space', 'KeyZ', 'KeyJ']) || !!T.hit.fire,
       back: anyDown(['Escape', 'Backspace']) || (I.menuMode && !!T.hit.skill),

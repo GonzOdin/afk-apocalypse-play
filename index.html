@@ -70,9 +70,9 @@ body.touch { background: #522d93; }
 /* each one its own color: A red, B blue, ITEM yellow, ITM green */
 #btnFire { background: radial-gradient(circle at 35% 30%, #ff7a7a 0%, #d8303e 55%, #8a1424 100%); border-color: #4a0a14; box-shadow: 0 3px 0 #3a0810, 0 5px 10px rgba(0,0,0,.35); }
 #btnSkill { background: radial-gradient(circle at 35% 30%, #7ab0ff 0%, #2f64d0 55%, #18347a 100%); border-color: #0c1a44; box-shadow: 0 3px 0 #0a1436, 0 5px 10px rgba(0,0,0,.35); color: #e2eeff; }
-/* ACTION (use your item, open, search): the third big button, yellow */
+/* USE (use your item, open, search): the third big button, yellow */
 #btnItem { background: radial-gradient(circle at 35% 30%, #ffe680 0%, #e8b818 55%, #9a7408 100%); border-color: #4a3404; box-shadow: 0 3px 0 #3a2804, 0 5px 10px rgba(0,0,0,.35); color: #3a2400; text-shadow: 0 1px 0 rgba(255,255,255,.4); font-size: 11px; }
-/* WEAPON and ITEM (swap): flat colored pills over FIRE and ACTION */
+/* WEAPON and ITEM (swap): flat colored pills over FIRE and USE */
 .tbtn.pill.flat { transform: none; font-size: 9px; letter-spacing: 1px; }
 .tbtn.pill.flat.on { transform: translateY(1px); }
 #btnWpn { background: linear-gradient(#ffb070, #e0701c); border-color: #4a2004; box-shadow: 0 2px 0 #3a1804; color: #2a1200; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
@@ -191,14 +191,14 @@ body.mouseaim #screen { cursor: none; }
   <div id="dpad"><div class="dbtn" id="dUp" data-b="dup">&#9650;</div><div class="dbtn" id="dDown" data-b="ddown">&#9660;</div><div class="dbtn" id="dLeft" data-b="dleft">&#9664;</div><div class="dbtn" id="dRight" data-b="dright">&#9654;</div><div id="dMid"></div></div>
   <div class="tbtn" id="btnFire" data-b="fire">FIRE</div>
   <div class="tbtn" id="btnSkill" data-b="skill">SKILL</div>
-  <div class="tbtn" id="btnItem" data-b="item">ACTION</div>
+  <div class="tbtn" id="btnItem" data-b="item">USE</div>
   <div class="tbtn pill" id="btnPause" data-b="pause" data-cap="START"></div>
   <div class="tbtn pill" id="btnSelect" data-b="select" data-cap="SELECT"></div>
   <div class="tbtn pill flat" id="btnWpn" data-b="wpn">WEAPON</div>
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 01:44';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 01:48';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -862,8 +862,8 @@ body.mouseaim #screen { cursor: none; }
     Object.assign(el.style, { left: Math.round(x - s / 2) + 'px', top: Math.round(y - h / 2) + 'px', width: Math.round(s) + 'px', height: Math.round(h) + 'px' });
   }
   // The touch controls as a handheld: a bezel round the screen (r.bez px), the wordmark under it (portrait), a D-pad
-  // or joystick on the left, and three big buttons on the right: ACTION (use your item, open things) and FIRE (OK in
-  // menus) side by side with SKILL (BACK) below between them; an ITEM pill over ACTION and a WEAPON pill over FIRE
+  // or joystick on the left, and three big buttons on the right: USE (use your item, open things) and FIRE (OK in
+  // menus) side by side with SKILL (BACK) below between them; an ITEM pill over USE and a WEAPON pill over FIRE
   // to swap; and the SELECT (nothing yet) and START (pause) pills.
   I.layoutTouch = (r, vw, vh, portrait, sf) => {
     if (!els.layer) return;
@@ -895,7 +895,7 @@ body.mouseaim #screen { cursor: none; }
       stickR = G.clamp(vh * 0.14, 44, 64);
       idle = [sf.l + 24 + stickR * 1.3, vh - sf.b - 24 - stickR * 1.3];
     }
-    // WEAPON over FIRE and ITEM over ACTION: flat pills to swap
+    // WEAPON over FIRE and ITEM over USE: flat pills to swap
     const swap = (b) => [b[0], b[1] - B / 2 - 15, B * 0.86, 20];
     wpn = swap(fire); itm = swap(item);
     // Your own placement (TOUCH LAYOUT), per orientation: each button's centre as a fraction of the screen, a size
@@ -920,7 +920,7 @@ body.mouseaim #screen { cursor: none; }
   };
   // ---- TOUCH LAYOUT (pause menu): drag the buttons where you like them, resize or hide them; saved per orientation ----
   const KEYS = { fire: 'fire', skill: 'skill', item: 'item', itm: 'itm', weapon: 'wpn', select: 'select', pause: 'pause' }; // layout key -> els entry
-  const NAMES = { fire: 'FIRE / OK', skill: 'SKILL / BACK', item: 'ACTION: USE ITEM, OPEN', itm: 'ITEM: SWAP ITEM', weapon: 'WEAPON: SWAP WEAPON', select: 'SELECT (NOTHING YET)', pause: 'START: PAUSE', pad: 'D-PAD / JOYSTICK' };
+  const NAMES = { fire: 'FIRE / OK', skill: 'SKILL / BACK', item: 'USE: USE ITEM, OPEN', itm: 'ITEM: SWAP ITEM', weapon: 'WEAPON: SWAP WEAPON', select: 'SELECT (NOTHING YET)', pause: 'START: PAUSE', pad: 'D-PAD / JOYSTICK' };
   let lay = { vw: 1, vh: 1, orient: 'portrait' }, pick = null, drag = null;
   const myLayout = () => {
     const o = G.opts(); o.touchLayout = o.touchLayout || {};

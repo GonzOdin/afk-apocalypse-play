@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 00:46 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 01:32 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -283,7 +283,7 @@ body.mouseaim #screen { cursor: none; }
   G.AIM_CONES = [0, 14, 30]; // degrees
   const KEY = 'afk-apocalypse/save/v1';
   G.save = {
-    data: { attempt: 117, best: 0, opts: { ...DEFAULT_OPTS } },
+    data: { attempt: 117, best: 0, disks: {}, opts: { ...DEFAULT_OPTS } }, // disks: { levelId: true } data disks found (5 unlock the secret level)
     load() {
       try {
         const s = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -1460,6 +1460,9 @@ body.mouseaim #screen { cursor: none; }
       for (let i = 0; i < 8; i++) r(9 - i, 1 + i, 2, 1, '#c89060');
       r(8, 2, 2, 1, '#202028'); r(5, 5, 2, 1, '#ffffff'); r(0, 9, 5, 2, '#202028'); r(0, 10, 4, 1, '#3a3a48'); r(1, 9, 2, 1, '#5a5a6a');
     },
+    disk(r) { // a data disk (a 3.5" floppy): blue shell, metal shutter, a label
+      r(1, 1, 10, 10, '#2a4a9a'); r(2, 1, 8, 1, '#3a6ad0'); r(4, 1, 5, 4, '#c8c8d8'); r(7, 2, 1, 2, '#2a4a9a'); r(3, 6, 7, 5, '#e8e8f0'); r(4, 7, 5, 1, '#ff3a5a'); r(4, 9, 4, 1, '#8a8aa0'); r(1, 10, 1, 1, '#1a2a6a');
+    },
     wholepie(r) { // a whole cherry pie, lattice top
       r(1, 3, 10, 7, '#c88a40'); r(2, 2, 8, 9, '#c88a40'); r(2, 3, 8, 7, '#d0405a'); r(3, 2, 6, 9, '#d0405a');
       r(2, 5, 8, 1, '#f0c890'); r(2, 8, 8, 1, '#f0c890'); r(5, 2, 1, 9, '#f0c890'); r(8, 3, 1, 7, '#f0c890'); r(3, 3, 1, 1, '#ff8aa0');
@@ -2265,7 +2268,7 @@ body.mouseaim #screen { cursor: none; }
   // f picket fence  h hedge  S secret hedge (bomb it)  t tree  l lamppost  m mailbox  g garbage can  c parked car
   // p pool  w brick wall  x cracked brick (bomb it)  v crawlspace vent (vent crew only)  D locked gate (keycard)
   {
-    const SOLID = new Set([...'RHKOWqkzfhJSetlmgcpwxvuDbGYIVasj[%^@!']); // @ zombie crowd, ! fire: crew gates (June, Dot) // ^ cracked plaster wall // a s j [ : furniture; % junk pile // O (house door) is solid only while closed
+    const SOLID = new Set([...'RHKOWqkzfhJSetlmgcpwxvuDbGYIVasj[%^@!()/{}']); // ( sandbags ) barricade / razor wire { burning drum } sign // @ zombie crowd, ! fire: crew gates (June, Dot) // ^ cracked plaster wall // a s j [ : furniture; % junk pile // O (house door) is solid only while closed
     const STREET = new Set(['=', '-']);
     // Ground tiles get variety from G.hash (deterministic per cell, so a map always looks the same). Large soft
     // patches use world-space noise so they flow across cell borders; small details are rare one-offs per cell.
@@ -3317,6 +3320,7 @@ body.mouseaim #screen { cursor: none; }
         if (y1 > y0) r0(x - ox, y0, w, y1 - y0, c);
       };
       const seed = b.x0 * 31 + b.y0 * 17;
+      if (room && room.searched && room.searched.has(b.y0 * room.w + b.x0)) p.trunk = 'open'; // searched: the lid's up
       if (b.w < b.h) return carEnd(r, b.w, b.h, carPal(p.style, CAR_COLS[p.color]), { ...p, seed });
       // side view: one car, or a pile-up of several bumper to bumper for a long block
       const n = b.w > 80 ? Math.max(2, Math.round(b.w / 44)) : 1, seg = b.w / n;
@@ -3337,7 +3341,65 @@ body.mouseaim #screen { cursor: none; }
       if (room.at(tx + 1, ty) !== 'p') r(14, 0, 2, 16, e);
     };
     const shadow = (r, x, y, w, h) => r(x, y, w, h, 'rgba(10,4,24,.35)');
+    // ---- Dystopian decor (the world after the feed): sandbags, barricades, razor wire, burning barrels, propaganda
+    //  ( sandbag wall: burlap bags stacked two high, joining their neighbours (low: you shoot over it)
+    //  ) barricade: an orange-and-white striped sawhorse (low)
+    //  / razor wire: coils of wire on stakes (blocks you and the pogo; shots go through)
+    //  { burning oil drum: a rusty barrel with flames (smoke and embers: Stage.updateSmoke), lights the ground
+    //  } propaganda sign on a pole: STAY ONLINE, a phone with an eye on it
+    //  ? rubble (floor): broken concrete, glass and torn paper, walkable
+    const sandbagUp = (r, tx, ty, room) => {
+      const L = room && room.at(tx - 1, ty) === '(', R = room && room.at(tx + 1, ty) === '(';
+      const bag = (x, y, w) => { r(x, y, w, 5, '#4a3a20'); r(x + 1, y + 1, w - 2, 3, '#b8a070'); r(x + 1, y + 1, w - 2, 1, '#d8c490'); r(x + Math.floor(w / 2), y + 1, 1, 3, '#9a8458'); };
+      const x0 = L ? -1 : 1, x1 = R ? 17 : 15;
+      for (let x = x0; x < x1; x += 8) bag(x, 8, Math.min(8, x1 - x)); // bottom row
+      for (let x = x0 + 4; x < x1 - 2; x += 8) bag(x, 4, Math.min(8, x1 - 2 - x)); // top row, staggered
+      if (!L) bag(1, 4, 4);
+    };
+    const barricadeUp = (r) => {
+      r(1, 6, 2, 10, '#3a2a1a'); r(13, 6, 2, 10, '#3a2a1a'); r(2, 7, 1, 9, '#6a4a2a'); r(14, 7, 1, 9, '#6a4a2a'); // legs
+      r(0, 5, 16, 5, '#2a1a10');
+      for (let x = 0; x < 16; x += 4) { r(x + 1, 6, 2, 3, '#ff7a20'); r(x + 3, 6, 2, 3, '#f0f0f0'); } // stripes
+      r(1, 6, 14, 1, 'rgba(255,255,255,.35)');
+      r(7, 3, 2, 2, '#ff3a20'); r(7, 3, 1, 1, '#ffd0a0'); // a warning lamp
+    };
+    const wireUp = (r, tx, ty) => {
+      r(1, 2, 1, 12, '#5a4a3a'); r(14, 2, 1, 12, '#5a4a3a'); // stakes
+      for (let k = 0; k < 4; k++) { // coils: loops of grey wire with barbs
+        const cx = 2 + k * 4, h = G.hash(tx * 3 + k, ty);
+        for (let a = 0; a < 12; a++) { const t = (a / 12) * Math.PI * 2, x = Math.round(cx + Math.cos(t) * 3), y = Math.round(8 + Math.sin(t) * 4); r(x, y, 1, 1, a % 3 ? '#8a8a9a' : '#c8c8d8'); }
+        r(cx, 3 + Math.floor(h * 2), 1, 1, '#e8e8f0');
+      }
+    };
+    const barrelUp = (r, tx, ty) => {
+      const h = (k) => G.hash(tx * 5 + k, ty * 3 + k);
+      r(3, 4, 10, 12, '#4a2a1a'); r(4, 4, 8, 12, '#7a3a20'); r(4, 7, 8, 1, '#5a2a14'); r(4, 12, 8, 1, '#5a2a14'); r(5, 5, 1, 10, '#9a5a30'); // rusty drum
+      r(4, 3, 8, 2, '#2a1410'); r(5, 3, 6, 1, '#ff8a20'); // glowing rim
+      const tongue = (cx, tall, base, sway) => {
+        for (let k = 0; k < tall; k++) {
+          const f = k / tall, w = Math.max(1, Math.round(base * Math.pow(1 - f, 0.8))), x = Math.round(cx + Math.sin(f * 3 + sway) * 1.2 * f - w / 2), y = 3 - k;
+          r(x, y, w, 1, '#c82014'); if (w > 2) r(x + 1, y, w - 2, 1, f > 0.7 ? '#e83a14' : '#ff7a20'); if (w > 4 && f < 0.5) r(x + 2, y, w - 4, 1, '#ffd23a');
+        }
+      };
+      tongue(6, 7 + Math.floor(h(1) * 3), 5, h(2) * 6); tongue(10, 6 + Math.floor(h(3) * 3), 5, h(4) * 6); tongue(8, 10 + Math.floor(h(5) * 3), 7, h(6) * 6);
+    };
+    const signUp = (r) => {
+      r(7, -4, 2, 20, '#3a3a48'); r(7, -4, 1, 20, '#5a5a6a'); // pole
+      r(0, -16, 16, 13, '#140c1c'); r(1, -15, 14, 11, '#c82030'); r(2, -14, 12, 9, '#1a1018'); // red-bordered board
+      r(5, -13, 6, 8, '#e8e8f0'); r(6, -12, 4, 5, '#1a2a40'); r(7, -11, 2, 2, '#ff3a5a'); r(7, -11, 1, 1, '#ffb0b8'); // a phone with an eye
+      r(2, -5, 12, 1, '#c82030'); r(3, -5, 1, 1, '#ffd23a'); r(12, -5, 1, 1, '#ffd23a'); // the slogan bar
+    };
+    const rubble = (r, tx, ty) => {
+      street(r, tx, ty, false);
+      for (let i = 0; i < 9; i++) {
+        const h = G.hash(tx * 9 + i, ty * 5 + i), x = 1 + Math.floor(h * 12), y = 1 + Math.floor(G.hash(i * 3, tx + ty * 7) * 12);
+        if (i < 5) { r(x, y, 3, 2, '#6a6878'); r(x, y, 3, 1, '#8a8898'); } // concrete chunks
+        else if (i < 7) r(x, y, 1, 1, '#c8e8ff'); // glass
+        else { r(x, y, 3, 2, '#d8d0b8'); r(x + 1, y, 1, 1, '#a8a090'); } // torn paper
+      }
+    };
     const UPRIGHT = {
+      '(': { rise: 10, draw: sandbagUp }, ')': { rise: 6, draw: barricadeUp }, '/': { rise: 6, draw: wireUp }, '{': { rise: 14, draw: barrelUp }, '}': { rise: 18, draw: signUp },
       h: { rise: 10, draw: hedgeUp }, i: { rise: 17, draw: sparseUp }, J: { rise: TALL + 2, draw: hedgeTallUp }, b: { rise: TALL + 2, draw: brickHedgeUp }, S: { rise: TALL + 2, draw: secretUp }, e: { rise: TALL + 2, draw: patchyUp, wide: 2 }, u: { rise: 8, draw: brickShortUp }, f: { rise: 6, draw: fenceUp }, I: { rise: 16, draw: plankUp }, V: { rise: 16, draw: plankUp }, D: { rise: 24, draw: gateUp }, G: { rise: 6, draw: latchUp },
       t: { rise: 32, draw: treeUp, wide: 12 }, Y: { rise: 114, draw: bigTreeUp, wide: 32 }, o: { rise: 16, draw: trampolineUp }, l: { rise: 25, draw: lampUp }, m: { rise: 2, draw: mailUp }, g: { rise: 2, draw: canUp },
       c: { rise: CAR_RISE, draw: carUp }, w: { rise: TALL, draw: brickTallUp }, x: { rise: TALL, draw: crackUp }, v: { rise: TALL, draw: ventUp },
@@ -3362,6 +3424,11 @@ body.mouseaim #screen { cursor: none; }
         case 'j': return [1, 6, 14, 9];
         case '[': return [1, 4, 14, 12];
         case '%': return [0, 4, 16, 10];
+        case '(': return [0, 4, 16, 10];
+        case ')': return [0, 7, 16, 5];
+        case '/': return [0, 4, 16, 8];
+        case '{': return [3, 7, 10, 9];
+        case '}': return [6, 11, 4, 5];
         default: return null;
       }
     };
@@ -3372,25 +3439,36 @@ body.mouseaim #screen { cursor: none; }
         ['H', 'FRONT WALL (BLUE, 2 TALL)'], ['K', 'FRONT WALL (TAN, 2 TALL)'], ['O', 'HOUSE DOOR (2 TALL, PAINT 2 SIDE BY SIDE; CLICK ONE AGAIN TO LOCK IT)'], ['W', 'INSIDE WALL'], ['^', 'CRACKED PLASTER WALL (A SODA BOMB BREAKS IT)'],
         ['n', 'WOOD FLOOR'], ['y', 'RUG'], ['q', 'COUCH'], ['k', 'KITCHEN COUNTER'], ['z', 'BED'], ['a', 'COFFEE TABLE'], ['s', 'BOOKSHELF'], ['j', 'TV'], ['[', 'CABINET'], ['f', 'PICKET FENCE'], ['I', 'PLANK FENCE (TALL, WOOD)'], ['V', 'BROKEN PLANK FENCE (A FEW WHACKS BREAK IT: A SMALL SECRET)'], ['h', 'SHORT HEDGE (FULL TILE, SHOOT OVER)'], ['J', 'TALL HEDGE (FULL TILE, 1 TALL)'], ['i', 'SPARSE HEDGE (WALK/SEE THROUGH)'], ['b', 'BRICK HEDGE (HEDGE OVER BRICK, UNBREAKABLE)'], ['r', 'BUSTED HEDGE (BLOWN OPEN, WALKABLE)'],
         ['S', 'SECRET TALL HEDGE (BOMB IT)'], ['e', 'PATCHY TALL HEDGE (ROCKETS/BOMBS BREAK IT)'], ['t', 'TREE'], ['Y', 'BIG TREE (2X2 OBSTACLE: ONE CLICK PLACES IT)'], ['l', 'STREETLIGHT (CLICK ONE AGAIN: BUSTED)'], ['m', 'MAILBOX'], ['g', 'TRASH CAN (CLICK ONE AGAIN: KNOCKED OVER)'], ['%', 'JUNK PILE (SEARCH IT)'], ['*', 'SPORTS GEAR (WALK OVER IT)'],
-        ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'LATCH GATE (OPENS ONLY FROM THE LOCKED SIDE)'],
+        ['(', 'SANDBAGS (LOW WALL: SHOOT OVER IT)'], [')', 'BARRICADE (STRIPED SAWHORSE)'], ['/', 'RAZOR WIRE (BLOCKS YOU AND THE POGO)'], ['{', 'BURNING OIL DRUM (SMOKES, LIGHTS THE GROUND)'], ['}', 'PROPAGANDA SIGN (STAY ONLINE)'], ['?', 'RUBBLE (WALKABLE)'],
+        ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'LATCH GATE (OPENS ONLY FROM THE LOCKED SIDE)'],
       ],
-      groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj['], ['HEDGES & WALLS', 'hJbiSerfIVwuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*']],
+      groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj['], ['HEDGES & WALLS', 'hJbiSerfIVwuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*'], ['DYSTOPIA', '()/{}?']],
       // border: what's past the map edge: a tall hedge, fully solid (a tree would only block at its trunk)
       // shots: tall things only; shots fly over short hedges, fences, short walls, cars, furniture
       border: 'J', ground: '.', solid: SOLID, shots: new Set([...'RHKOWtlwxDGvJSebYIVs[^@']),
       water: new Set(['p']), // players swim in it; enemies and pickups treat it as a wall
+      critters: true, // birds and squirrels (critters.js)
       bounce: new Set(['o']), // trampolines: walk on and you're launched
       stamps: { o: [2, 1], Y: [2, 2] }, // multi-tile pieces: the editors place the whole [w, h] footprint with one click
       place: { c: [3, 2] }, blocks: new Set(['c']), // the car brush places a 3x2 car; any connected block of car is one car
       searchable: new Set(['g', 'm', '%', 'k', '[']),
-      searchLoot: { k: { teen: 0, empty: 0.35, plates: 0.45 }, '[': { teen: 0.05, empty: 0.25, plates: 0.55 } }, // kitchens: dinner plates (G.WEAPONS.plates); the rest is loot
+      // a car's trunk: face the back end of a car (not a pile-up) and search it; it's the car's top-left cell that
+      // counts as searched (the lid then shows open)
+      searchCell(room, tx, ty) {
+        if (room.at(tx, ty) !== 'c') return null;
+        const { box: b, props: p } = G.carAt(room, tx, ty), cw = b.w / 16, chh = b.h / 16, cx = tx - b.x0, cy = ty - b.y0;
+        if (b.w > 80) return null;
+        const trunk = b.w >= b.h ? (p.facing === 'left' ? cx === cw - 1 : cx === 0) : p.facing === 'up' ? cy === chh - 1 : cy === 0;
+        return trunk ? [b.x0, b.y0] : null;
+      },
+      searchLoot: { k: { teen: 0, empty: 0.35, plates: 0.45 }, '[': { teen: 0.05, empty: 0.25, plates: 0.55 }, c: { teen: 0.06, empty: 0.25 } }, // kitchens: dinner plates (G.WEAPONS.plates); the rest is loot
       ballAt: (room, tx, ty) => (room.at(tx, ty) === '*' ? ['basket', 'soccer'][gearKind(tx, ty)] || null : null), // a ball on the lawn (G.launchBall)
       leaves: new Set(['~']), leafBare: '.', // fallen leaves: a blower gust blows them off, leaving grass // a knocked-over can (kinds 'knocked') can't be searched
       // objects sit on a floor (the map's `floors` remembers which; deleting one in the editor puts that floor back)
-      objects: new Set([...'otYlmgcqkzasj[%*@!']), floors: new Set([...'.,d:=-nyr~']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
+      objects: new Set([...'otYlmgcqkzasj[%*@!(){}/']), floors: new Set([...'.,d:=-nyr~?']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
       road: new Set(['=', '-']), // street tiles (the editors' layout check keeps the street small)
       jumpBlock: new Set([...'RHKOWwxvDGcY^@!']), // a trampoline launch can't clear these: houses, brick, gates, cars, big trees
-      pogoBlock: new Set([...'RHKOWwxvDGcYJSebIV^@!']), // the pogo only clears half-height things: tall hedges stop it too
+      pogoBlock: new Set([...'RHKOWwxvDGcYJSebIV^@!/']), // the pogo only clears half-height things: tall hedges stop it too
       // breakable: rockets and soda bombs break all of these; chop: the machete cuts these (hedges, not brick);
       // patchy: the obvious ones (the "NEEDS ROCKETS" hint); rubble: what a broken tile leaves (else ground)
       breakable: new Set(['S', 'x', 'e']), chop: new Set(['e', 'S']), patchy: new Set(['e']), rubble: { e: 'r', S: 'r', '^': 'n' }, secret: new Set(['S', 'x', 'V', '^']), vent: new Set(['v']),
@@ -3413,7 +3491,7 @@ body.mouseaim #screen { cursor: none; }
       // Drawn 16x32: the leaf top sits one tile up (like any 1U hedge); a solid fill's face is on its own cell.
       // How tall each solid thing stands, in px (for the debug overlay's height view): what you'd have to get over
       heights: { '@': 24, '!': 12, h: 8, f: 8, I: 20, V: 20, '^': 32, a: 8, j: 8, '%': 8, s: 24, '[': 24, u: 8, o: 8, m: 8, g: 8, q: 8, k: 8, z: 8, G: 16, c: 16, J: TALL, S: TALL, e: TALL, b: TALL,
-        w: TALL, x: TALL, v: TALL, D: TALL, l: 32, H: 32, K: 32, O: 32, W: 32, Y: 96, over: { M: TALL, R: 40 } },
+        w: TALL, x: TALL, v: TALL, D: TALL, l: 32, H: 32, K: 32, O: 32, W: 32, Y: 96, '(': 10, ')': 8, '/': 10, '{': 14, '}': 32, over: { M: TALL, R: 40 } },
       canopyRise: TALL, // canopy and fill sprites are 16 x (16 + canopyRise), drawn that far up
       canopyTile(r, tx, ty, room, solid) {
         const parts = room ? blockParts(HEDGEF, tx, ty, room) : [{ x: 0, y: 0, w: 16, h: 16, top: true, left: true, right: true, face: true }];
@@ -3496,6 +3574,11 @@ body.mouseaim #screen { cursor: none; }
           }
           case 'w': case 'x': case 'v': case 'u': return grass(r, tx, ty);
           case 'p': return pool(r, tx, ty, room);
+          case '?': return rubble(r, tx, ty);
+          case '(': floorUnder(r, tx, ty, room); return shadow(r, 0, 13, 16, 3);
+          case ')': case '/': floorUnder(r, tx, ty, room); return shadow(r, 0, 12, 16, 3);
+          case '{': floorUnder(r, tx, ty, room); return shadow(r, 2, 13, 12, 3);
+          case '}': floorUnder(r, tx, ty, room); return shadow(r, 5, 14, 6, 2);
           default: return grass(r, tx, ty);
         }
       },
@@ -3506,12 +3589,12 @@ body.mouseaim #screen { cursor: none; }
         x.globalCompositeOperation = 'lighter';
         for (let ty = 0; ty < room.h; ty++) for (let tx = 0; tx < room.w; tx++) {
           const ch = room.at(tx, ty);
-          if ((ch !== 'l' && ch !== 'O') || (ch === 'l' && G.cellKind(room, tx, ty) === 'busted')) continue; // a busted lamp gives no light
-          const cx = tx * 16 + (ch === 'l' ? 8 : 13), cy = ty * 16 + (ch === 'l' ? 12 : 18);
-          const rings = ch === 'l' ? [46, 34, 22] : [22, 12];
+          if ((ch !== 'l' && ch !== 'O' && ch !== '{') || (ch === 'l' && G.cellKind(room, tx, ty) === 'busted')) continue; // a busted lamp gives no light
+          const cx = tx * 16 + (ch === 'O' ? 13 : 8), cy = ty * 16 + (ch === 'l' ? 12 : ch === '{' ? 13 : 18);
+          const rings = ch === 'l' ? [46, 34, 22] : ch === '{' ? [34, 24, 14] : [22, 12];
           if (cx + 50 < x0 * 16 || cx - 50 > (x1 + 1) * 16 || cy + 40 < y0 * 16 || cy - 40 > (y1 + 1) * 16) continue;
           for (const rad of rings) {
-            x.fillStyle = 'rgba(90,72,30,0.22)';
+            x.fillStyle = ch === '{' ? 'rgba(110,40,8,0.22)' : 'rgba(90,72,30,0.22)'; // a burning drum glows orange
             x.beginPath(); x.ellipse(cx, cy, rad, rad * 0.62, 0, 0, Math.PI * 2); x.fill();
           }
         }
@@ -3544,6 +3627,290 @@ body.mouseaim #screen { cursor: none; }
       },
     };
   }
+})();
+</script>
+<script>
+/* AFK APOCALYPSE — tile theme: the server farm (Levels 4 and 5, the secret level). Raised-floor halls of server racks
+   under cold light, glass partitions, security doors. Theme contract: see render.js.
+   Ground:  . raised floor  , floor with a glowing cable run  : hazard walkway  = polished lobby floor  p coolant (swim)
+   Walls (tall blocks, 2U):  # steel wall  s server rack (LEDs)  i glass wall (see through, shots pass)
+     e cracked glass (rockets, a soda bomb or the machete break it)  x cracked wall (rockets or a soda bomb)
+     S hollow panel: a secret (a slightly brighter seam; rockets, a soda bomb or the machete)  v vent (Pixel)
+     D security door (keycard)  G turnstile (one way: opens from the locked side)
+   Things: c cooling unit  u UPS cabinet (low: shoot over)  k desk with a terminal (search it)  m locker (search it)
+     j the FEED on a big screen  l floor light  % a pile of cables and dead drives (search it)  o jump pad (2x1)
+     ( sandbags  ) barricade */
+(function () {
+  'use strict';
+  const G = window.G;
+  const T = G.THEMES;
+  const TALL = 24, h = (x, y, k = 0) => G.hash(x * 7 + k, y * 13 + k * 3);
+
+  // ---- ground ----
+  const floor = (r, tx, ty) => { // raised floor panels: 16x16 tiles with a seam and a few perforated ones
+    const k = h(tx, ty);
+    r(0, 0, 16, 16, k < 0.5 ? '#3a4054' : '#363c50');
+    r(0, 0, 16, 1, '#4a5268'); r(0, 0, 1, 16, '#4a5268'); r(15, 0, 1, 16, '#262a3a'); r(0, 15, 16, 1, '#262a3a');
+    if (k > 0.72) for (let y = 3; y < 14; y += 3) for (let x = 3; x < 14; x += 3) r(x, y, 1, 1, '#22263a'); // a vented panel
+    if (k < 0.08) r(4 + Math.floor(k * 80), 6, 3, 1, '#4a5268');
+  };
+  const cable = (r, tx, ty) => { floor(r, tx, ty); r(0, 7, 16, 2, '#1a2238'); r(0, 7, 16, 1, (tx + ty) % 3 ? '#2a7aa8' : '#3ad0ff'); };
+  const hazard = (r, tx, ty, room) => {
+    r(0, 0, 16, 16, '#4a4e5c'); r(0, 0, 16, 1, '#5a5e6c');
+    const H = (x, y) => room.at(x, y) === ':';
+    for (let i = 0; i < 16; i += 4) { if (!H(tx, ty - 1)) { r(i, 0, 2, 2, '#ffd23a'); r(i + 2, 0, 2, 2, '#1a1a20'); } if (!H(tx, ty + 1)) { r(i, 14, 2, 2, '#ffd23a'); r(i + 2, 14, 2, 2, '#1a1a20'); } }
+  };
+  const lobby = (r, tx, ty) => { // polished stone tiles, 8px, with a faint sheen and the odd reflected light
+    const k = h(tx, ty);
+    r(0, 0, 16, 16, '#262a3e');
+    for (const [x, y] of [[0, 0], [8, 0], [0, 8], [8, 8]]) { const q = h(tx * 2 + x, ty * 2 + y, 3); r(x, y, 8, 8, q < 0.3 ? '#22263a' : q > 0.8 ? '#2a3044' : '#262a3e'); r(x, y, 8, 1, '#30364c'); r(x, y, 1, 8, '#2e3448'); }
+    if (k > 0.7) { r(3, 10, 6, 1, '#3a4258'); r(5, 11, 3, 1, '#343c52'); }
+  };
+  const coolant = (r, tx, ty, room) => {
+    r(0, 0, 16, 16, '#0a5a7a'); r(0, 0, 16, 2, 'rgba(0,0,0,.35)');
+    for (let i = 0; i < 3; i++) { const x = Math.floor(h(tx, ty, i) * 12), y = 3 + Math.floor(h(tx, ty, i + 5) * 11); r(x, y, 4, 1, '#3ad0ff'); }
+    if (room.at(tx, ty - 1) !== 'p') r(0, 0, 16, 2, '#c8d0e0');
+  };
+  // ---- tall blocks (walls, racks, glass): a cap raised by TALL, a face where the block is open to the south ----
+  const FAM = { '#': '#xSDGv', s: 's', i: 'ie', e: 'ie', x: '#xSDGv', S: '#xSDGv', v: '#xSDGv' };
+  const parts = (ch, tx, ty, room) => {
+    const fam = FAM[ch] || ch, F = (x, y) => fam.includes(room.at(x, y));
+    return { top: !F(tx, ty - 1), left: !F(tx - 1, ty), right: !F(tx + 1, ty), face: ty >= room.h - 1 || !F(tx, ty + 1) };
+  };
+  const block = (r, P, look) => {
+    if (P.face) look.face(r, 0, 16 - TALL, 16, TALL);
+    r(0, -TALL, 16, 16, look.cap);
+    if (look.capDetail) look.capDetail(r, 0, -TALL);
+    if (P.top) r(0, -TALL, 16, 1, look.hi);
+    if (P.left) r(0, -TALL, 1, 16, look.side);
+    if (P.right) r(15, -TALL, 1, 16, look.lo);
+  };
+  const wallLook = (tx, ty, extra) => ({
+    cap: '#3a4058', hi: '#6a7aa0', side: '#4a5270', lo: '#262a3a',
+    face: (r, x, y, w, hh) => {
+      r(x, y, w, hh, '#2a3048'); r(x, y, w, 1, '#1a1e2c');
+      r(x, y + 6, w, 1, '#38d0f0'); r(x, y + 7, w, 1, 'rgba(56,208,240,.35)'); // a cyan light strip
+      for (let k = 0; k < w; k += 8) r(x + k + ((tx * 3) % 8), y + 9, 1, hh - 10, '#222638'); // panel seams
+      r(x, y + hh - 2, w, 2, '#161a26');
+      if (extra) extra(r, x, y, w, hh);
+    },
+  });
+  const rackLook = (tx, ty) => ({
+    cap: '#1c1e28', hi: '#3a3e50', side: '#2a2e3c', lo: '#101218',
+    capDetail: (r, x, y) => { for (let k = 2; k < 14; k += 3) r(x + 2, y + k, 12, 1, '#2a2e3a'); },
+    face: (r, x, y, w, hh) => {
+      r(x, y, w, hh, '#14161e'); r(x, y, 1, hh, '#2a2e3c'); r(x + w - 1, y, 1, hh, '#0a0b10');
+      for (let k = 2; k < hh - 2; k += 3) { // drive bays with LEDs
+        r(x + 2, y + k, w - 4, 2, '#1e2230');
+        for (let j = 0; j < 3; j++) { const q = h(tx * 5 + j, ty * 3 + k); if (q > 0.35) r(x + 3 + j * 4 + Math.floor(q * 2), y + k, 1, 1, q > 0.85 ? '#ffd23a' : q > 0.6 ? '#3ad0ff' : '#38f0a0'); }
+      }
+      r(x, y + hh - 1, w, 1, '#0a0b10');
+    },
+  });
+  const glassLook = (cracked) => ({
+    cap: '#8aa0b8', hi: '#c8d8e8', side: '#6a8098', lo: '#4a5a70',
+    capDetail: (r, x, y) => r(x + 1, y + 6, 14, 4, 'rgba(160,220,255,.25)'),
+    face: (r, x, y, w, hh) => {
+      r(x, y, w, hh, 'rgba(120,200,240,.22)'); r(x, y, w, 1, '#c8d8e8'); r(x, y + hh - 2, w, 2, '#4a5a70');
+      r(x + 3, y + 3, 1, 6, 'rgba(255,255,255,.55)'); r(x + 4, y + 2, 1, 3, 'rgba(255,255,255,.4)'); // glints
+      if (cracked) { // cracks spidering out from a hole, a missing shard: a tell
+        const cx = x + 8, cy = y + 11;
+        r(cx - 2, cy - 1, 4, 3, '#14161e');
+        for (let k = 1; k < 7; k++) { r(cx + k, cy - Math.round(k * 0.6), 1, 1, '#ffffff'); r(cx - k, cy + Math.round(k * 0.4), 1, 1, '#e8f0ff'); r(cx + Math.round(k * 0.3), cy + k, 1, 1, '#ffffff'); }
+      }
+    },
+  });
+  const wallUp = (ch) => (r, tx, ty, room) => {
+    const P = parts(ch, tx, ty, room);
+    if (ch === 's') return block(r, P, rackLook(tx, ty));
+    if (ch === 'i' || ch === 'e') return block(r, P, glassLook(ch === 'e'));
+    let extra = null;
+    if (ch === 'x') extra = (r2, x, y, w, hh) => { for (let k = 0; k < 8; k++) r2(x + 4 + k, y + 10 + ((k * 3) % 5) - (k >> 1), 1, 1, '#0a0c14'); r2(x + 9, y + 14, 3, 2, '#0a0c14'); }; // cracks
+    if (ch === 'S') extra = (r2, x, y, w, hh) => { r2(x + 2, y + 9, w - 4, 1, '#4a5478'); r2(x + 2, y + hh - 4, w - 4, 1, '#4a5478'); r2(x + 2, y + 9, 1, hh - 12, '#4a5478'); r2(x + w - 3, y + 9, 1, hh - 12, '#4a5478'); }; // a panel seam (slightly brighter)
+    if (ch === 'v') extra = (r2, x, y, w, hh) => { r2(x + 3, y + hh - 9, 10, 7, '#0a0c14'); for (let k = 0; k < 4; k++) r2(x + 3, y + hh - 8 + k * 2, 10, 1, '#5a6278'); }; // a vent grate at the bottom
+    block(r, P, wallLook(tx, ty, extra));
+  };
+  const doorUp = (r, tx, ty, room) => { // a security door: a sliding steel door in a frame, the reader in its color
+    const [c, l] = G.CARD_COLORS[room ? G.cardColor(room, tx, ty) : 'red'];
+    r(0, -TALL, 16, 8, '#3a4058'); r(0, -TALL, 16, 1, '#6a7aa0');
+    r(0, -16, 16, 32, '#1a1e2c'); r(1, -15, 14, 30, '#5a6278'); r(7, -15, 2, 30, '#3a4058'); r(1, -15, 14, 1, '#8a92a8');
+    for (let k = -12; k < 14; k += 6) { r(2, k, 4, 2, '#ffd23a'); r(10, k + 3, 4, 2, '#ffd23a'); }
+    r(11, -10, 4, 3, c); r(12, -10, 2, 1, l);
+  };
+  const turnstileUp = (r) => { // a one-way turnstile: it turns only from the locked side
+    r(0, -10, 2, 26, '#5a6278'); r(14, -10, 2, 26, '#5a6278');
+    for (let k = 0; k < 3; k++) r(2, -4 + k * 5, 12, 2, '#8a92a8');
+    r(6, -14, 4, 4, '#1a1e2c'); r(7, -13, 2, 2, '#38f0a0');
+  };
+  const coolerUp = (r, tx, ty) => { // a cooling unit: a grey box, two fans
+    r(0, -6, 16, 20, '#14161e'); r(1, -5, 14, 18, '#6a7088'); r(1, -5, 14, 1, '#9aa0b8');
+    for (const cx of [5, 11]) { r(cx - 3, -1, 6, 6, '#2a2e3c'); r(cx - 2, 0, 4, 4, '#4a5068'); r(cx - ((tx + ty) & 1 ? 2 : 0), 1, 4, 1, '#8a92a8'); r(cx, -1, 1, 6, '#8a92a8'); }
+    r(1, 10, 14, 2, '#4a5068');
+  };
+  const upsUp = (r, tx, ty) => { // a low battery cabinet
+    r(0, 2, 16, 13, '#14161e'); r(1, 3, 14, 11, '#3a3e50'); r(1, 3, 14, 1, '#5a6070');
+    for (let k = 0; k < 4; k++) r(3 + k * 3, 6, 2, 5, k < 1 + Math.floor(h(tx, ty) * 3) ? '#38f0a0' : '#1a1e28');
+  };
+  const deskUp = (r, tx, ty, room) => { // a desk with a terminal (searched: the screen's dark)
+    const searched = room && room.searched && room.searched.has(ty * room.w + tx);
+    r(0, 2, 16, 10, '#2a2e3c'); r(0, 2, 16, 1, '#5a6070'); r(1, 12, 2, 4, '#1a1e28'); r(13, 12, 2, 4, '#1a1e28');
+    r(4, -7, 9, 8, '#14161e'); r(5, -6, 7, 6, searched ? '#1a1e28' : '#2a7aa8'); if (!searched) { r(6, -5, 3, 1, '#c8f0ff'); r(6, -3, 5, 1, '#7ad0f0'); }
+    r(7, 1, 3, 1, '#14161e'); r(3, 5, 9, 2, '#4a5068'); // stand, keyboard
+  };
+  const lockerUp = (r, tx, ty, room) => { // a tall steel locker (searched: its door hangs open)
+    const searched = room && room.searched && room.searched.has(ty * room.w + tx);
+    r(1, -14, 14, 29, '#14161e'); r(2, -13, 12, 27, '#5a6a8a'); r(2, -13, 12, 1, '#8a9ab8');
+    for (let k = 0; k < 3; k++) r(4, -10 + k * 2, 8, 1, '#3a4a68');
+    if (searched) { r(2, -13, 12, 27, '#0a0c14'); r(13, -12, 3, 26, '#6a7a98'); } else r(11, -2, 2, 3, '#c8c8d8');
+  };
+  const screenUp = (r, tx, ty) => { // the FEED on a big screen: pink and purple, a phone glyph
+    r(7, 6, 2, 9, '#2a2e3c'); r(4, 14, 8, 1, '#1a1e28');
+    r(0, -12, 16, 18, '#0a0c14'); r(1, -11, 14, 16, '#3a1450');
+    r(2, -10, 12, 3, '#ff5ab0'); r(3, -6, 4, 6, '#ff9ad0'); r(4, -5, 2, 4, '#3a1450'); r(9, -5, 4, 1, '#c8a0ff'); r(9, -3, 3, 1, '#c8a0ff'); r(9, -1, 4, 1, '#c8a0ff');
+  };
+  const lampUp = (r) => { r(7, -10, 2, 24, '#3a4058'); r(5, -14, 6, 4, '#14161e'); r(6, -13, 4, 2, '#7ff0ff'); r(5, 13, 6, 2, '#2a2e3c'); };
+  const junkUp = (r, tx, ty, room) => {
+    const searched = room && room.searched && room.searched.has(ty * room.w + tx);
+    for (let k = 0; k < 6; k++) { const x = 1 + Math.floor(h(tx, ty, k) * 11), y = 3 + Math.floor(h(tx, ty, k + 9) * 8); r(x, y, 4, 3, '#14161e'); r(x + 1, y + 1, 2, 1, k & 1 ? '#5a6278' : '#2a7aa8'); }
+    if (!searched) for (let k = 0; k < 10; k++) r(1 + k, 12 + ((k * 3) % 3), 1, 1, ['#ff3a5a', '#3ad0ff', '#ffd23a'][k % 3]); // a tangle of cables
+  };
+  const padUp = (r, tx, ty, room) => { // a jump pad: a glowing ring (the 2x1 piece draws from its left cell)
+    const a = G.pieceAnchor ? G.pieceAnchor(room, tx, ty) : [tx, ty], ox = (tx - a[0]) * 16;
+    r(2 - ox, 2, 28, 12, '#14161e'); r(3 - ox, 3, 26, 10, '#2a2e3c'); r(6 - ox, 5, 20, 6, '#38f0a0'); r(8 - ox, 6, 16, 4, '#1a1e28'); r(10 - ox, 7, 12, 2, '#7ff0c0');
+  };
+  const sandbagUp = (r, tx, ty, room) => {
+    const L = room && room.at(tx - 1, ty) === '(', R = room && room.at(tx + 1, ty) === '(';
+    const bag = (x, y, w) => { r(x, y, w, 5, '#4a3a20'); r(x + 1, y + 1, w - 2, 3, '#b8a070'); r(x + 1, y + 1, w - 2, 1, '#d8c490'); };
+    const x0 = L ? -1 : 1, x1 = R ? 17 : 15;
+    for (let x = x0; x < x1; x += 8) bag(x, 8, Math.min(8, x1 - x));
+    for (let x = x0 + 4; x < x1 - 2; x += 8) bag(x, 4, Math.min(8, x1 - 2 - x));
+  };
+  const barricadeUp = (r) => {
+    r(1, 6, 2, 10, '#3a2a1a'); r(13, 6, 2, 10, '#3a2a1a');
+    r(0, 5, 16, 5, '#2a1a10'); for (let x = 0; x < 16; x += 4) { r(x + 1, 6, 2, 3, '#ff7a20'); r(x + 3, 6, 2, 3, '#f0f0f0'); }
+  };
+  const shadow = (r, x, y, w, hh) => r(x, y, w, hh, 'rgba(4,2,16,.4)');
+
+  const SOLID = new Set([...'#siexSvDGcukmjl%()']);
+  const UP = {
+    '#': { rise: TALL, draw: wallUp('#') }, s: { rise: TALL, draw: wallUp('s') }, i: { rise: TALL, draw: wallUp('i') }, e: { rise: TALL, draw: wallUp('e') },
+    x: { rise: TALL, draw: wallUp('x') }, S: { rise: TALL, draw: wallUp('S') }, v: { rise: TALL, draw: wallUp('v') },
+    D: { rise: TALL, draw: doorUp }, G: { rise: 14, draw: turnstileUp }, c: { rise: 6, draw: coolerUp }, u: { rise: 0, draw: upsUp },
+    k: { rise: 7, draw: deskUp }, m: { rise: 14, draw: lockerUp }, j: { rise: 12, draw: screenUp }, l: { rise: 14, draw: lampUp }, '%': { rise: 0, draw: junkUp },
+    o: { rise: 0, draw: padUp }, '(': { rise: 10, draw: sandbagUp }, ')': { rise: 6, draw: barricadeUp },
+  };
+  const box = (ch) => {
+    switch (ch) {
+      case 'l': return [6, 11, 4, 5];
+      case 'c': return [0, 2, 16, 14];
+      case 'u': return [0, 4, 16, 12];
+      case 'k': return [0, 4, 16, 10];
+      case 'm': return [1, 6, 14, 10];
+      case 'j': return [3, 8, 10, 7];
+      case '%': return [0, 4, 16, 10];
+      case '(': return [0, 4, 16, 10];
+      case ')': return [0, 7, 16, 5];
+      case 'G': return [0, 6, 16, 10];
+      default: return null;
+    }
+  };
+  T.servers = {
+    label: 'SERVER FARM',
+    palette: [
+      ['.', 'RAISED FLOOR'], [',', 'FLOOR, CABLE RUN'], [':', 'HAZARD WALKWAY'], ['=', 'LOBBY FLOOR'], ['p', 'COOLANT (SWIM IN IT)'],
+      ['#', 'STEEL WALL (2 TALL)'], ['s', 'SERVER RACK (2 TALL)'], ['i', 'GLASS WALL (SEE AND SHOOT THROUGH)'], ['e', 'CRACKED GLASS (ROCKETS, A SODA BOMB OR THE MACHETE)'],
+      ['x', 'CRACKED WALL (ROCKETS OR A SODA BOMB)'], ['S', 'HOLLOW PANEL: SECRET (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['D', 'SECURITY DOOR (KEYCARD; CLICK ONE AGAIN: COLOR)'], ['G', 'TURNSTILE (OPENS ONLY FROM THE LOCKED SIDE)'],
+      ['c', 'COOLING UNIT'], ['u', 'UPS CABINET (LOW: SHOOT OVER)'], ['k', 'DESK (SEARCH IT)'], ['m', 'LOCKER (SEARCH IT)'], ['j', 'THE FEED ON A BIG SCREEN'], ['l', 'FLOOR LIGHT'], ['%', 'CABLES AND DEAD DRIVES (SEARCH IT)'],
+      ['o', 'JUMP PAD (2X1: ONE CLICK)'], ['(', 'SANDBAGS (LOW)'], [')', 'BARRICADE'],
+    ],
+    groups: [['GROUND', '.,:=p'], ['WALLS', '#sieSxvDG'], ['GET AROUND', 'o'], ['THINGS', 'cukmjl%()']],
+    border: '#', ground: '.', solid: SOLID, shots: new Set([...'#sexSvDGmj']),
+    water: new Set(['p']), bounce: new Set(['o']), stamps: { o: [2, 1] },
+    searchable: new Set(['k', 'm', '%']), searchLoot: { k: { teen: 0.04, empty: 0.3 }, m: { teen: 0.08, empty: 0.25 } },
+    // who works here: mostly night-shift techs, a delivery driver at the loading dock, a cat that got in somewhere
+    people: (R, tx, ty, pick) => (R.at(tx, ty) === '=' ? pick(['delivery', 'teacher', 'tech']) : pick(['tech', 'tech', 'tech', 'cat', 'driver'])),
+    road: new Set(), objects: new Set(), floors: new Set([...'.,:=']),
+    breakable: new Set(['e', 'x', 'S']), chop: new Set(['e', 'S']), patchy: new Set(['e']), rubble: { e: '.', x: ',', S: '.' }, secret: new Set(['S', 'x']), vent: new Set(['v']),
+    pass: { vent: new Set(['v']) }, secretWall: new Set(['S']), pound: new Set(['x']),
+    jumpBlock: new Set([...'#sixeSvDG']), pogoBlock: new Set([...'#sixeSvDGcmj']),
+    heights: { '#': TALL, s: TALL, i: TALL, e: TALL, x: TALL, S: TALL, v: TALL, D: TALL, G: 16, c: 14, u: 8, k: 8, m: 24, j: 16, l: 24, '%': 8, '(': 10, ')': 8 },
+    up: UP, box,
+    tile(r, ch, tx, ty, room) {
+      switch (ch) {
+        case ',': return cable(r, tx, ty);
+        case ':': return hazard(r, tx, ty, room);
+        case '=': return lobby(r, tx, ty);
+        case 'p': return coolant(r, tx, ty, room);
+        case '#': case 's': case 'x': case 'S': case 'v': case 'D': return lobby(r, tx, ty);
+        case 'i': case 'e': floor(r, tx, ty); return shadow(r, 0, 12, 16, 4);
+        default: floor(r, tx, ty);
+          if (SOLID.has(ch) && ch !== 'l') shadow(r, 0, 12, 16, 4);
+      }
+    },
+    // floor lights: cool pools of light; the FEED screens glow pink
+    post(x, room, x0, y0, x1, y1) {
+      x.save();
+      x.beginPath(); x.rect(x0 * 16, y0 * 16, (x1 - x0 + 1) * 16, (y1 - y0 + 1) * 16); x.clip();
+      x.globalCompositeOperation = 'lighter';
+      for (let ty = 0; ty < room.h; ty++) for (let tx = 0; tx < room.w; tx++) {
+        const ch = room.at(tx, ty);
+        if (ch !== 'l' && ch !== 'j') continue;
+        const cx = tx * 16 + 8, cy = ty * 16 + 12;
+        if (cx + 50 < x0 * 16 || cx - 50 > (x1 + 1) * 16 || cy + 40 < y0 * 16 || cy - 40 > (y1 + 1) * 16) continue;
+        for (const rad of ch === 'l' ? [40, 28, 16] : [26, 14]) {
+          x.fillStyle = ch === 'l' ? 'rgba(20,60,80,0.22)' : 'rgba(80,20,60,0.2)';
+          x.beginPath(); x.ellipse(cx, cy, rad, rad * 0.62, 0, 0, Math.PI * 2); x.fill();
+        }
+      }
+      x.restore();
+    },
+    mini(ch) {
+      if ('#xSv'.includes(ch)) return '#5a6280';
+      if (ch === 's') return '#14161e';
+      if (ch === 'i' || ch === 'e') return '#8ab8d8';
+      if (ch === 'p') return '#2a8ab0';
+      if (ch === 'D') return '#ff3a5a';
+      if (SOLID.has(ch)) return '#3a3e50';
+      return ch === ':' ? '#6a6450' : '#2a2e40';
+    },
+  };
+
+  // ---- /ROOT (the secret level): the same farm seen as the FEED's own source, green phosphor on black. Every color
+  // the farm draws goes through `green` (by brightness); the FEED's pink and the keycard colors stay as they are.
+  const KEEP = new Set(['#ff5ab0', '#ff9ad0', '#c8a0ff', '#3a1450']), cache = {};
+  const green = (c) => {
+    if (typeof c !== 'string' || KEEP.has(c)) return c;
+    if (cache[c]) return cache[c];
+    let r, g, b, a = null, m;
+    if ((m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c))) [r, g, b] = [m[1], m[2], m[3]].map((v) => parseInt(v, 16));
+    else if ((m = /^rgba?\(([^)]+)\)$/.exec(c))) { const p = m[1].split(',').map(Number); [r, g, b] = p; a = p[3]; }
+    else return (cache[c] = c);
+    const L = (0.3 * r + 0.59 * g + 0.11 * b) / 255, k = Math.pow(L, 1.25);
+    const out = [Math.round(k * 60), Math.round(Math.min(255, 8 + k * 280)), Math.round(12 + k * 90)];
+    return (cache[c] = a === null || a === undefined || isNaN(a) ? '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('') : `rgba(${out.join(',')},${a})`);
+  };
+  const Gr = (r) => (x, y, w, hh, col) => r(x, y, w, hh, green(col));
+  const S0 = T.servers, upG = {};
+  for (const [ch, u] of Object.entries(S0.up)) upG[ch] = { ...u, draw: (r, ...a) => u.draw(ch === 'D' ? r : Gr(r), ...a) }; // a door keeps its card color
+  T.root = {
+    ...S0, label: '/ROOT (THE SOURCE)', up: upG,
+    tile(r, ch, tx, ty, room) { // the farm's floor, plus a faint line of code here and there
+      S0.tile(Gr(r), ch, tx, ty, room);
+      if (ch === '.' && G.hash(tx * 3 + 1, ty * 5 + 2) > 0.55) for (let k = 0, x = 2; k < 5 && x < 14; k++) { const w = 1 + Math.floor(G.hash(tx + k, ty * 7) * 3); r(x, 6, w, 1, '#1e6a38'); x += w + 1; }
+    },
+    post(x, room, x0, y0, x1, y1) { // floor lights: green pools
+      x.save(); x.beginPath(); x.rect(x0 * 16, y0 * 16, (x1 - x0 + 1) * 16, (y1 - y0 + 1) * 16); x.clip(); x.globalCompositeOperation = 'lighter';
+      for (let ty = 0; ty < room.h; ty++) for (let tx = 0; tx < room.w; tx++) {
+        const ch = room.at(tx, ty);
+        if (ch !== 'l' && ch !== 'j') continue;
+        const cx = tx * 16 + 8, cy = ty * 16 + 12;
+        if (cx + 50 < x0 * 16 || cx - 50 > (x1 + 1) * 16 || cy + 40 < y0 * 16 || cy - 40 > (y1 + 1) * 16) continue;
+        for (const rad of ch === 'l' ? [40, 28, 16] : [26, 14]) { x.fillStyle = ch === 'l' ? 'rgba(10,70,30,0.22)' : 'rgba(80,20,60,0.2)'; x.beginPath(); x.ellipse(cx, cy, rad, rad * 0.62, 0, 0, Math.PI * 2); x.fill(); }
+      }
+      x.restore();
+    },
+    mini: (ch) => (ch === 'D' ? S0.mini(ch) : green(S0.mini(ch))),
+  };
 })();
 </script>
 <script>
@@ -4508,7 +4875,7 @@ body.mouseaim #screen { cursor: none; }
         "J..N.~YY~..h........0....l..........hfffff.::==-=cc::m....g..w.:::::::Z::::::::::.KKKKOOKKKKK..J",
         "J.....~~~..h................hhhhhhh.h....h.::======::........w.:cc::cc::::::cc:Z:.dddd..dddd...J",
         "J..........h................I..7..I.h....hl::==-===::.h.JJJ.Jw.:cc::cc::::::cc:::..........wwwwJ",
-        "J.t...........ffffffff..h...I....tI.h....h.::======::.htJ....w.::::::::::::::::::..........v.A.J",
+        "J.t...........ffffffff..h...I.+..tI.h....h.::======::.htJ....w.::::::::::::::::::..........v.A.J",
         "J.........*...f......f..h.Z.IIIVIII........::==-===::.h.J.1..w.::::::::::::::::::......N...w...J",
         "J.............f......f..h.............Z....::======::.h.J....w.:cc::::::cc::cc:::..........wwwwJ",
         "Jhhhhhhh......f....Z.f..h.....*..............::::::.....JJJJJwZ:cc::::::cc::cc:::g.............J",
@@ -4595,6 +4962,460 @@ body.mouseaim #screen { cursor: none; }
       kinds: { "92,2": "dog", "71,14": "jacks", "37,16": "knocked", "38,20": "mower", "2,23": "knocked", "56,25": "busted", "83,26": "teacher", "23,27": "baby", "3,29": "stretch", "44,29": "left/red/wreck/shut", "86,32": "left/green/sedan/open", "72,41": "left/blue/wreck/open", "3,44": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "65,58": "dog", "17,59": "gnome" },
       floors: { "3,2": ".", "14,3": ".", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "20,40": ".", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "10,48": ".", "30,50": ".", "68,61": ".", "88,61": "." },
     },
+    "galleria": {
+      name: "GALLERIA MALL", theme: "suburb",
+      rows: [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "w:::::::::::::Z::::::::::::::w.....................J......w...........................lw",
+        "w:l:::::::::::::w:::::::::B::w.......h............hJ...9N.w.N.........t................w",
+        "w::::N::::::::::w::::::::N:::w.......h..hhh.t.hhh.hJ......w...t.................t......w",
+        "w???????????::::w???{????????w...t...h.........Z..hJJSJJJJw.......................Z....w",
+        "w???????g???::::w????????????e.......h............h.......w.........Z..................w",
+        "w??g????????::::?%???????????e...Z...h...a..8..a..h.......w............................w",
+        "w???????????::::????????g????w.JJJJJJJ............JJJJJJJ.w............................w",
+        "w???uuuuuuuu:::Z??Z??????????w....Z...t..........t........w...WWWWWWWWWWWWWWWWW........w",
+        "w?????????%?::Q:?????????????w.........::::::::::.........w...WkknnnWnnnnnnnnjW........w",
+        "w??g????????::::?uuuuuuuuuu??w.........::::::::::.........w...Wn+nnnWnsnnsnnsnW........w",
+        "w???????????::::?????????????w.YY......::pppppp::.........w...WnnnnnWnsnnsnnsNW........w",
+        "wwvww?{Zw???::::??????????g??w.YY......::pppppp::....lZ...w...WnnnnnWnsnnsnnsnW........w",
+        "ww:Aw???w???::::??????%??????w.........::pp:ppp::.........w...Wnnnnn^nnnnnNnnnW........w",
+        "wwwww?g?w???::::?????????????w....l....::ppp:pp::.........w...WnnnnnWnsnBnnnsnW........w",
+        "w:::::::w:::::::::(((((::::::wm........::pppppp::......YY.w...WnnnUnWnsnnnnnsnW........w",
+        "w:::::::w::::::::::g:::::::l:wJJJJ.....::pppppp::......YY.w...WnnnnnWnsnqqnns[W........w",
+        "w::::::::::::::::::::::::::::wJ..J.....::::::::::.........w...WnnnnnWnnnnnnnnnW........w",
+        "w:::::::::::::::::::?????Z???wJ4.J.....:::::::::Z.........w...KKKKKKKKKKKKOOKKK........w",
+        "w:WWWWWWWWWWWWWWOOWW?????????wJ..J....t..........t........w......Z.....................w",
+        "w:WkkkkkknnWnkknnn[W????g????wJJ.J......hhh...hhh.........w.....................Zh.....w",
+        "w:WnnnnnnnnWnnnnnnnW???????%?w.JJJJJJJ.....l......JJJJJJJ.w............t.........h..t..w",
+        "w:WnannnnannnnnnannW?????????w.......h..Z.........h.......w......................h.....w",
+        "w:WnnnnnnnnWnnnnnNnW???{?????w.......h...a.....a..h.......w.....hhhhhh...........h.....w",
+        "w:WnnnnBnnnnnnnnnnnW?????????w...t...h.....t......h...t...wZ......g.....N........h..t..w",
+        "w:WnannnnannnnnnannW??????g??w.N.....h............h.......w...t...............g..h.....w",
+        "w:WjnnnnnnnnnnnnnnsW?????????w.......h.....g......h.......w........l..uuuu.............w",
+        "w:KKKKKKKKKKKOOKKKKK?????????w............................w............................w",
+        "wwwwwwwwwwwww::wwwwwwwwwwwwwwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwxxwwwwwwwwwww",
+        "w::::::::::::::::::::::::::::h:::::::::::::::::::::::::::::::::wwwwwwwwwww::::wwwwwwwwww",
+        "wg::::::::::::::::::::::Z::g:h:::::::::::::::::::::::::::::::::wwwwwwwwwww::::wwwwwwwwww",
+        "wZ:ccc:ccc:ccc:cccccc:ccc::::h:hhhhhh::::::::::::::hhhhhh::::::wwwwwwwwwww:::Zwwwwwwwwww",
+        "w::ccc:ccc:ccc:cccccc:ccc::::h:hhhhhh:::::::::Z::::hhhhhh:wwwDwwwwwwwwwwww::::wwwwwwwwww",
+        "w:::::::::::::::::::::::0::::h:hhhhhh::::::::::::::hhhhhh:w::::::::::Z:::::::::::::::::w",
+        "w:l::::::::Z:l::::::::::::l::h::::::::::::::::::::::::::::w:l:::::::::::::::::::::::::lw",
+        "w::::::::::::::Z:::::::::::::h:::::JJ:J:::::::::::::::::N:w::::::::::::::::::::::::::::w",
+        "w::ccc:ccc:cccccc:ccc:ccc::::h:Z:::J::J:::::g:::::::::::::w???????????:::::????????????w",
+        "w::ccc:ccc:cccccc:ccc:ccc::::::::::J1:J:::::::::::::::::::w?g?????????:::::?????????g??w",
+        "w:::::::::::::::::::::::::::::::l::JJJJ:::::::::Z::::::l::w?????Z?{???:::::????????N???w",
+        "w:::N:::::::::::g:::::::::::::::::::::::::::::::::::::::::w???????????:::::????????????w",
+        "w::::::::::::::::::::::::::::::g::::::Z:::::::::::::::::g:w?uuuuuuuuu?:::::?uuuuuuuuuu?w",
+        "w:hhhthh::hhhhhhhthh::hhhthh:::::::::::hhhh::hhhh:::::::::w???????????::::Z????????????w",
+        "w::::::::::::::::::::::Z:::::::::::::::ht......th:::::::::w??cc??cc???:::::???cc???????w",
+        "w::::::::::::::::::::::::::::::::::::::h.pppppp.h:::::::::w??cc??cc???:::::???cc???????w",
+        "w::::::::g::::::::::3::::::::::::::::::h.pppppp.h::::::::Zw??cc??cc???:::::?(((((??????w",
+        "w:l::::::::::l::::::::::::l::::N::::l::h.pppppp.h::l::::::w?????))????::l::????????????w",
+        "w::::::::::::::::::::::::::::::::::::::ht......th:::::::::w???????????:::::??????????%Zw",
+        "wZ:ccc:ccc:ccc:cccccc:ccc:::::::::::%::hhhh::hhhh::%::::::w?????????g?:::::?????{??????w",
+        "w::ccc:ccc:ccc:cccccc:ccc:::::::::::::::::::::::::::::::::w??{????????:::::????????????w",
+        "w:::::::Z::::::::::::Z:::::g:::::::a:::::uuuuuu:::::a:::::w???????????:::::??????Z?????w",
+        "w((((((((((::m:::::::::::::::h:::::::hhh::::::::hhh:::::::w?uuuuuuuuu?:::::?uuuuuuuuuu?w",
+        "w=========(::::::::::::::::::h:::::::hhh:::P::::hhh:::::::w???????????:::::?(??????????w",
+        "w==={=====(:::))))):::::::{::h:hhhh::::::::::::::::::hhhh:w???????????::6::?(Z????cc???w",
+        "w=========)::::::::::::::::::h:hhhh::::::::::::::::::hhhh:w?????%???Z?:::::?(?????cc???w",
+        "w=-=-=-=-=):{::::::fffffff:::h::::::::a::::::::::a::::::::w?////??????:::::?(???//////?w",
+        "w=========(::::::::f::9::f:::h:::::::::::::::::::::::Z::::w???????????::l::?(??????????w",
+        "w======{==(::::::::foo:::fN::h::::lZ:::::::::::::::::l::::w???g???????:::::?(g?????????w",
+        "w=========(:{::::::fffffff:::h:::::::g::::::E:::::g:::::::w???????B???:::::?????????N??w",
+        "w:::::::Z::::::::Z:::::::::::h::::::::::::::::::::::::::::w??N????????:::::????????????w",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      ],
+      over: [
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "..............................................................RRRRRRRRRRRRRRRRR.........",
+        "...............................LL.............................RRRRRRRRRRRRRRRRR.........",
+        "...............................LL.......................................................",
+        "..RRRRRRRRRRRRRRRRRR...........LL.......................................................",
+        "..RRRRRRRRRRRRRRRRRR............L.......................................................",
+        "..RRRRRRRRRRRRRRRRRR....................................................................",
+        "..RRRRRRRRRRRRRRRRRR....................................................................",
+        "..RRRRRRRRRRRRRRRRRR....................................................................",
+        "..RRRRRRRRRRRRRRRRRR....................................................................",
+        "..RRRRRRRRRRRRRRRRRR....................................................................",
+        "..RRRRRRRRRRRRRRRRRR....................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        ".....................................L..................................................",
+        "....................................LL..................................................",
+        "....................................LL..................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+        "........................................................................................",
+      ],
+      kinds: { "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
+    },
+    "mansion": {
+      name: "FOUNDER'S MANSION", theme: "suburb",
+      rows: [
+        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+        "J+ZJ........J.....Z........J..w:g::::::::::::::::Z::::::l::.:::::::::::::::::::::::::::::J",
+        "J.9J........J..............J..w:::::::::::::::::::::t::::::.:::::::::::::::::::::::::::::J",
+        "JSSJJJJJJJ..J..J..JJJJJJJJJJ..w:::t::::::::::::::::::::::::.::g:::::::::::::::WWWWWWWWWWZJ",
+        "J..J.....J..J..J..............w::::Z::::::::::::g::::::::::.::::::::::::::::::WddddddddW:J",
+        "J..J.....J..J..J..............w::::::::::::::::::::::::::::.::::::::::::::::::WdddddBddW:J",
+        "J..J..J..J..J..JJJJJJJJJJ..J..w..WWWWWOOWWWWWWWWWWWWWWWWW..w:::::::::::Z::::::WdNddddddW:J",
+        "J..J........J..J..J......N.J..w..WkknnnnWnnnnjnnnnWnqqnnW..w:::Z::::::::::::::WddddddddW:J",
+        "J..J........J..J..J........J..w..WnnnnnnWnnnnQnnnnWnnnnnW..w:::l::::::::::::l:KKKOOKKKKK:J",
+        "J..J..J..J..J..J..J..JJJJ..J..w..WnnnnnnWyyyyyyyyyWnnBnzW..w::::pppppppppppp:::::::::::::J",
+        "J..J..J...Z......ZJ........J..w..WWW^WWWnnnnnnnnnnWnnnnnW..w::::pppppppppppp:::::h:::::::J",
+        "J..J..J...........J........J..w..WnnnnnnWnnnnnnnNnnnnnnnW..w::::pppppppppppp::t::h:::t:::J",
+        "J..J..JJJJ....8...JJJJ..J..J..w..WnUnn%nWnsnnnnsnnWnnnNnW..w::::pppppppppppp:::t:h:::::::J",
+        "J..J..J......l....J..J..J..J..w..Wnnnnn[WnnnnnnnnnWsnnnnW..w::::pppppppppppp:::::h:::::::J",
+        "J..J..J...........J..J..J..J..w..HHHHHHHHHHHOOHHHHHHHHHHH..w::::ppppppppppppZ::::::::N:::J",
+        "J.ZJ..JJJJ..0.....J..J..J..J..w.............::.............w::::pppppppppppp::oo::::a::::J",
+        "J..J.................J..J..J..wZ......Z...l.::.l...........w:t::pppppppppppp:::::::::::::J",
+        "J..J.................J..J..J..w...YY........::........YY...w::::pppppppppppp:::::::::::::J",
+        "J..JJJJJJJ..JJJJJJJ..J..J..J..w...YY........::........YY...w:::l::::::::::::lhhhhhhhhhhhhJ",
+        "J........J..J.....J..JN.J..J..w.............::...........g.w::::::::::::::::::Z::::::::::J",
+        "J........J..J.....J..J..J..J..w.............::.............w::h::a::a::a::::::::::::h:g::J",
+        "J..JJJJ..JJJJ..J..J..J..J..J..w.hhhhhhhhhhhh::hhhhhhhhhhhh.wZ:h:::::::::::::::::::::h::::J",
+        "J.....JN.J.....J........J..J..w.............::.Z...........w::h:::::::::::::hhhhh:::h:9::J",
+        "J.....J..J.....J........J..J..w........t....::....t........w::h::::::::::::::::::6::h::::J",
+        "JJJJ..J..J..JJJJJJJJJJ..J..J..w....N........::.............w::h:::::::::::g:::::::::h:t::J",
+        "J.....J.....J..ZB.......J..J..w.....hhhhhh..::..hhhhhh.....w::h::::::::::::::a::::ooh::::J",
+        "J.....J.....J...........J..J..w.g...........::.............w::h:hhhhhhhhh::::::::::::::t:J",
+        "JJJJJJJJJJJJJ..JJJJJJJJJJ..J..w...........lZ::.l...........w::h::::::::::::::::t::::N::::J",
+        "J.............................w..t..........::..........t.Zw::h:::::::Z::::::::::::::::::J",
+        "J.Z.........................Z.w.............::.............w::h::::::::::::::::::::::::::J",
+        "JJJJJJJJJJJJJJeeJJJJJJJJJJJGGJJJJJJJJJJJJJJJDJJJJJJJJJJJJJJJGGJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+        "J.............................J.........................::::::w..........................J",
+        "J.l...............Z.........l.J.........................::::::w..........................J",
+        "J..hh.hh..hh.hh..hh.hh..hh.hh.J..l.hhhhhh.......hhhhhh..::::::w..........................J",
+        "J..hdddh..hdddh..hdddh..hdddh.J..............g.............wwww..........................J",
+        "J..hdddh..Ndddh..hdddh..hdddh.J............................w:::::::::::::::::::::Z::::::ZJ",
+        "J..hh.hh..hh.hh..hh.hh..hh.hh.J.........::t::::t::.........w::l::::::::::::::::::::::::l:J",
+        "J.............................J.......l:==========Zl.......w:::uuuuuuuuuuuuuuuuuuuuuu::::J",
+        "J.Z.......................g...J....Z.hh============hh......w:::u:ccc::u::ccc::u::Z::u::::J",
+        "J..hh.hh..hh.hh..hh.hh..hh.hh.J....::hh============hh::....w:::u:ccc::u::ccc::u::%::u::::J",
+        "J..hdddh..hdddYY.hdddh..hdddh.J...cc======......======:....w:::u::::::u:::::::u:B:::u::::J",
+        "J..hdddh..hdddYY.hdddh.Zhdddh.J...cc====..........=====:.g.w:::u:Z::::u:::::::u:::::u::::J",
+        "J..hh.hh..hh.hhZ.hh.hh..hh.hh.J...cc===..t......t..====:...w:::uuu::uuuuuu::uuuuu::uu::::J",
+        "J.............................J..:=====...pppppp...=====:..w:::::::::::::Z:::::::::::::::J",
+        "J..........g.......X..........J..:====....pppppp....====:..x:g:::::::::::::::::::::::::::J",
+        "J..hh.hh..hh.hh..hh.hh..hh.hh.J..:====....pppppp....====:..x::::::::::::::::::::::::::N::J",
+        "J..hgddh..hdddh..hdddYY.hdddh....:====....pppppp....====:..w:::::::::::::::::ccc:::::::::J",
+        "J..hdddh..hdddh..hdddYY.hdddh....:=====...pppppp...==cc=:..w::::::::::l::::::ccc:::::::::J",
+        "J..hh.hh..hh.hh..hh.hh..hh.hh.....:====..t......t..==cc:...w::::WWWWWWWWW::::::::::::::::J",
+        "J............Z............N...J...:=====..........===cc:Z..w::::WqqnnkknW::::::::::::::g:J",
+        "J.fffff......l................J.g..:====t=......======:....w::::WnNynnnzW::::::::::::::::J",
+        "J.f,,,fh..hh.hh..hh.hh..hh.hh.J...JJ.J==========l====::....w::::WnnnnnnnW:::N::::::::::::J",
+        "J.f,9ZfYY.hdddh..hdddh.JJJJJh.J...J.mJ======P=======:......w::::HHHOOHHHH:::::::::::wvww:J",
+        "J.f,,,fYY.hdddh..hdddh.JhddJh.J...J..J::=========WWWWWWW...w:::::::::::::::uuuuuuu::w..w:J",
+        "J.f,,,fh..hh.hh..hh.hh.Jhh..h.J..ZJ1.J..:::::::::Wjnnn[W...w::::::::::::::::::::::::wZAw:J",
+        "J.foo,f................J4..J..J...JJJJ...........WnnBnnW...w::::::::::::::::::ccc:::wwww:J",
+        "J.fffff................JJJJJ..J......ghhhh.......KNOOKKK...w:N::::::::::::::::ccc::::::::J",
+        "J.l..............N..........l.J..l..........E...........l..w:::::::::::::g::::::9::l:::::J",
+        "J.........................Z...J............................w::::::::::Z::::::::::::::::::J",
+        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+      ],
+      over: [
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..............................................................................RRRRRRRRRR..",
+        "..............................................................................RRRRRRRRRR..",
+        "..............................................................................RRRRRRRRRR..",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.....................RRRRRRRRRR..",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.....................RRRRRRRRRR..",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.................................",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.................................",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.................................",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.................................",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.................................",
+        ".................................RRRRRRRRRRRRRRRRRRRRRRRR.................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "................................................................RRRRRRRRR.................",
+        "................................................................RRRRRRRRR.................",
+        "................................................................RRRRRRRRR.................",
+        "....................................L...........................RRRRRRRRR.................",
+        "...................................LL.....................................................",
+        "........................LLL........LL............RRRRRRR..................................",
+        "........................LLLL.......LL............RRRRRRR..................................",
+        "........................LLL......................RRRRRRR..................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+        "..........................................................................................",
+      ],
+      kinds: { "14,12": "blue", "44,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "78,55": "left//burnt/shut" },
+    },
+    "serverfarm": {
+      name: "SERVER FARM", theme: "servers",
+      rows: [
+        "##########################################################################################",
+        "#........Z.........Z..........#............................#::::::::Z:::::::::::::::#::::#",
+        "#....j...j...j...j...j...j....#.B........................B.#::B:::::::::::::::::::::#9:+:#",
+        "#.B...........................#.....c..........m...........#::::::::::::::::::::::::#::::#",
+        "#:::::::::::::::::::::::::::::#............................#::l:::::::::::::::::l:::##SS##",
+        "#.............................#sssssssssssssssssssssss....s#:::::::::::::::::::::::::::::#",
+        "#..kkkkk..kkkk...kkkk..kkkkk..#..Z.........................#::::::pppppppppppp::::::c::::#",
+        "#.............................#..%........c................#::::::pppppppppppp::::Z:c::::#",
+        "#.............N.............l.#.................Z.........Z#::::::pppppppppppp::::::c::::#",
+        "#.............................#ssssssss...sssssssssssssssss#::::::pppppppppppp::::::c::::#",
+        "#..kkkkk..kkkk...kkkk..kkkkk..#............................x::::::pppppppppppp::::::c::::#",
+        "#.............................#m........N.......c..........x::::::pppppppppppp::::::c::::#",
+        "#.l...........................#............................#::::::pppppppppppp::::::c::::#",
+        "#......Z.............Z........#s...ssssssssssssssss...sssss#:::::::Z:::::::::::::::::::::#",
+        "#..kkkkk..kkkk...kkkk..kkkkk..#.................Z..........#::l::::::::::::::::%:::::::::#",
+        "#%............................#.....c.............6.......l#::::::::::::::::::::::::::N::#",
+        "#.............................#............................#:::Z:::::::::::::::::::::::::#",
+        "#.............s...............#ssssssssssss...sssssssssssss#:::cccccccc:::cccccccc:::::::#",
+        "#.iiiiiiii....s.....iii..iii..#....Z.......................#:::::::::::::::::::::::::::::#",
+        "#.i......i....s.....i......i..#...0...........l........N...#:::::::::::::::::::::::::::::#",
+        "#Zi.Q..k.i.c..s..c..i.....mi..#............................#:m:::::::::::::::::Z::8::::::#",
+        "#.i......i....s.....i...8..i..#s...ssssssssssssssssssss...s#::::::::::N::::::::::::::::::#",
+        "#.im.....i....s.....ik.....i..#........Z...................#:::::::::::::::::::::::::::::#",
+        "#.i......i....s.....i......i..#.......c...........c.......m#::::uuuuuu::::::uuuuuuuu:::::#",
+        "#.iii..iii..........iiiiiiii..#............................#:::::::::::::::::::::::::::::#",
+        "#..........::::::::...........#ssssssssssss....ssssssssssss#:::::::::::::::::::::::::::::#",
+        "#..........(((::(((.........Z.#.............::....Z.uuuuuu.#::::::::::::::::::::::Z:::l::#",
+        "#.....N....::::::::.........%.#l.......%....::......u...Uu.#:::::::::::l:::::::::::::::::#",
+        "#..........::::Z:::...........#......Z......::......uoo..u.#::::%:::::::::::::::::::::::m#",
+        "#.............................#.............::......uuuuuu.#:::::::Z:::::::::::::::::::::#",
+        "####v#########ee############################D#############################D###############",
+        "#.............................#=============::=============#..............::.............#",
+        "#.B...........c.....%.........#=====j===j===::===j===j=====#l.............::............l#",
+        "#.............................#==l==========::==========l==#...Z..........::.............#",
+        "#ssssssssssssssssssssssss...ss#=============::=============#..............::.............#",
+        "#..Z..........................#=============::=============#...ccc..ccc...::..Zccc..ccc..#",
+        "#.....c..,..N.....,........,m.#=========N===::=============#...ccc..ccc...::...ccc..ccc..#",
+        "#.............................#=============::====Z========#...ccc..ccc........ccc..ccc..#",
+        "#s...ssssssssss..sssssssssssss#===)((((((===::===(((((()===#..........N..........Z%......#",
+        "#............................Z#=============::=============#.............................#",
+        "#l...,...3....,.....Zc.,......#=============::=============#..uuuu..uuuuu....uuuu..uuuuu.#",
+        "#.............................#======i======::======i======#.............................#",
+        "#ssssssssssssssssssssss....sss#======i======::======i======#..............s..............#",
+        "#.............................#======i======:Z======i======#..............s......Z.......#",
+        "#m......c.,........,........,.==m====i======::======i======#.B.ccc..ccc...s....ccc..ccc..#",
+        "#.....,,,,,,,,,,,,,,,,,,,,,,,.=======i======::======i====m=#Z..ccc..ccc...s....ccc..ccc..#",
+        "#........Z..........c......%..==============::=============#...ccc.Zccc........ccc..ccc.m#",
+        "#.............................#==========kkk==kkk==========#...........l..s..............#",
+        "#s...ssssssssssss..sssssssssss#============================#..............s..............#",
+        "#.............................#==l======================l==#......(((((((.s..))))))).....#",
+        "#...,.......c,........N......l#=========c=======c==========#...........Z..s..............#",
+        "#...Z.........................#Z=====================N=====#...................c....N(...#",
+        "#sssssssssssssssssssssss....ss#=============P==========%===#..........%...............l..#",
+        "#.............................#=iiiii======================#.................:::::::::::.#",
+        "#........,......c.,........,B.#=====i==uuu=====uuu=========##GG##............============#",
+        "#..............Z..............#=====i==l==========l========#====#............=========c==#",
+        "#sssssss...sssssssssssssssssss#=u===i=======================Z===#............=m==uuu=====#",
+        "#.4..x....m...................#===1=i=======E===================#.l..........==========B=#",
+        "#..9.x........l...............#=====i======================#====#............==Z=========#",
+        "##########################################################################################",
+      ],
+      kinds: { "82,20": "blue", "74,30": "blue" },
+    },
+    "core": {
+      name: "THE CORE", theme: "servers",
+      rows: [
+        "############################################################################################",
+        "#.Z...........................#====i===j===========j=========#....j.....j.....j.....j.....B#",
+        "#B.s.m.s...s.m.s...s.m.s...s..#=1==i=========E===============#...............Z.............#",
+        "#..s...s...s...s...s...s...s..#====i=========================#l............................#",
+        "#..s...s...s...s...s...s...s..#Z===i==l===u=====u====l=======#Z...........................l#",
+        "#..s...s...s...s...s...s...s..#====i=========================#..kkkkkk..kkkk....kkkkkk.....#",
+        "#..s...s.N.s...s...s...s...s..#===ui====================c====#..........................i..#",
+        "#..s...s...s...s...s...s...s..#====i=========P===============#........N.........Z.......iZ.#",
+        "#..s...s...s...s...sZ..s...s..#=ssss=====c=======c===========#..........................i..#",
+        "#l.s...s...s...s...s...s...s.m#==============================#m.kkkkkk..kkkk....kkkkkk..i..#",
+        "#..s...s...s...s...s...s...s..#===c=========================m#..........................i..#",
+        "#..s...s...s...s...s...s...s..#========)((((====(((()========#..........................i..#",
+        "#:::::::::::::::::::::::::::::#==============================#..........................i..#",
+        "#:::::::::::::3::Z::::::::::::#==l========================l=Z#..kkkkkk..kkkk....kkkkkk..i..#",
+        "#:::::::::::::::::::::::::::::e==============================#..........................i..#",
+        "#:::::::Z:::::::::::::::::::::e==========N======u============#........................N.i..#",
+        "#........s...s...s...s...s....#===kkk==================kkk===#.......Z..................i..#",
+        "#........s...s...s...s...s....#Z=============================#..kkkkkk..kkkk....kkkkkk..i..#",
+        "#........s...s...s...s...s....#m======i==============i=======#..........................i..#",
+        "#........s...s...s...s...s....#=======i==========Z===i=======#.............................#",
+        "#........s...s.l.s...s.N.s...%#=======i======cc======i=======#%...............s............#",
+        "#........s...s...s...s...s....#==u====i=====::::=====i=====%=#......kkklk.....s..8.........#",
+        "#ii.iii..s...s...s...s...s....#=======i=====::::=====i===N===#................s.Z..c......m#",
+        "#.....i..s...s...s...s...s....#=======i=====::::=====i=======#................s..........Z.#",
+        "#.....i..s...s...s...s...s....#==========c==::Z:=============#................s.....l......#",
+        "#.Q...i..s...s...s...s...s....#==ssss=======::::=======ssss==##GG##...c....::.s............#",
+        "#.....i..s...s...s...s...s....#==ssss=======::::=======ssss==#====#........::.s.......c....#",
+        "#...k.i..s...s...s...s...s....#==========l==::::==l==========#====#......c.::.s............#",
+        "#m....i..........Z.........l..#=============::::==c==============Z#...m....::.s.......%....#",
+        "#.....i....%................B.#=======Z===c=::::==================#........::..............#",
+        "#.........................Z...#=============::::============Z#====#........::..............#",
+        "###############D############################::::############################D###############",
+        "#...Z.........:::.............#..............................#.............::..............#",
+        "#m............:::.............#...............l............B.#.B...........::.......Z.....l#",
+        "#.............:::............l#..............................#.......Z.....::..............#",
+        "#..iiii...iiii...iiii...iiii..#.........c..........c.........#...ccc...ccc.::...ccc...ccc..#",
+        "#..ippi...ippi...ippi...ippi..#..N...........................#...ccc...ccc.::...ccc...ccc..#",
+        "#..ippi...ippi...ippi...ippi..#..............................#...ccc...ccc.::...ccc...ccc..#",
+        "#..iiii...iiii...iiii...iiii..#...................Z..........#l............::..............#",
+        "#.............................#.....l..................l.....#........%....::..............#",
+        "#.......N.....................#......pppppppppppppppppp......#.............::............N.#",
+        "#l............................#......pppppppppppppppppp...N..#:::::::::::::................#",
+        "#...................Z........m#.uuuu.pppppppppppppppppp......#...............s.............#",
+        "#..iiii...iiii...iiii...iiii..#......ppp::::::::::::ppp......#...............sZ.8..........#",
+        "#..ippi...ippi...ippi...ippi..#.....Zppp::::::::::::ppp.uuuu.#m.....6........s.............#",
+        "#..ippi...ippi...ippi...ippi..#m.....ppp::ssssssss::ppp......#...............s.............#",
+        "#..iiii...iiii...iiii...iiii..#......ppp::ssssssss::ppp......#..uuuuuuu......s..uuuu.uuuu..#",
+        "#..Z..................l.......#..c...ppp::ssssssss::ppp......x...............s......Z......#",
+        "#.............................#......ppp::ssssssss::ppp......x.Z.............s.............#",
+        "#..............N..............#....%.ppp::ssssssss::ppp......#............................m#",
+        "#............................%#......ppp:::j::::jZ::ppp...c..#....ccc...ccc....ccc.........#",
+        "#..iiii...iiii...iiii...iiii..#......ppp:::::U::::::ppp......#....ccc...ccc....ccc.........#",
+        "#..ippi...ippi...ippi...ippi.Z#......ppp::::::::::::ppp......#....ccc...ccc....cccuuuuuu...#",
+        "#..ippi...ippi...ippi...ippi..#......pppppppppppppppppp.....m#....................u..59u...#",
+        "#..iiii.Z.iiii...iiii...iiii..#......pppppppppppppppppp......#............l.......uoo..u...#",
+        "#.............................#......pppppppppppppppppp......#....................uuuuuu...#",
+        "#.......%.....................#.....l.................Zl.....#..........Z..........Z.......#",
+        "#.....................N.......#.......Z......................#..(((((((.........)))))).....#",
+        "##SS#..........l..............#...X.....................iieei#.............................#",
+        "#...#.........................#..........c........c.....i....#..N..................%.......#",
+        "#...#.........................#...............N.........i....#.............................#",
+        "#+..#.......................B.#.....................%...i.4..#.....l......m.............0..#",
+        "#..9#.......m..Z.............Z#.........................i...9#............................B#",
+        "############################################################################################",
+      ],
+      kinds: { "81,21": "blue", "15,31": "blue" },
+    },
+    "root": {
+      name: "/ROOT", theme: "root",
+      rows: [
+        "########################################################################",
+        "#::Z::::::::::::::::::::#...j....j....j....j...#.............Z.........#",
+        "#:B::::::::::::::::::::m#m....................B#.......................#",
+        "#:::::::::::N:::::::::::#............Z.........#m.c........l...........#",
+        "#:::::::::::::::::::::::#......................#.....................N.#",
+        "#::ccc::::ccc::::ccc::::#..kkkkk..kkkk..kkkkk..#....Z..................#",
+        "#::ccc::::ccc::::cccZ:::#......................#....ppppppppppppppp....#",
+        "#:::::::::::::::::::::::#......................#....ppppppppppppppp....#",
+        "#:::::::::::::::::::::::#.Z.................N..#....ppppppppppppppp....#",
+        "#:::::::::::U::::::9::::#......................#....ppppppppppppppp....#",
+        "#::::::Z::::::::::::::::#..kkkkk..kkkk..kkkkk..#....ppppl:::::lpppp....#",
+        "#:::::::::::::::::::::::#......................#....pppp::::::Zpppp....#",
+        "#::ccc::::ccc::::ccc::::#.....................m#l...pppp::U:9::pppp...l#",
+        "#::ccc::::ccc::::ccc::::#l.....................#....pppp:::::::pppp.Z..#",
+        "#l::::::::::::::::::::::#......................#....pppp:::7:::pppp....#",
+        "#:::::::::::::::::::::::#..kkkkk..kkkk..kkkkk..#....pppp:9:::::pppp....#",
+        "#::::9::::::::::::::::::#......................#....ppppl:::::lpppp....#",
+        "#:::::::::::::::::::::::#....................Z.#....ppppppppppppppp....#",
+        "#:::::::::::::::::::::::#...Z..........Z.......#....ppppppppppppppp....#",
+        "#::ccc::::ccc::::ccc::::#iiiiiii........s......#....ppppppppppppppp....#",
+        "#::ccc::::ccc:Z::ccc::::#i.....i........s.....l#....ppppppppppppppp....#",
+        "#:::::::::::::::::::::::#i.Q..mi........s......#..........Z............#",
+        "#::::::::::::::::::::::l#i.....i....8...s......#......................m#",
+        "#Z::::::::::7:::::::::::#i.....i........s......#....((((((....))))))..Z#",
+        "#:::::::::::::::::::::::#iii..ii........s......#..N.................c..#",
+        "#::::::Z::::::::::::::::#........N......s......#................c......#",
+        "#m::::::l:::::::::::::::#...............s...m..#.......m.............BZ#",
+        "#:::::::::::::::::::::::#.................Z....#............Z..........#",
+        "###########SS######################D########################D###########",
+        "#...........Z...........#=========:::==========#.......................#",
+        "#.....................B.#=l=j=====:::======j=l=#.......................#",
+        "#......................Z#=========:::==========#..iiiiii.iiiiii.iiiiii.#",
+        "#sssssssss...sssssssssss#=========:::==========#..i....i.i....i.i....i.#",
+        "#.......................#=========::Z==========#..i.N..i.i..k.i.i....i.#",
+        "#....N..................#=========:::=========m#..i....i.i....i.i.N..i.#",
+        "#......................Z#==(((((==:::==(((((===#..i....i.i....i.i....i.#",
+        "#s...sssssssssssss...sss#======================#..ii..ii.ii..ii.ii..ii.#",
+        "#.......................#m==================N==#...........:::.........#",
+        "#..........%............#==========Z===========#l::::::::::::::::::::::#",
+        "#...................%...#=====c==========c=====#::::::::::::::uuu::::::#",
+        "#.....%.................=======================e:::::::::::::::::::::::#",
+        "#l..........3c..........===========l===========e::::c:::Z::::::::::::::#",
+        "#.Z............Z........=======================#:::Z:::::::8:::Z::c::::#",
+        "#......c........%.......#==N===================#:::::::::::::::::::::Z:#",
+        "#..%....................#======uuu====uuu======#:::::::uuu:::::::::::::#",
+        "#.......................#======================#::::::::::::::::::::::l#",
+        "#sssssss...sssssssss...s#======================#.......................#",
+        "#.......................#=====c==========c=====#Z.ii..ii.ii..ii.ii..ii.#",
+        "#......Z.%Z............l#==========P===========#..i....i.i....i.i....i.#",
+        "#.......................#======================#..i....i.i....i.i....i.#",
+        "#sssssssssss...sssssssss#%===============iiiii=#..i..k.i.i.N..i.i....i.#",
+        "#....x..................#=======c====uu==i=====#..i....i.i....i.i.N..i.#",
+        "#....x............%.....#=Z==============i=====#..iiiiii.iiiiii.iiiiii.#",
+        "#.9..x...........N......#=l========E=====i=1=l=#...Z...................#",
+        "#..4.x..................#================i=====#......................B#",
+        "########################################################################",
+      ],
+      kinds: { "36,22": "blue", "60,28": "blue" },
+    },
   };
 })();
 </script>
@@ -4656,6 +5477,11 @@ body.mouseaim #screen { cursor: none; }
   };
   window.G.ENEMY_SPAWN = {
     culdesac: { cap: 10, every: [80, 150], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
+    mansion: { cap: 11, every: [75, 140], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
+    root: { cap: 12, every: [70, 130], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
+    core: { cap: 13, every: [65, 120], near: [40, 140], rest: 170, hunt: 320, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
+    serverfarm: { cap: 12, every: [70, 130], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
+    galleria: { cap: 11, every: [75, 140], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
   };
 })();
 </script>
@@ -4680,6 +5506,12 @@ body.mouseaim #screen { cursor: none; }
     map: G.MAPS.range.rows, kinds: G.MAPS.range.kinds, floors: G.MAPS.range.floors,
   };
 
+  // Data disks: one hidden in each of the first five levels (the '+' marker, behind a secret). Find all five and the
+  // secret level opens (G.SECRET_LEVEL): after Level 5, and in the level select. Saved per device (G.save.data.disks).
+  G.DISK_LEVELS = () => G.LEVELS.slice(0, 5).map((l) => l.id);
+  G.disksFound = () => G.DISK_LEVELS().filter((id) => (G.save.data.disks || {})[id]).length;
+  G.secretUnlocked = () => G.disksFound() >= G.DISK_LEVELS().length;
+
   G.LEVELS = [
     {
       id: 'culdesac', num: 1, name: 'CUL-DE-SAC', time: [23, 58], theme: G.MAPS.culdesac.theme,
@@ -4697,7 +5529,79 @@ body.mouseaim #screen { cursor: none; }
       ],
       map: G.MAPS.culdesac.rows, over: G.MAPS.culdesac.over, kinds: G.MAPS.culdesac.kinds, floors: G.MAPS.culdesac.floors, // kinds: per-cell variants; floors: the floor under each object
     },
+    {
+      id: 'galleria', num: 2, name: 'GALLERIA MALL', time: [1, 12], theme: G.MAPS.galleria.theme,
+      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the alley's far corner, the food court, the
+      // department store, the loading dock.
+      packages: ['quarter', 'i:pie', 'w:soda', 'i:coffee'],
+      enemies: G.ENEMY_SPAWN.galleria,
+      briefing: [
+        ['1:12 AM. THE FEED IS LIVE AND THE', 'GALLERIA IS FULL OF TEENS WHO CAME', 'FOR THE WIFI AND NEVER LEFT.'],
+        ['DELIVERY DRONES ARE STILL RUNNING', 'THEIR ROUTES. WATCH THE SKY, AND', 'WATCH WHAT COLOR THE BOX IS.'],
+        ['THE LOADING DOCKS NEED A KEYCARD.', 'MALL SECURITY LEFT ONE IN THE', 'GARDEN COURT, PAST THE ALLEY.'],
+        ['GET EVERYONE OUT. THE TIME DOOR', 'OPENS IN THE PLAZA. GO!'],
+      ],
+      map: G.MAPS.galleria.rows, over: G.MAPS.galleria.over, kinds: G.MAPS.galleria.kinds, floors: G.MAPS.galleria.floors,
+    },
+    {
+      id: 'mansion', num: 3, name: "FOUNDER'S MANSION", time: [2, 20], theme: G.MAPS.mansion.theme,
+      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the greenhouse, the mansion, the maze, the
+      // garage, the gatehouse.
+      packages: ['i:pie', 'w:soda', 'i:coffee', 'quarter', 'i:pie'],
+      enemies: G.ENEMY_SPAWN.mansion,
+      briefing: [
+        ["2:20 AM. THE FEED'S FOUNDER LIVES", 'UP HERE. HIS ESTATE HAS ROBOT DOGS,', 'A HEDGE MAZE AND A PANIC ROOM.'],
+        ['THE DOGS BARK FOR BACKUP. SHUT THEM', 'UP BEFORE THE WHOLE LAWN COMES.', 'THEY WILL CHASE A BALL, THOUGH.'],
+        ['THE BLUE KEYCARD TO THE MANSION IS', 'IN THE MIDDLE OF THE MAZE. THE', 'GARDENER LEFT A MACHETE OUT.'],
+        ['SAVE THE STAFF AND THE GUESTS.', 'THE TIME DOOR IS ON THE DRIVE. GO!'],
+      ],
+      map: G.MAPS.mansion.rows, over: G.MAPS.mansion.over, kinds: G.MAPS.mansion.kinds, floors: G.MAPS.mansion.floors,
+    },
+    {
+      id: 'serverfarm', num: 4, name: 'SERVER FARM', time: [3, 1], theme: G.MAPS.serverfarm.theme,
+      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the NOC, the stacks (2), the cooling plant,
+      // the cold aisle (2), the power room (2).
+      packages: ['i:coffee', 'w:soda', 'i:pie', 'quarter', 'i:pie', 'w:plates', 'i:coffee', 'i:pie'],
+      enemies: G.ENEMY_SPAWN.serverfarm,
+      briefing: [
+        ['3:01 AM. THIS IS WHERE THE FEED', 'LIVES: TEN THOUSAND SERVERS UNDER', 'A HILL, HUMMING ALL NIGHT.'],
+        ['THE NIGHT SHIFT IS TRAPPED INSIDE.', 'SECURITY BOTS, MOPS, DRONES... AND', 'SOMETHING WEARING YOUR FACE.'],
+        ['ROCKETS ARE IN THE COLD AISLE. THE', 'GLASS INTO THE CONTROL ROOM IS', 'CRACKED. THE KEYCARDS DO THE REST.'],
+        ['GET THE TECHS OUT. THE TIME DOOR', 'IS IN THE LOBBY. GO!'],
+      ],
+      map: G.MAPS.serverfarm.rows, over: G.MAPS.serverfarm.over, kinds: G.MAPS.serverfarm.kinds, floors: G.MAPS.serverfarm.floors,
+    },
+    {
+      id: 'core', num: 5, name: 'THE CORE', time: [3, 33], theme: G.MAPS.core.theme,
+      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the training floor, the archive (2), the
+      // core, the substation, the clone vats, the substation.
+      packages: ['i:pie', 'i:coffee', 'w:soda', 'quarter', 'i:pie', 'w:plates', 'i:coffee'],
+      enemies: G.ENEMY_SPAWN.core,
+      briefing: [
+        ['3:33 AM. THE BOTTOM OF THE HILL.', 'THE CORE: WHERE THE FEED THINKS.', 'IT KNOWS YOU ARE COMING.'],
+        ['IT HAS BEEN COPYING YOU ALL NIGHT.', 'THE CLONES GET BETTER AT BEING YOU', 'EVERY TIME YOU MISS.'],
+        ['A MACHETE BY THE MOAT, ROCKETS IN', 'THE ARCHIVE. THE KEYCARDS ARE IN', 'THE SUBSTATION AND THE TRAINING ROOM.'],
+        ['THE TIME DOOR IS BY THE ELEVATOR.', 'BRING EVERYONE UP. GO!'],
+      ],
+      map: G.MAPS.core.rows, over: G.MAPS.core.over, kinds: G.MAPS.core.kinds, floors: G.MAPS.core.floors,
+    },
   ];
+
+  // The secret level: opened by finding all five data disks (G.secretUnlocked); comes after Level 5, and is in the
+  // level select. It has no disk of its own.
+  G.SECRET_LEVEL = {
+    id: 'root', num: 'X', secret: true, name: '/ROOT', time: [4, 4], theme: G.MAPS.root.theme,
+    // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: /bin, /etc, /dev, /tmp, /home.
+    packages: ['quarter', 'i:pie', 'quarter', 'w:soda', 'i:coffee'],
+    enemies: G.ENEMY_SPAWN.root,
+    briefing: [
+      ['4:04 AM. TIME NOT FOUND.', 'FIVE DISKS, FIVE BACKUPS... AND A', 'WAY INTO THE FEED ITSELF.'],
+      ['THIS IS ITS SOURCE. EVERY FOLDER', 'IS A ROOM. EVERY USER IT EVER', 'KEPT IS STORED IN /HOME.'],
+      ['THE CLONES LIVE HERE. THEY ARE', 'FAST, AND THEY HAVE YOUR MOVES.', 'SOMETHING GOOD IS IN /DEV/NULL.'],
+      ['LOG THEM ALL OUT. THE TIME DOOR', 'IS AT /. GO!'],
+    ],
+    map: G.MAPS.root.rows, over: G.MAPS.root.over, kinds: G.MAPS.root.kinds, floors: G.MAPS.root.floors,
+  };
 })();
 </script>
 <script>
@@ -4708,7 +5612,7 @@ body.mouseaim #screen { cursor: none; }
   const G = window.G;
 
   // ===== Room =====
-  G.PICKUP_CHARS = { A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
+  G.PICKUP_CHARS = { '+': 'disk', A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
   const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', '$', ...Object.keys(G.PICKUP_CHARS)]); // &: a lawn mower (mower.js), $: a spawn button (practice.js)
 
   class Room {
@@ -4797,9 +5701,10 @@ body.mouseaim #screen { cursor: none; }
       if (!m || !this.theme.searchable) return null;
       const x = e.x + (dx / m) * reach, y = e.y + (dy / m) * reach, l = x - e.hw, r = x + e.hw, t = y - e.hh, b = y;
       for (let ty = Math.floor(t / 16); ty <= Math.floor((b - 0.01) / 16); ty++) for (let tx = Math.floor(l / 16); tx <= Math.floor((r - 0.01) / 16); tx++) {
-        if (!this.theme.searchable.has(this.at(tx, ty)) || this.searched.has(ty * this.w + tx) || G.cellKind(this, tx, ty) === 'knocked') continue; // a knocked-over can is empty
+        const key = this.theme.searchable.has(this.at(tx, ty)) ? [tx, ty] : this.theme.searchCell ? this.theme.searchCell(this, tx, ty) : null; // (a car's trunk: its car's key cell)
+        if (!key || this.searched.has(key[1] * this.w + key[0]) || G.cellKind(this, key[0], key[1]) === 'knocked') continue; // a knocked-over can is empty
         const rs = this.solidRects(tx, ty, null);
-        if (rs && rs.some((R) => l < R[0] + R[2] && r > R[0] && t < R[1] + R[3] && b > R[1])) return { tx, ty };
+        if (rs && rs.some((R) => l < R[0] + R[2] && r > R[0] && t < R[1] + R[3] && b > R[1])) return { tx: key[0], ty: key[1] };
       }
       return null;
     }
@@ -5306,6 +6211,7 @@ body.mouseaim #screen { cursor: none; }
         if (best) { [dx, dy] = best; aimDist = bd; }
       }
       const before = st.shots.length, perk = G.perkOf(this);
+      G.scareCritters(st, this.x, this.y, 70); // shooting scatters the birds
       const charged = perk === 'charged' && this.perkReady(); // held fire long enough: this trigger pull's darts kill
       const used = def.fire(this, st, dx, dy, w, aimDist); // melee weapons return whether the swing connected
       if (def.returns && used === false) { this.fireCd = 4; return; } // Lou's skillets are all out: wait for one to come back
@@ -5687,9 +6593,24 @@ body.mouseaim #screen { cursor: none; }
   // kind: 'up' | 'w:<weapon>' | 'i:<item>' | 'burger' | 'key' (keycard; 'key:blue'...) | 'hkey' (house key) | 'quarter' | 'pda'
   // o.color: a keycard's color, from the map (G.cardColor)
   // o.respawn: comes back after 10s (test room). o.pop: pops out of a package / zombie with a little arc.
+  // o.needed: a pickup the level can't be beaten without (a breaker: rockets, a soda bomb, the machete, a bat): once
+  // taken it waits (hidden), and comes back if nobody has one any more while what it breaks still stands (G.stillNeeded).
+  // The pickups that break a level's locks, and what each breaks (theme sets). A level needs one while any of those
+  // tiles still stands; G.stillNeeded is also false while any living player already carries one.
+  const BREAKERS = (T) => ({ 'w:rockets': T.breakable, 'i:bomb': new Set([...(T.breakable || []), ...(T.bombable || []), ...(T.melee || [])]), 'w:machete': T.chop, 'w:bat': T.melee });
+  G.isBreaker = (theme, kind) => !!BREAKERS(theme)[kind];
+  G.stillNeeded = (st, kind) => {
+    const [type, id] = kind.split(':'), set = BREAKERS(st.room.theme)[kind];
+    if (!set || !set.size) return false;
+    if (st.players.some((p) => !p.dead && (type === 'w' ? p.weapons.some((w) => w.id === id && w.ammo > 0) : p.items.some((i) => i.id === id && i.n > 0)))) return false;
+    if (st.pickups.some((k) => k.kind === kind && !k.waiting && !k.gone && !k.taken)) return false; // one's lying about already
+    const R = st.room;
+    for (let i = 0; i < R.grid.length; i++) if (set.has(R.grid[i])) return true;
+    return false;
+  };
   class Pickup {
     constructor(kind, x, y, o = {}) {
-      Object.assign(this, { kind, x, y, t: G.fx.randi(0, 99), /* bob phase: looks only */ gone: 0, taken: false, respawn: !!o.respawn, z: 0, vz: 0, vx: 0, vy: 0, age: 0 });
+      Object.assign(this, { kind, x, y, t: G.fx.randi(0, 99), /* bob phase: looks only */ gone: 0, taken: false, respawn: !!o.respawn, needed: !!o.needed, waiting: false, waitN: 0, z: 0, vz: 0, vx: 0, vy: 0, age: 0 });
       if (o.pop) { this.z = 6; this.vz = 2.4; this.vx = G.rand(-0.6, 0.6); this.vy = G.rand(0.2, 0.6); }
       const [type, id] = kind.split(':');
       if (type === 'key') this.color = G.CARD_COLORS[id] ? id : o.color || 'red'; // a keycard: 'key' (its color from the map) or 'key:blue'
@@ -5707,6 +6628,15 @@ body.mouseaim #screen { cursor: none; }
         return;
       }
       if (this.gone > 0) { if (--this.gone === 0) { st.burst(this.x, this.y, 8, ['#ffffff', '#ffd23a'], 0.8, 8, 16); G.sfx.play('poof'); } return; }
+      if (this.waiting) { // a needed breaker, taken: back once nobody has one and something it breaks still stands (checked each second)
+        if (st.t % 60 !== 0) return;
+        if (!G.stillNeeded(st, this.kind)) { this.waitN = 0; return; }
+        if (++this.waitN < 3) return;
+        this.waiting = false; this.waitN = 0; this.age = 0;
+        st.burst(this.x, this.y - 6, 12, ['#ffffff', '#ffd23a', '#38f0a0'], 1.2, 8, 20); G.sfx.play('poof');
+        st.floater(this.x, this.y - 26, 'BACK AGAIN', '#ffd23a');
+        return;
+      }
       if (this.age < 15) return;
       for (const p of st.players) {
         if (!p.dead && Math.abs(p.x - this.x) < 10 && Math.abs(p.y - this.y) < 9) {
@@ -5716,7 +6646,7 @@ body.mouseaim #screen { cursor: none; }
             continue;
           }
           this.apply(p, st);
-          if (this.respawn) this.gone = 600; else this.taken = true;
+          if (this.respawn) this.gone = 600; else if (this.needed) this.waiting = true; else this.taken = true;
           break;
         }
       }
@@ -5725,6 +6655,16 @@ body.mouseaim #screen { cursor: none; }
       const [type, id] = this.kind.split(':');
       const say = (text, col) => st.floater(this.x, this.y - 24, text, col);
       let sound = 'pickup';
+      if (this.kind === 'disk') { // a data disk: one hidden in each of levels 1-5; all five unlock the secret level (saved on this device)
+        const D = G.save.data.disks = G.save.data.disks || {}, had = D[st.def.id];
+        D[st.def.id] = true; G.save.write();
+        const n = G.DISK_LEVELS().filter((id) => D[id]).length;
+        say(had ? 'DISK ALREADY BACKED UP' : 'DATA DISK ' + n + '/' + G.DISK_LEVELS().length, '#7ff0ff');
+        if (!had && n === G.DISK_LEVELS().length) st.floater(this.x, this.y - 36, 'SECRET LEVEL UNLOCKED!', '#ffd23a');
+        st.addScore(had ? 100 : 1000); st.burst(this.x, this.y - 8, 24, ['#7ff0ff', '#38f0a0', '#ffffff'], 1.6, 10, 30);
+        G.sfx.play('secret');
+        return;
+      }
       if (this.kind === 'ammo') { // a box of ammo for your signature weapon: as big a share of it as a dart box is of darts
         const sig = p.weapons[0], def = G.WEAPONS[sig.id];
         const add = def.returns || def.keeps ? 0 : Math.min(Math.round((G.PICKUP_STATS.ammo.amount * def.ammo) / G.WEAPONS.darts.ammo), def.max - sig.ammo);
@@ -5760,7 +6700,7 @@ body.mouseaim #screen { cursor: none; }
       G.sfx.play(sound);
     }
     draw(ctx, v) {
-      if (this.gone) return;
+      if (this.gone || this.waiting) return;
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
       const bob = this.z > 0 ? 0 : Math.round(Math.sin(this.t / 10) * 1.5);
       drawShadow(ctx, sx, sy, 4);
@@ -5860,6 +6800,8 @@ body.mouseaim #screen { cursor: none; }
       extra: (u) => { u(5, 8, 4, 1, '#5a5a6a'); } },                                               // polo collar
     delivery: { skin: '#d8a070', hair: '#2a1a10', shirt: '#7a4a1e', pants: '#4a3018', shoes: '#1a1a20',
       extra: (u) => { u(3, 0, 8, 2, '#3a2410'); u(2, 1, 3, 1, '#2a1808'); u(5, 8, 4, 1, '#ffd23a'); } }, // dark cap, gold badge
+    tech: { skin: '#8d5a3b', hair: '#1a1010', shirt: '#3a4a6a', pants: '#2a2a38', shoes: '#e8e8f0',
+      extra: (u) => { u(3, 1, 8, 1, '#1a1a20'); u(2, 3, 2, 3, '#1a1a20'); u(3, 6, 2, 1, '#38f0a0'); u(5, 8, 4, 2, '#e8e8f0'); } }, // headset with a mic, lanyard badge
     swimmer: { skin: '#f2c29a', hair: '#d8b040', shirt: '#38f0a0', pants: '#38f0a0', shoes: '#38f0a0',
       extra: (u) => { u(4, 3, 6, 1, '#ff5ab0'); u(5, 3, 1, 1, '#ffd0ea'); } },                      // pink shades
   };
@@ -5925,6 +6867,13 @@ body.mouseaim #screen { cursor: none; }
       return {
         idle: [0, 1].map((k) => P(18, (r) => person(r, LOOK.delivery, { arms: 'fwd', dx: 2, dy: k ? 0 : 0, hold: box, lean: k }))),
         panic: [0, 1].map((k) => P(18, (r) => person(r, LOOK.delivery, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 2 }))),
+      };
+    },
+    tech: () => { // a night-shift tech: typing on a laptop, then looking up at the racks
+      const lap = (lit) => [[3, 9, 8, 1, '#5a6278'], [4, 6, 6, 3, '#14161e'], [5, 7, 4, 1, lit ? '#3ad0ff' : '#2a7aa8']];
+      return {
+        idle: [P(18, (r) => person(r, LOOK.tech, { arms: 'fwd', dx: 2, hold: lap(false) })), P(18, (r) => person(r, LOOK.tech, { arms: 'fwd', dx: 2, hold: lap(true) }))],
+        panic: [0, 1].map((k) => P(18, (r) => person(r, LOOK.tech, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 2 }))),
       };
     },
     gnome: () => { // grandma kneeling by her garden gnome, patting it
@@ -6030,6 +6979,7 @@ body.mouseaim #screen { cursor: none; }
     driver: { name: 'DRIVER', score: 150, anim: (n) => ((n.t % 260) < 90 ? 1 : 0) },
     delivery: { name: 'DELIVERY DRIVER', score: 150, anim: cycle(50) },
     gnome: { name: 'GRANDMA & GNOME', score: 150, anim: cycle(25) },
+    tech: { name: 'NIGHT-SHIFT TECH', score: 200, say: 'IT WAS THE UPDATE!', anim: cycle(36) },
   };
   G.NEIGHBOR_KIND_ORDER = Object.keys(G.NEIGHBOR_KINDS);
 
@@ -6041,6 +6991,7 @@ body.mouseaim #screen { cursor: none; }
     if (set && G.NEIGHBOR_KINDS[set]) return set;
     const T = R.theme, ch = R.at(tx, ty), near = (f) => [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]].some(([dx, dy]) => f(R.at(tx + dx, ty + dy)));
     const pick = (list) => list[Math.floor(G.hash(tx * 7 + 3, ty * 13 + 5) * list.length)];
+    if (T.people) return T.people(R, tx, ty, pick); // a theme with its own crowd (the server farm)
     if (T.water && T.water.has(ch)) return 'swan';
     if ((T.interior && T.interior.has(ch)) || R.overAt(tx, ty) === 'R') return 'cat';
     if (near((c) => c === 'c')) return 'driver';
@@ -7524,6 +8475,210 @@ body.mouseaim #screen { cursor: none; }
 })();
 </script>
 <script>
+/* AFK APOCALYPSE — life in the world (looks only: G.fx, never G.rng; nothing here is sent online, each screen runs
+   its own). Smoke: wrecked and burnt-out cars smoke from the engine, burning oil drums smoke and throw embers.
+   Critters: birds peck about on the ground and squirrels hop around and sit up; they keep to themselves, and when a
+   player comes close (or something goes bang) they scatter: birds fly off and land somewhere quieter, squirrels
+   bolt, up the nearest tree if there's one. Nobody can hit them and they get in nobody's way.
+   Stage hooks: G.initLife(st) when the stage is built, G.updateLife(st) every tick (Stage.updateLooks), the critters
+   go in the depth sort, G.drawSmoke after it; G.scareCritters(st, x, y, r) from shots and blasts. */
+(function () {
+  'use strict';
+  const G = window.G, R = () => G.fx;
+
+  // ===== Smoke =====
+  const SMOKE_MAX = 260;
+  // Emitters, from the map: a wrecked or burnt car's engine, a burning drum. Rebuilt now and then (the editor can add some).
+  function findEmitters(st) {
+    const room = st.room, out = [], seen = new Set();
+    for (let ty = 0; ty < room.h; ty++) for (let tx = 0; tx < room.w; tx++) {
+      const ch = room.at(tx, ty);
+      if (ch === '{') { out.push({ x: tx * 16 + 8, y: ty * 16 + 12, z: 14, kind: 'barrel' }); continue; }
+      if (ch !== 'c' || !G.carAt) continue;
+      const { box: b, props: p } = G.carAt(room, tx, ty), k = b.y0 * room.w + b.x0;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (p.style !== 'wreck' && p.style !== 'burnt') continue;
+      const X = b.x0 * 16, Y = b.y0 * 16, side = b.w >= b.h;
+      const ex = side ? (p.facing === 'left' ? X + 12 : X + b.w - 12) : X + b.w / 2, ey = side ? Y + b.h - 6 : p.facing === 'down' ? Y + b.h - 4 : Y + 10;
+      out.push({ x: ex, y: ey, z: 16, kind: p.style });
+    }
+    return out;
+  }
+  function puff(st, e) {
+    if (st.smoke.length >= SMOKE_MAX) return;
+    const f = R(), dark = e.kind === 'burnt' || e.kind === 'barrel';
+    st.smoke.push({ x: e.x + f.rand(-3, 3), y: e.y, z: e.z + f.rand(0, 3), vx: f.rand(-0.1, 0.15), vz: f.rand(0.25, 0.45), r: f.rand(1, 2.2), life: 0, max: f.randi(70, 130),
+      col: dark ? (f.chance(0.5) ? '#2a2830' : '#3a3640') : f.chance(0.5) ? '#8a8a98' : '#a8a8b4', a: dark ? 0.45 : 0.32 });
+  }
+  function ember(st, e) {
+    if (st.smoke.length >= SMOKE_MAX) return;
+    const f = R();
+    st.smoke.push({ x: e.x + f.rand(-3, 3), y: e.y, z: e.z, vx: f.rand(-0.3, 0.3), vz: f.rand(0.6, 1.1), r: 0, life: 0, max: f.randi(20, 40), col: f.chance(0.5) ? '#ffd23a' : '#ff7a20', a: 1, ember: true });
+  }
+  G.drawSmoke = (ctx, st, v) => {
+    for (const s of st.smoke || []) {
+      const k = s.life / s.max, x = Math.round(s.x - v.x), y = Math.round(s.y - v.y - s.z);
+      if (s.ember) { ctx.globalAlpha = 1 - k; ctx.fillStyle = s.col; ctx.fillRect(x, y, 1, 1); continue; }
+      const r = Math.round(s.r);
+      ctx.globalAlpha = s.a * (1 - k) * Math.min(1, s.life / 6);
+      ctx.fillStyle = s.col;
+      ctx.fillRect(x - r, y - r + 1, r * 2 + 1, Math.max(1, r * 2 - 1)); ctx.fillRect(x - r + 1, y - r, Math.max(1, r * 2 - 1), r * 2 + 1); // a soft round puff
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  // ===== Critters =====
+  const GROUND = new Set([...'.,:~r?']); // where they like to be (outdoors)
+  const outdoorCell = (room, tx, ty) => GROUND.has(room.at(tx, ty)) && !(room.overAt && room.overAt(tx, ty) === 'R');
+  const free = (room, x, y) => x > 8 && y > 8 && x < room.pw - 8 && y < room.ph - 4 && !room.boxHits(x, y, 2, 2) && outdoorCell(room, Math.floor(x / 16), Math.floor((y - 2) / 16));
+  class Critter {
+    constructor(kind, x, y) {
+      Object.assign(this, { kind, x, y, z: 0, state: 'idle', t: R().randi(30, 200), face: R().chance(0.5) ? 1 : -1, tx: x, ty: y, anim: R().randi(0, 60), hidden: 0, tree: null, crow: R().chance(0.35) });
+    }
+    get sortY() { return this.z > 4 ? this.y + 400 : this.y; } // up in the air: in front of everything
+    scare(st, fx, fy) {
+      if (this.hidden > 0) return;
+      const f = R(), room = st.room;
+      if (this.kind === 'bird') {
+        if (this.state === 'fly') return;
+        this.state = 'fly'; this.t = f.randi(50, 110);
+        const a = Math.atan2(this.y - fy, this.x - fx) + f.rand(-0.6, 0.6);
+        this.vx = Math.cos(a) * f.rand(1.4, 2); this.vy = Math.sin(a) * f.rand(1, 1.5); this.face = this.vx < 0 ? -1 : 1;
+        if (f.chance(0.3)) G.sfx.play('rustle');
+        return;
+      }
+      if (this.state === 'bolt') return;
+      this.state = 'bolt'; this.t = f.randi(40, 70);
+      const tree = st.life.trees.reduce((best, tr) => { const d = Math.hypot(tr.x - this.x, tr.y - this.y); return d < 90 && (!best || d < best.d) && Math.hypot(tr.x - fx, tr.y - fy) > 20 ? { ...tr, d } : best; }, null);
+      if (tree) { this.tree = tree; this.tx = tree.x; this.ty = tree.y; }
+      else { const a = Math.atan2(this.y - fy, this.x - fx); this.tree = null; this.tx = G.clamp(this.x + Math.cos(a) * 70, 10, room.pw - 10); this.ty = G.clamp(this.y + Math.sin(a) * 50, 12, room.ph - 6); }
+    }
+    update(st) {
+      const f = R(), room = st.room;
+      this.anim++;
+      if (this.hidden > 0) { if (--this.hidden === 0) { this.state = 'idle'; this.t = f.randi(60, 160); } return; } // up a tree
+      // anyone close? (a player; for a bird, any enemy too)
+      for (const p of st.players) if (!p.dead && Math.hypot(p.x - this.x, (p.y - this.y) * 1.2) < (this.kind === 'bird' ? 46 : 38)) { this.scare(st, p.x, p.y); break; }
+      if (this.kind === 'bird') return this.updateBird(st, f, room);
+      // squirrel
+      if (this.state === 'bolt' || this.state === 'hop') {
+        const sp = this.state === 'bolt' ? 2.2 : 0.9, dx = this.tx - this.x, dy = this.ty - this.y, d = Math.hypot(dx, dy);
+        if (d < 2 || --this.t <= 0) {
+          if (this.state === 'bolt' && this.tree && d < 6) { this.hidden = f.randi(300, 700); this.x = this.tree.x + f.rand(-6, 6); this.y = this.tree.y + 2; this.z = 0; return; } // up the tree
+          this.state = 'idle'; this.t = f.randi(60, 220); this.z = 0; return;
+        }
+        const nx = this.x + (dx / d) * sp, ny = this.y + (dy / d) * sp * 0.8;
+        if (!room.boxHits(nx, ny, 2, 2)) { this.x = nx; this.y = ny; } else { this.t = 0; }
+        this.face = dx < 0 ? -1 : 1; this.z = Math.abs(Math.sin(this.anim / (this.state === 'bolt' ? 2.5 : 4))) * 3;
+        return;
+      }
+      if (--this.t > 0) return;
+      for (let k = 0; k < 6; k++) { // hop somewhere close by
+        const x = this.x + f.rand(-40, 40), y = this.y + f.rand(-30, 30);
+        if (free(room, x, y)) { this.state = 'hop'; this.tx = x; this.ty = y; this.t = 90; return; }
+      }
+      this.t = f.randi(60, 200);
+    }
+    updateBird(st, f, room) {
+      if (this.state === 'fly') {
+        this.x = G.clamp(this.x + this.vx, 6, room.pw - 6); this.y = G.clamp(this.y + this.vy * 0.6, 8, room.ph - 4);
+        if (this.t > 0) { this.t--; this.z = Math.min(40, this.z + 1.2); if (this.t === 0) this.pickLanding(st, f, room); return; }
+        const dx = this.tx - this.x, dy = this.ty - this.y, d = Math.hypot(dx, dy); // gliding down to land
+        this.vx = (dx / (d || 1)) * 1.6; this.vy = (dy / (d || 1)) * 1.6 / 0.6; this.face = dx < 0 ? -1 : 1;
+        this.z = Math.max(0, Math.min(this.z, d * 0.5));
+        if (d < 3) { this.x = this.tx; this.y = this.ty; this.z = 0; this.state = 'idle'; this.t = f.randi(30, 120); }
+        return;
+      }
+      if (--this.t > 0) return;
+      if (f.chance(0.5)) { this.state = 'peck'; this.t = f.randi(20, 50); return; } // head down
+      const x = this.x + f.rand(-10, 10), y = this.y + f.rand(-6, 6); // a little hop
+      if (free(room, x, y)) { this.face = x < this.x ? -1 : 1; this.x = x; this.y = y; }
+      this.state = 'idle'; this.t = f.randi(20, 90);
+    }
+    pickLanding(st, f, room) {
+      for (let k = 0; k < 20; k++) {
+        const x = this.x + f.rand(-160, 160), y = this.y + f.rand(-120, 120);
+        if (free(room, x, y) && st.players.every((p) => Math.hypot(p.x - x, p.y - y) > 90)) { this.tx = x; this.ty = y; return; }
+      }
+      this.tx = this.x; this.ty = this.y; // nowhere better: land where it is
+    }
+    draw(ctx, v) {
+      if (this.hidden > 0) return;
+      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y), z = Math.round(this.z), fl = this.face < 0;
+      const r = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(fl ? sx - x - w : sx + x, sy - z + y, w, h); };
+      ctx.fillStyle = 'rgba(10,4,24,.3)'; ctx.fillRect(sx - 2, sy, 5, 1); // shadow
+      if (this.kind === 'bird') {
+        const body = this.crow ? '#1a1a24' : '#5a5a6a', wing = this.crow ? '#2a2a38' : '#7a7a8a';
+        if (this.state === 'fly') {
+          const up = (this.anim >> 2) & 1;
+          r(-2, -3, 5, 2, body); r(3, -4, 1, 1, '#e0a020');
+          if (up) { r(-2, -6, 2, 3, wing); r(1, -6, 2, 3, wing); } else { r(-3, -2, 2, 2, wing); r(2, -2, 2, 2, wing); }
+          return;
+        }
+        const peck = this.state === 'peck' && ((this.anim >> 3) & 1);
+        r(-2, -3, 4, 3, body); r(-3, -2, 1, 1, wing); r(-1, -3, 2, 1, wing);
+        if (peck) { r(2, -2, 2, 2, body); r(4, -1, 1, 1, '#e0a020'); } else { r(1, -5, 2, 2, body); r(3, -4, 1, 1, '#e0a020'); r(2, -5, 1, 1, '#ffffff'); }
+        r(-1, 0, 1, 1, '#e08a40'); r(1, 0, 1, 1, '#e08a40'); // feet
+        return;
+      }
+      // squirrel: grey-brown, a big bushy tail curled up behind
+      const sit = this.state === 'idle', twitch = sit && ((this.anim >> 4) % 5 === 0) ? 1 : 0;
+      r(-1, -4, 4, 3, '#8a6a4a'); r(0, -2, 3, 1, '#c8b090'); r(3, -5, 2, 2, '#8a6a4a'); r(4, -5, 1, 1, '#140c1c'); r(3, -6, 1, 1, '#6a4a2a'); // body, belly, head, eye, ear
+      if (sit) { r(-1, -6, 2, 2, '#8a6a4a'); r(-4, -8 - twitch, 3, 6, '#a07850'); r(-4, -8 - twitch, 3, 1, '#c8a070'); r(-5, -6, 1, 3, '#a07850'); } // sitting up, tail high
+      else { r(-5, -6, 4, 3, '#a07850'); r(-6, -7, 2, 2, '#a07850'); r(-5, -6, 4, 1, '#c8a070'); }
+      r(0, -1, 1, 1, '#5a3a20'); r(2, -1, 1, 1, '#5a3a20');
+    }
+  }
+  G.Critter = Critter;
+
+  // ===== Stage hooks =====
+  G.initLife = (st) => {
+    st.smoke = []; st.critters = [];
+    const room = st.room, f = R();
+    st.life = { emitters: findEmitters(st), t: 0, trees: [] };
+    if (!room.theme.critters) return;
+    const ground = [];
+    for (let ty = 1; ty < room.h - 1; ty++) for (let tx = 1; tx < room.w - 1; tx++) {
+      const ch = room.at(tx, ty);
+      if (ch === 't' || (ch === 'Y' && G.pieceAnchor && (() => { const a = G.pieceAnchor(room, tx, ty); return a && a[0] === tx && a[1] === ty; })())) st.life.trees.push({ x: tx * 16 + (ch === 'Y' ? 16 : 8), y: ty * 16 + (ch === 'Y' ? 30 : 15) });
+      if (outdoorCell(room, tx, ty) && !room.boxHits(tx * 16 + 8, ty * 16 + 12, 2, 2)) ground.push([tx, ty]);
+    }
+    if (!ground.length) return;
+    const near = (x, y) => st.startX !== undefined && Math.hypot(x - st.startX, y - st.startY) < 70;
+    const spot = (x0, y0, spread) => { for (let k = 0; k < 12; k++) { const x = x0 + f.rand(-spread, spread), y = y0 + f.rand(-spread * 0.7, spread * 0.7); if (free(room, x, y) && !near(x, y)) return [x, y]; } return null; };
+    const away = ground.filter(([tx, ty]) => !near(tx * 16 + 8, ty * 16 + 12)), pool = away.length ? away : ground; // (not right by the start)
+    const flocks = Math.min(7, Math.max(1, Math.floor(ground.length / 300)));
+    for (let i = 0; i < flocks; i++) {
+      const [tx, ty] = f.pick(pool), n = f.randi(2, 4), crow = f.chance(0.35);
+      for (let k = 0; k < n; k++) { const p = spot(tx * 16 + 8, ty * 16 + 12, 14) || (k === 0 && [tx * 16 + 8, ty * 16 + 12]); if (p) { const b = new Critter('bird', p[0], p[1]); b.crow = crow; st.critters.push(b); } }
+    }
+    const squirrels = Math.min(8, Math.max(1, Math.floor(ground.length / 420)));
+    for (let i = 0; i < squirrels; i++) {
+      const tr = st.life.trees.length ? f.pick(st.life.trees) : null, [tx, ty] = f.pick(pool);
+      const p = tr ? spot(tr.x, tr.y + 10, 24) : spot(tx * 16 + 8, ty * 16 + 12, 8);
+      if (p) st.critters.push(new Critter('squirrel', p[0], p[1]));
+    }
+  };
+  // Something went bang at (x, y): every critter within r px scatters
+  G.scareCritters = (st, x, y, r) => { for (const c of st.critters || []) if (Math.hypot(c.x - x, c.y - y) < r) c.scare(st, x, y); };
+  G.updateLife = (st) => {
+    if (!st.life) G.initLife(st);
+    const L = st.life, cam = st.cam || { x: 0, y: 0 };
+    if (++L.t % 300 === 0) L.emitters = findEmitters(st);
+    for (const e of L.emitters) {
+      if (e.x < cam.x - 60 || e.x > cam.x + G.W + 60 || e.y < cam.y - 40 || e.y > cam.y + G.H + 80) continue; // only near the screen
+      const every = e.kind === 'burnt' ? 6 : e.kind === 'barrel' ? 9 : 15;
+      if ((L.t + e.x) % every === 0) puff(st, e);
+      if (e.kind === 'barrel' && (L.t + e.y) % 5 === 0) ember(st, e);
+    }
+    for (const s of st.smoke) { s.life++; s.x += s.vx + 0.06; s.z += s.vz; s.vz *= 0.995; if (!s.ember) s.r += 0.035; }
+    G.compact(st.smoke, (s) => s.life < s.max);
+    for (const c of st.critters) c.update(st);
+  };
+})();
+</script>
+<script>
 /* AFK APOCALYPSE — debug overlay for tuning enemies. Press \ (backslash) in a level, or open with ?debug.
  *
  *   yellow        notice range: come this close (inside the cone, for enemies that have one) and it chases you
@@ -8182,7 +9337,8 @@ body.mouseaim #screen { cursor: none; }
 
   class Recruit {
     // players: 1, or 2 for co-op (player 1 picks, then player 2; nobody can pick someone already picked)
-    // opts (online, lobby.js): taken (crew ids other players have), onPick(crew) instead of the briefing, onBack
+    // opts (online, lobby.js): taken (crew ids other players have), onPick(crew) instead of the briefing, onBack;
+    // level: which level the briefing is for (the level select), else Level 1
     constructor(players = 1, opts = {}) {
       this.menu = true; this.t = 0; this.hop = null; this.flash = 0; this.need = players; this.picks = [];
       this.opts = opts; this.taken = opts.taken || [];
@@ -8227,7 +9383,7 @@ body.mouseaim #screen { cursor: none; }
       if (this.hop) {
         if (++this.hop.t === 50) G.sfx.play('pickup');
         if (this.hop.t > 62 && this.opts.onPick) { const f = this.opts.onPick; this.opts.onPick = null; f(this.team); return; } // online: back to the lobby
-        if (this.hop.t > 62) { const L = G.LEVELS[0]; G.setState(L.briefing ? new G.states.Briefing(L, this.team) : new G.Stage(L, this.team)); } // the visitor's briefing first
+        if (this.hop.t > 62) { const L = this.opts.level || G.LEVELS[0]; G.setState(L.briefing ? new G.states.Briefing(L, this.team) : new G.Stage(L, this.team)); } // the visitor's briefing first
         return;
       }
       const m = I.menu;
@@ -8347,11 +9503,11 @@ body.mouseaim #screen { cursor: none; }
 
   K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'], ['&', 'LAWN MOWER (PUSH IT: MOWS TEENS TILL IT RUNS OUT OF GAS)'],
     ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ZOMBIE SPAWN'], ['B', 'PACKAGE'], ['Q', 'PDA'],
-    ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
+    ['+', 'DATA DISK (ONE PER LEVEL, BEHIND A SECRET: ALL FIVE UNLOCK THE SECRET LEVEL)'], ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
   ];
   K.MARK = new Set(K.MARKERS.map((m) => m[0]));
-  const ICON_OF = { '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
+  const ICON_OF = { '+': 'disk', '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
 
   let exitIcon = null, btnIcon = null;
   function makeBtnIcon() { // a spawn button (practice.js), as on the floor
@@ -8442,7 +9598,7 @@ body.mouseaim #screen { cursor: none; }
     return c;
   };
   // Palette sections: theme.groups is [[title, 'chars'], ...]; anything not listed lands in OTHER
-  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT$'], ['PICKUPS', 'QA8CU1234567890FX&']];
+  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT$'], ['PICKUPS', 'QA8CU1234567890FX&+']];
   const sections = (entries, groups) => {
     if (!groups) return [['TILES', entries]];
     const out = groups.map(([t, chars]) => [t, entries.filter((e) => chars.includes(e[0]))]);
@@ -8514,6 +9670,7 @@ body.mouseaim #screen { cursor: none; }
     if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked ? 'bad' : 'warn', `Locked house doors: ${locked} · keys: ${hkeys}` + (hkeys < locked ? ' — not enough keys!' : hkeys > locked ? ' — more keys than locked doors' : ''));
     if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras are random)`);
     line(count('Q') <= 1 ? 'ok' : 'warn', `PDA: ${count('Q')}`);
+    if (level && G.DISK_LEVELS().includes(mapId)) line(count('+') === 1 ? 'ok' : 'warn', `Data disk: ${count('+')} (one per level, behind a secret)`);
     K.traps = [];
     const sy = grid.findIndex((r) => r.includes('P'));
     if (room) {
@@ -8656,7 +9813,7 @@ body.mouseaim #screen { cursor: none; }
   // contents (level.packages, in reading order). Rockets open patchy hedges; soda bombs open those, secret hedges and
   // cracked brick; each keycard opens one gate next to where you've been. Repeat until nothing new opens up.
   // grid: the raw map (markers included). Returns { missing: [{ ch, x, y }], cells: Set of reached cells }.
-  const NEEDED = { N: 'neighbor', B: 'package', E: 'exit', 8: 'keycard', Q: 'PDA' };
+  const NEEDED = { N: 'neighbor', B: 'package', E: 'exit', 8: 'keycard', Q: 'PDA', '+': 'data disk' };
   K.solve = (R, grid, level) => {
     const W = R.w, H = R.h, T = R.theme, N = W * H;
     const sy = grid.findIndex((r) => r.includes('P'));
@@ -8710,8 +9867,9 @@ body.mouseaim #screen { cursor: none; }
     };
     const firstReach = explore(false); // with nothing but your feet (and trampolines): everything else is a come-back spot
     let reached;
-    for (let round = 0; round < 50; round++) {
+    for (let round = 0, had = -1; round < 80; round++) {
       reached = explore(true);
+      if (taken.size !== had) { had = taken.size; continue; } // picked something up (rockets, a pogo...): look again with it before spending keys
       // spend a keycard on a gate of its color (or a key on a locked house door) next to somewhere you've been, then
       // explore again
       let gate = null;
@@ -9387,13 +10545,14 @@ body.mouseaim #screen { cursor: none; }
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
           case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || G.weightedPick(G.LOOT)))); break;
           case 'E': this.exit = tag(new ExitDoor(s.x, s.y)); break;
-          default: this.pickups.push(tag(new G.Pickup(G.PICKUP_CHARS[s.ch], s.x, s.y, { respawn: this.test, color: G.cardColor(this.room, s.tx, s.ty) })));
+          default: this.pickups.push(tag(new G.Pickup(G.PICKUP_CHARS[s.ch], s.x, s.y, { respawn: this.test, needed: !this.test && G.isBreaker(this.room.theme, G.PICKUP_CHARS[s.ch]), color: G.cardColor(this.room, s.tx, s.ty) }))); // a breaker the level needs comes back if it's used up
         }
       }
       if (!this.test) this.room.mini = G.buildMinimap(this.room);
       if (!this.players.length && !this.remote) this.addPlayers(this.room.pw / 2, this.room.ph / 2); // map without a P marker
       this.cam = { x: 0, y: 0 };
       this.updateCam(true);
+      G.initLife(this); // smoke, birds, squirrels (critters.js: looks only)
     }
     // coop: more than one player (revives, downed players, 1-4 tags); shared: all on one screen (couch co-op);
     // me: the player on this machine (online: the one marked local; else the first)
@@ -9429,7 +10588,7 @@ body.mouseaim #screen { cursor: none; }
     enter() {
       if (this.started) return;
       this.started = true;
-      G.toast(this.practice ? 'WEAPON PRACTICE' : this.test ? 'TEST ROOM' : 'LEVEL ' + this.def.num + ' - ' + this.def.name, 180);
+      G.toast(this.practice ? 'WEAPON PRACTICE' : this.test ? 'TEST ROOM' : (this.def.secret ? 'SECRET LEVEL' : 'LEVEL ' + this.def.num) + ' - ' + this.def.name, 180);
     }
     // Everything shots can hit
     targets() { return [...this.dummies.filter((d) => d.alive()), ...this.enemies.filter((e) => e.hittable() && !(e.ally > 0))]; } // (not a robot Root hacked)
@@ -9487,6 +10646,7 @@ body.mouseaim #screen { cursor: none; }
         G.sfx.play('boom');
       }
       this.rings.push({ x, y, max: r, life: 14, col: o.fizz ? '#ffffff' : o.big ? '#38f0a0' : '#ffd23a' });
+      G.scareCritters(this, x, y, r * 3 + 30); // the birds take off
       if (this.out) this.out.push(['r', Math.round(x), Math.round(y), r, this.rings[this.rings.length - 1].col]);
       // blasts open the map: rockets and soda bombs both break anything breakable
       const th = this.room.theme;
@@ -9691,6 +10851,7 @@ body.mouseaim #screen { cursor: none; }
         this.room.roofs.forEach((rf, i) => { rf.alpha += ((inside.has(i) ? 0 : 1) - rf.alpha) * 0.15; });
       }
       if (this.t % 4 === 0) this.fireFx();
+      G.updateLife(this); // smoke and critters
       for (const b of this.beams) b.t++;
       G.compact(this.beams, (b) => b.t < BEAM_T);
       if (this.tallyFlash > 0) this.tallyFlash--;
@@ -9749,7 +10910,8 @@ body.mouseaim #screen { cursor: none; }
       // characters and upright objects back-to-front (tall things in front of you get a peek window)
       if (this.exit) this.exit.drawFloor(ctx, v);
       for (const b of this.buttons) b.drawFloor(ctx, v);
-      G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players]);
+      G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players, ...(this.critters || [])]);
+      G.drawSmoke(ctx, this, v); // smoke from wrecks and burning drums
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
       // shots and sparks under the roofs; roofs on top of everything in the world; then x-ray and hints
       for (const o of this.props) this.drawPhone(ctx, o, cx, cy);
@@ -9808,6 +10970,7 @@ body.mouseaim #screen { cursor: none; }
       const R = this.room, i = ty * R.w + tx;
       if (R.searched.has(i)) return;
       R.searched.add(i); G.rebuildUpright(R, tx, ty); // the lid comes off / the flap drops
+      if (R.at(tx, ty) === 'c') { for (const [a, b] of G.pieceCells(R, tx, ty)) G.rebuildUpright(R, a, b); this.floater(tx * 16 + 16, ty * 16 - 10, 'TRUNK!', '#c8c0a8'); } // a car's trunk pops open
       const x = tx * 16 + 8, y = ty * 16 + 14, roll = G.rng.next(), T = (R.theme.searchLoot || {})[R.at(tx, ty)], S = T || G.SEARCH;
       this.burst(x, y - 10, 8, ['#6a7a6a', '#a89878', '#ffffff'], 1.2, 10, 18, true);
       G.sfx.play('open');
@@ -10203,7 +11366,8 @@ body.mouseaim #screen { cursor: none; }
     constructor(st) {
       this.st = st; this.t = 0; this.menu = true; this.noToast = true;
       const i = G.LEVELS.indexOf(st.def);
-      this.next = !st.test && i >= 0 ? G.LEVELS[i + 1] || null : null;
+      this.next = !st.test && i >= 0 ? G.LEVELS[i + 1] || (G.secretUnlocked() ? G.SECRET_LEVEL : null) : null; // after the last: the secret level, if all five data disks are found
+      this.disk = G.DISK_LEVELS().includes(st.def.id) ? !!(G.save.data.disks || {})[st.def.id] : null;
       if (st.score > (G.save.data.best || 0)) G.save.data.best = st.score;
       G.save.write();
     }
@@ -10221,7 +11385,7 @@ body.mouseaim #screen { cursor: none; }
       G.box(40, 50, 176, 118);
       G.text('LEVEL CLEAR!', G.W / 2, 60, '#ffd23a', { align: 'center', shadow: '#0e124a' });
       G.text(st.def.name, G.W / 2, 74, '#ff9ad0', { align: 'center', shadow: '#0e124a' });
-      const rows = [['NEIGHBORS SAVED', st.saved, '#7ff0ff'], ['NEIGHBORS LOST', st.lost, '#ff5a6a'], ['SCORE', st.score, '#ffffff']];
+      const rows = [['NEIGHBORS SAVED', st.saved, '#7ff0ff'], ['NEIGHBORS LOST', st.lost, '#ff5a6a'], ['SCORE', st.score, '#ffffff'], ...(this.disk === null ? [] : [['DATA DISK', this.disk ? 'FOUND' : 'HIDDEN', this.disk ? '#38f0a0' : '#6a6aa8']])];
       rows.forEach(([k, val, col], i) => {
         if (this.t < 20 + i * 20) return; // one line at a time
         G.text(k, 56, 96 + i * 14, col, { shadow: '#0e124a' });
@@ -10376,7 +11540,7 @@ body.mouseaim #screen { cursor: none; }
     G.setState(new G.Recruit(1, { onPick: (crew) => G.setState(new Stage(G.PRACTICE, crew)), onBack }));
   }
   class Boot {
-    constructor() { this.menu = true; this.t = 0; this.sel = 0; this.code = 0; this.logoTaps = 0; }
+    constructor() { this.menu = true; this.t = 0; this.sel = 0; this.code = 0; this.logoTaps = 0; this.lcode = 0; this.attemptTaps = 0; }
     secret() {
       for (const k of Object.keys(I.hits)) {
         if (!I.hits[k]) continue;
@@ -10384,6 +11548,17 @@ body.mouseaim #screen { cursor: none; }
         if (this.code === KONAMI.length) return true;
       }
       for (const tp of I.taps) if (tp.y < 76) { if (++this.logoTaps >= 7) return true; G.sfx.play('blip'); }
+      return false;
+    }
+    // The secret way to the level select: type LEVEL, or tap the attempt counter 5 times
+    levelCode() {
+      const WORD = ['KeyL', 'KeyE', 'KeyV', 'KeyE', 'KeyL'];
+      for (const k of Object.keys(I.hits)) {
+        if (!I.hits[k]) continue;
+        this.lcode = k === WORD[this.lcode || 0] ? (this.lcode || 0) + 1 : k === WORD[0] ? 1 : 0;
+        if (this.lcode === WORD.length) return true;
+      }
+      for (const tp of I.taps) if (tp.y >= 78 && tp.y < 94) { if (++this.attemptTaps >= 5) return true; G.sfx.play('blip'); }
       return false;
     }
     items() {
@@ -10404,6 +11579,7 @@ body.mouseaim #screen { cursor: none; }
     update() {
       this.t++;
       if (this.secret()) { G.sfx.play('secret'); G.setState(new G.states.TuningLab()); return; }
+      if (this.levelCode()) { G.sfx.play('secret'); G.setState(new G.states.LevelSelect()); return; }
       runMenu(this, this.items(), 128, 13, 40, 216);
     }
     draw(ctx) {
@@ -10494,10 +11670,10 @@ body.mouseaim #screen { cursor: none; }
   G.applyOpts();
   G.layout();
   // Shortcuts for testing: ?level=1 jumps straight into a level, ?test opens the test room
-  const qs = new URLSearchParams(location.search), lv = G.LEVELS[(+qs.get('level') || 0) - 1];
+  const qs = new URLSearchParams(location.search), lv = qs.get('level') === 'secret' ? G.SECRET_LEVEL : G.LEVELS[(+qs.get('level') || 0) - 1]; // ?level=2, ?level=secret
   if (qs.has('debug')) G.Debug.on = true; // ?debug: start with the enemy debug overlay on (\ toggles it)
   if (qs.has('seed')) G.urlSeed = +qs.get('seed') | 0; // ?seed=123: replay the same random game every time
-  G.setState(lv ? new Stage(lv) : qs.has('test') ? new Stage(G.TEST_ROOM) : qs.has('practice') ? new Stage(G.PRACTICE, qs.get('practice') || 'pixel') : qs.has('recruit') ? new G.Recruit() : new Boot()); // (?join=CODE, an online join link: lobby.js)
+  G.setState(lv ? new Stage(lv) : qs.has('test') ? new Stage(G.TEST_ROOM) : qs.has('practice') ? new Stage(G.PRACTICE, qs.get('practice') || 'pixel') : qs.has('select') ? { menu: true, update() { G.setState(new G.states.LevelSelect()); }, draw() {} } : qs.has('recruit') ? new G.Recruit() : new Boot()); // (?join=CODE, an online join link: lobby.js)
   requestAnimationFrame(frame);
   // ?tests: run the in-browser test suite (tools/tests.js; needs the dev server or a local copy of the repo)
   if (qs.has('tests')) {
@@ -10563,7 +11739,7 @@ body.mouseaim #screen { cursor: none; }
       ctx.fillStyle = '#12061e'; ctx.fillRect(0, 118, G.W, G.H - 118); ctx.fillStyle = '#3a1a4a'; ctx.fillRect(0, 118, G.W, 1); // the street
       const [h, mm] = this.def.time || [23, 58]; // the clock: two minutes to go
       G.text((h % 12 || 12) + ':' + String(mm).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM'), G.W / 2, 10, '#ff3a5a', { align: 'center', scale: 2, shadow: '#3a0a1a' });
-      G.text('LEVEL ' + this.def.num + ' - ' + this.def.name, G.W / 2, 30, '#ffd23a', { align: 'center', shadow: '#140c1c' });
+      G.text((this.def.secret ? 'SECRET LEVEL' : 'LEVEL ' + this.def.num) + ' - ' + this.def.name, G.W / 2, 30, '#ffd23a', { align: 'center', shadow: '#140c1c' });
       // the visitor, stepping out of a time portal, and your crew member listening
       const vx = 74, vy = 112;
       for (let i = 0; i < 24; i++) {
@@ -10583,6 +11759,51 @@ body.mouseaim #screen { cursor: none; }
     }
   }
   S.Briefing = Briefing;
+
+  // ===== Level select (secret: type LEVEL on the title screen, or tap the attempt counter 5 times; ?select) =====
+  // Every level, and the secret one (its lock shows, but you can still go in from here). Pick one, then your crew,
+  // then its briefing. Shows which data disks you've found.
+  class LevelSelect {
+    constructor() { Object.assign(this, { menu: true, noToast: true, sel: 0, t: 0 }); }
+    items() {
+      const D = G.save.data.disks || {}, rows = G.LEVELS.map((L) => ({ L, label: L.num + '  ' + L.name, disk: G.DISK_LEVELS().includes(L.id) ? !!D[L.id] : null }));
+      if (G.SECRET_LEVEL) rows.push({ L: G.SECRET_LEVEL, label: 'X  ' + G.SECRET_LEVEL.name, secret: true });
+      rows.push({ label: 'BACK', back: true });
+      return rows;
+    }
+    update() {
+      this.t++;
+      const rows = this.items(), m = I.menu, n = rows.length;
+      if (m.backP) { G.sfx.play('pause'); G.setState(new S.Boot()); return; }
+      if (m.upP) { this.sel = (this.sel + n - 1) % n; G.sfx.play('blip'); }
+      if (m.downP) { this.sel = (this.sel + 1) % n; G.sfx.play('blip'); }
+      let pick = m.confirmP ? this.sel : -1;
+      for (const tp of I.taps) { const i = Math.floor((tp.y - 56 + 4) / 16); if (i >= 0 && i < n) { this.sel = i; pick = i; } }
+      if (pick < 0) return;
+      const r = rows[pick];
+      G.sfx.play('confirm');
+      if (r.back) { G.setState(new S.Boot()); return; }
+      G.coop = null; I.controllers.length = 0;
+      G.setState(new G.Recruit(1, { level: r.L, onBack: () => G.setState(this) }));
+    }
+    draw(ctx) {
+      sky(ctx, this.t);
+      G.text('LEVEL SELECT', G.W / 2, 14, '#ffd23a', { align: 'center', scale: 2, shadow: '#140c1c' });
+      G.text('DATA DISKS ' + G.disksFound() + '/' + G.DISK_LEVELS().length + (G.secretUnlocked() ? '  SECRET OPEN' : ''), G.W / 2, 36, '#7ff0ff', { align: 'center', shadow: '#140c1c' });
+      this.items().forEach((r, i) => {
+        const y = 56 + i * 16, on = i === this.sel;
+        if (on) { ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(20, y - 4, 216, 14); }
+        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.secret ? (G.secretUnlocked() ? '#ff9ad0' : '#6a5a8a') : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
+        if (r.disk !== null && r.disk !== undefined) { ctx.drawImage(G.art.icons.disk, 214, y - 3); if (!r.disk) { ctx.fillStyle = 'rgba(18,8,30,.7)'; ctx.fillRect(214, y - 3, 12, 12); } }
+        if (r.secret && !G.secretUnlocked()) G.text('LOCKED', 228, y, '#6a5a8a', { align: 'right' });
+      });
+      if (this.items()[this.sel] && this.items()[this.sel].L && this.items()[this.sel].L.time) {
+        const [h, mm] = this.items()[this.sel].L.time;
+        G.text((h % 12 || 12) + ':' + String(mm).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM'), G.W / 2, 206, '#ff3a5a', { align: 'center', shadow: '#140c1c' });
+      }
+    }
+  }
+  S.LevelSelect = LevelSelect;
 
   // ===== Game over: the attempt counter, what you managed, try again or quit =====
   const QUIPS = [
@@ -11363,7 +12584,7 @@ body.mouseaim #screen { cursor: none; }
       had[key] = v;
       const kind = key[0], i = +key.slice(1), tx = i % R.w, ty = Math.floor(i / R.w);
       if (kind === 't') { if (R.at(tx, ty) !== v) R.setTile(tx, ty, v); }
-      else if (kind === 's') { R.searched.add(i); G.rebuildUpright(R, tx, ty); }
+      else if (kind === 's') { R.searched.add(i); G.rebuildUpright(R, tx, ty); if (R.at(tx, ty) === 'c') for (const [a, b] of G.pieceCells(R, tx, ty)) G.rebuildUpright(R, a, b); } // (a car's trunk: the whole car)
       else if (kind === 'w') { R.wallHit.set(i, v); G.rebuildUpright(R, tx, ty); }
       else if (kind === 'd') { const d = (R.hdoors || [])[i]; if (d) { d.open = !!(v & 1); d.locked = !!(v & 2); } }
     }

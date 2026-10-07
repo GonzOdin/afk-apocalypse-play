@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 11:22 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 14:28 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1188,8 +1188,14 @@ body.mouseaim #screen { cursor: none; }
   G.art = {};
 
   // ===== Humans =====
-  // Body is drawn on a 14x22 canvas (OY rows of headroom for hats), outlined to 16x24.
-  // Feet touch y=22 of the outlined sprite, so draw at (x - 8, y - 22).
+  // Bodies are drawn in an 18-row body frame (head rows 0-6, torso 7-12, legs 13-17), then stretched to ZAMN
+  // proportions, two tiles tall: the head stays as drawn (so every hat, visor and pair of glasses lines up), the
+  // torso grows 1.5x and the legs 2x (G.bodyRow), 26 rows in all. On a 14x30 canvas (OY rows of headroom for hats),
+  // outlined to 16x32. Feet touch y=30 of the outlined sprite, so draw at (x - 8, y - G.PERSON_Y).
+  G.bodyRow = (y) => (y <= 7 ? y : y <= 13 ? 7 + (y - 7) * 1.5 : 16 + (y - 13) * 2);
+  // A rect in the body frame (rows b..b+h) -> [top, height] after the stretch (never thinner than 1 row)
+  G.stretchRows = (b, h) => { const t = Math.round(G.bodyRow(b)), e = Math.round(G.bodyRow(b + h)); return [t, Math.max(1, e - t)]; };
+  G.PERSON_Y = 30; // how far above its feet a person's sprite is drawn (it was 22 before the stretch)
   // Look fields: skin hair shirt pants shoes [eye] [hairStyle:'long'] [holdPhone] [extra(r, dir, frame, C)]
   const OY = 3;
   const GLOW = '#c8f0ff', EYE_GLOW = '#7ff0ff';
@@ -1365,7 +1371,7 @@ body.mouseaim #screen { cursor: none; }
   }
   function drawHuman(x, L, dir, f) {
     const C = colors(L);
-    const r = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b + OY, w, h); };
+    const r = (a, b, w, h, c) => { const [t, hh] = G.stretchRows(b, h); x.fillStyle = c; x.fillRect(a, t + OY, w, hh); };
     if (dir === 'right') side(r, C, f, L); else front(r, C, f, L, dir === 'up');
     if (L.extra) L.extra(r, dir, f, C);
   }
@@ -1374,7 +1380,7 @@ body.mouseaim #screen { cursor: none; }
     const out = {};
     for (const dir of ['down', 'up', 'right']) {
       out[dir] = [0, 1, 2].map((f) => {
-        const c = G.makeCanvas(14, 22);
+        const c = G.makeCanvas(14, 30);
         drawHuman(c.getContext('2d'), L, dir, f);
         return G.outline(c);
       });
@@ -1739,7 +1745,7 @@ body.mouseaim #screen { cursor: none; }
   // Rising: it glitches in, flickering. sx, sy: its feet on screen.
   G.drawClone = (e, ctx, sx, sy) => {
     const set = G.art.crew[e.crew] || G.art.crew.pixel, f = e.moving ? [1, 0, 2, 0][(e.anim >> e.animShift) & 3] : 0;
-    const spr = (set[e.dir] || set.down)[f], x = sx - 8, y = sy - 22, t = G.tick + e.anim * 7;
+    const spr = (set[e.dir] || set.down)[f], x = sx - 8, y = sy - G.PERSON_Y, t = G.tick + e.anim * 7;
     const k = e.rise > 0 ? 1 - e.rise / e.riseMax : e.sink > 0 ? e.sink / 36 : 1; // how much of it is here
     if (k < 1 && (t >> 1) % 3 === 0) return; // flickering in or out
     G.drawShadow(ctx, sx, sy, 5);
@@ -1751,10 +1757,10 @@ body.mouseaim #screen { cursor: none; }
     ctx.drawImage(e.flash ? G.tinted(spr, '#ffffff') : spr, x, y);
     ctx.globalAlpha = 1;
     if ((t % 47) < 5) { // a slice slips sideways
-      const sy0 = 4 + ((t * 13) % 14), dx = (t & 1) ? 2 : -2;
+      const sy0 = 4 + ((t * 13) % 22), dx = (t & 1) ? 2 : -2;
       ctx.drawImage(spr, 0, sy0, 16, 3, x + dx, y + sy0, 16, 3);
     }
-    ctx.fillStyle = 'rgba(20,12,40,.35)'; ctx.fillRect(x + 1, y + ((t >> 2) % 22), 14, 1); // a scanline running down it
+    ctx.fillStyle = 'rgba(20,12,40,.35)'; ctx.fillRect(x + 1, y + ((t >> 2) % 30), 14, 1); // a scanline running down it
     cloneEyes(e, ctx, sx, sy, k);
   };
   // Bright red eyes (where the sprite's eyes are: two from the front, one from the side, none from behind) that leave
@@ -2037,14 +2043,14 @@ body.mouseaim #screen { cursor: none; }
   };
   // Roofs (still mostly opaque) covering a player's body: covered pixel count (> 0 = cut a peek window)
   G.roofCover = (room, p) => {
-    const out = [], lift = room.theme.roofLift || 0, px = Math.round(p.x) - 6, py = Math.round(p.y) - 20;
+    const out = [], lift = room.theme.roofLift || 0, px = Math.round(p.x) - 6, py = Math.round(p.y) - 28;
     let covered = 0;
     for (const rf of room.roofs || []) {
       if (!rf.canvas || rf.alpha < 0.5) continue;
       const rx = rf.x0 * 16, ry = rf.y0 * 16 - lift;
-      if (px >= rx + rf.canvas.width || px + 12 <= rx || py >= ry + rf.canvas.height || py + 19 <= ry) continue;
+      if (px >= rx + rf.canvas.width || px + 12 <= rx || py >= ry + rf.canvas.height || py + 27 <= ry) continue;
       let n = 0;
-      for (let y = Math.max(py, ry); y < Math.min(py + 19, ry + rf.canvas.height); y++)
+      for (let y = Math.max(py, ry); y < Math.min(py + 27, ry + rf.canvas.height); y++)
         for (let x = Math.max(px, rx); x < Math.min(px + 12, rx + rf.canvas.width); x++)
           if (room.overAt(Math.floor(x / 16), Math.floor((y + lift) / 16)) === 'R') n++;
       if (n) { covered += n; out.push({ img: rf.canvas, x: rx, y: ry }); }
@@ -2083,7 +2089,7 @@ body.mouseaim #screen { cursor: none; }
   };
   // Peek window: when something tall covers a player, cut a soft stepped circle out of it around them so you can
   // see what's behind (floor, furniture, walls). points = [{ x, y }] in screen px.
-  G.PEEK_R = 22;
+  G.PEEK_R = 26;
   let peekC = null;
   G.drawPeek = (ctx, img, dx, dy, points) => {
     const w = img.width, h = img.height;
@@ -2126,7 +2132,7 @@ body.mouseaim #screen { cursor: none; }
     items.sort((a, b) => a.base - b.base);
     const players = [];
     for (const it of items) {
-      if (it.e) { it.e.draw(ctx, v); if (it.e.def && !it.e.dead) players.push({ x: it.e.x - v.x, y: it.e.y - 11 - v.y }); continue; }
+      if (it.e) { it.e.draw(ctx, v); if (it.e.def && !it.e.dead) players.push({ x: it.e.x - v.x, y: it.e.y - 15 - v.y }); continue; }
       if (it.cn) {
         const dx = it.cn.tx * 16 - v.x, dy = it.cn.ty * 16 - it.cn.rise - v.y, pts = peekHits(dx, dy, 16, 16 + it.cn.rise, players);
         if (pts.length) G.drawPeek(ctx, it.cn.img, dx, dy, pts); else ctx.drawImage(it.cn.img, dx, dy);
@@ -6089,21 +6095,21 @@ body.mouseaim #screen { cursor: none; }
       if (ph < 0) return;
       const k = ph / 60;
       if (id === 'lou') { // a skillet flipped up and caught
-        const h = Math.round(Math.sin(k * Math.PI) * 12), x = sx + 4, y = by - 16 - h;
+        const h = Math.round(Math.sin(k * Math.PI) * 12), x = sx + 4, y = by - 21 - h;
         ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillStyle = '#3a3a48'; ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x + 3, y, 2, 1);
       } else if (id === 'june') { // checks her watch: a blinking face on her wrist, a little heart beat
-        ctx.fillStyle = (ph >> 2) & 1 ? '#ffffff' : '#7ff0ff'; ctx.fillRect(sx + 3, by - 11, 2, 2);
-        if (ph > 20) { ctx.fillStyle = '#ff5a7a'; ctx.fillRect(sx - 1, by - 28 - ((ph - 20) >> 3), 1, 1); ctx.fillRect(sx + 1, by - 28 - ((ph - 20) >> 3), 1, 1); ctx.fillRect(sx - 1, by - 27 - ((ph - 20) >> 3), 3, 1); ctx.fillRect(sx, by - 26 - ((ph - 20) >> 3), 1, 1); }
+        ctx.fillStyle = (ph >> 2) & 1 ? '#ffffff' : '#7ff0ff'; ctx.fillRect(sx + 3, by - 14, 2, 2);
+        if (ph > 20) { ctx.fillStyle = '#ff5a7a'; ctx.fillRect(sx - 1, by - 36 - ((ph - 20) >> 3), 1, 1); ctx.fillRect(sx + 1, by - 36 - ((ph - 20) >> 3), 1, 1); ctx.fillRect(sx - 1, by - 35 - ((ph - 20) >> 3), 3, 1); ctx.fillRect(sx, by - 34 - ((ph - 20) >> 3), 1, 1); }
       } else if (id === 'root') { // a hologram flickers up in front of her
         if ((ph >> 1) % 7 === 0) return;
-        ctx.globalAlpha = 0.55; ctx.fillStyle = '#38f0a0'; ctx.fillRect(sx + 3, by - 18, 7, 5);
-        ctx.globalAlpha = 1; ctx.fillStyle = '#c8fff0'; ctx.fillRect(sx + 4, by - 17 + ((ph >> 2) % 3), 5, 1);
+        ctx.globalAlpha = 0.55; ctx.fillStyle = '#38f0a0'; ctx.fillRect(sx + 3, by - 22, 7, 5);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#c8fff0'; ctx.fillRect(sx + 4, by - 21 + ((ph >> 2) % 3), 5, 1);
       } else if (id === 'dot') { // her coffee steams
         ctx.fillStyle = '#e8e8f0';
-        for (let i = 0; i < 3; i++) { const t = (ph + i * 20) % 60; ctx.globalAlpha = 1 - t / 60; ctx.fillRect(sx + 6 + ((t >> 3) & 1), by - 12 - (t >> 2), 1, 1); }
+        for (let i = 0; i < 3; i++) { const t = (ph + i * 20) % 60; ctx.globalAlpha = 1 - t / 60; ctx.fillRect(sx + 6 + ((t >> 3) & 1), by - 16 - (t >> 2), 1, 1); }
         ctx.globalAlpha = 1;
       } else if (id === 'ted' && ph > 40) { // the foil hat glints
-        ctx.fillStyle = '#ffffff'; const g = ph - 40; ctx.fillRect(sx - 3 + (g >> 2), by - 22, 1, 1); if (g < 10) { ctx.fillRect(sx - 3 + (g >> 2), by - 24, 1, 1); }
+        ctx.fillStyle = '#ffffff'; const g = ph - 40; ctx.fillRect(sx - 3 + (g >> 2), by - 30, 1, 1); if (g < 10) { ctx.fillRect(sx - 3 + (g >> 2), by - 32, 1, 1); }
       }
     }
 
@@ -6377,7 +6383,7 @@ body.mouseaim #screen { cursor: none; }
       if (this.dead && !this.coop) return;
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
       if (this.dead) { // co-op: down where you fell, grey and see-through, waiting for your partner
-        ctx.globalAlpha = 0.55; ctx.drawImage(G.tinted(this.sprites.down[0], '#8a8aa8'), sx - 8, sy - 22); ctx.globalAlpha = 1;
+        ctx.globalAlpha = 0.55; ctx.drawImage(G.tinted(this.sprites.down[0], '#8a8aa8'), sx - 8, sy - G.PERSON_Y); ctx.globalAlpha = 1;
         return;
       }
       if (this.swimming) return this.drawSwimming(ctx, sx, sy);
@@ -6387,7 +6393,7 @@ body.mouseaim #screen { cursor: none; }
       const by = sy - Math.round((this.z || 0) + this.matLift());
       if (this.jump && this.jump.pogo) this.drawPogo(ctx, sx, by);
       const breathe = this.idleT > 60 && ((this.idleT >> 5) & 1) ? 1 : 0; // standing still: a breath (a pixel bob)
-      ctx.drawImage(this.frame(), sx - 8 - Math.round(this.fx * (this.recoil > 0 ? 1 : 0)), by - 22 + breathe);
+      ctx.drawImage(this.frame(), sx - 8 - Math.round(this.fx * (this.recoil > 0 ? 1 : 0)), by - G.PERSON_Y + breathe);
       this.drawAim(ctx, sx, by + breathe);
       this.drawIdle(ctx, sx, by + breathe);
       this.drawCharge(ctx, sx, by);
@@ -6397,7 +6403,7 @@ body.mouseaim #screen { cursor: none; }
         ctx.fillStyle = this.bonkT > 5 ? '#ffffff' : this.swingCol || '#ff8a2a';
         for (let i = 0; i < 7; i++) { const a = a0 - 1 + 2 * Math.min(1, k + 0.3) * (i / 6); ctx.fillRect(Math.round(sx + Math.cos(a) * R), Math.round(by - 9 + Math.sin(a) * R * 0.75), 2, 2); }
       }
-      if (this.buzz > 0 && (G.tick >> 3) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(sx + 3, sy - 25, 1, 2); }
+      if (this.buzz > 0 && (G.tick >> 3) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(sx + 3, sy - 33, 1, 2); }
     }
     // A loaded blower's ball at the tube's mouth, and a power bar under you while a weapon with power() charges
     drawCharge(ctx, sx, by) {
@@ -6748,12 +6754,13 @@ body.mouseaim #screen { cursor: none; }
     return G.outline(c);
   };
   // A person facing the camera, posed (front view, the same build as G.buildHuman's people). In person coordinates
-  // the body spans x 0..13, feet on y 17 (+ OY). o: { arms, legs, dx, dy, lean (upper body px), mouth, noLegs }
+  // the body spans x 0..13, feet on y 17 (+ OY) before the stretch (on y 25 after it). o: { arms, legs, dx, dy, lean (upper body px), mouth, noLegs }
   //   arms: down | up | jacks | out | fwd | hips | phone | stick (left up, right down) | wave (right up) | pat (right out low)
   //   legs: together | apart | step1 | step2 | kneel
   function person(r0, L, o = {}) {
     const C = colorsOf(L), ox = o.dx || 0, oy = OY + (o.dy || 0), lean = o.lean || 0;
-    const r = (a, b, w, h, c) => r0(a + ox, b + oy, w, h, c), u = (a, b, w, h, c) => r(a + lean, b, w, h, c); // u: upper body
+    // stretched to ZAMN proportions like G.buildHuman (G.bodyRow), except a swimmer (only head and shoulders show)
+    const r = (a, b, w, h, c) => { const [t, hh] = o.noLegs ? [b, h] : G.stretchRows(b, h); r0(a + ox, t + oy, w, hh, c); }, u = (a, b, w, h, c) => r(a + lean, b, w, h, c); // u: upper body
     if (!o.noLegs) {
       const legs = o.legs || 'together';
       if (legs === 'apart') {
@@ -6828,21 +6835,22 @@ body.mouseaim #screen { cursor: none; }
     r(X(2) - (dir > 0 ? 0 : 1), y + 5, 2, 2, '#101018'); r(X(9) - (dir > 0 ? 0 : 1), y + 5, 2, 2, '#101018'); // wheels
   };
   // Frames per kind: { idle: [canvas], panic: [canvas], walk?: { right: [canvas], left: [canvas] } }. Built once.
-  const P = (w, fn) => sprite(w, 22, fn); // people-sized canvases (feet on y 20, so the sprite is drawn at y - 22)
+  const P = (w, fn) => sprite(w, 30, fn); // people-sized canvases (feet on y 28, so the sprite is drawn at y - 30)
+  const GROUND = 8; // how much lower the ground is in a person-sized canvas since the stretch (props standing on it move down)
   const BUILD = {
     mower: () => {
       const L = LOOK.mower, H = G.buildHuman({ ...L, extra: (r, dir) => { if (dir === 'right') { r(4, 0, 7, 2, '#c03040'); r(10, 1, 3, 1, '#a02030'); } else if (dir !== 'up') { r(3, 0, 8, 2, '#c03040'); } } });
       const walk = (dir, f) => { // the walking dad (side view, 16x24) with the mower out in front and its handle in his hands
-        const c = G.makeCanvas(34, 24), x = c.getContext('2d'), rr = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+        const c = G.makeCanvas(34, 32), x = c.getContext('2d'), rr = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
         const px = dir > 0 ? 4 : 14, mx = dir > 0 ? 20 : 2;
         x.drawImage(H[dir > 0 ? 'right' : 'left'][f], px, 0);
         const m = G.makeCanvas(12, 7); mowerArt((a, b, w, h, col) => { const mm = m.getContext('2d'); mm.fillStyle = col; mm.fillRect(a, b, w, h); }, 0, 0, dir);
-        x.drawImage(G.outline(m), mx - 1, 15);
+        x.drawImage(G.outline(m), mx - 1, 15 + GROUND);
         const hx = dir > 0 ? px + 11 : px + 4, ex = dir > 0 ? mx + 2 : mx + 9; // handle: from his hands down to the mower's back
-        for (let i = 0; i <= 6; i++) rr(Math.round(hx + ((ex - hx) * i) / 6), 13 + i, 1, 1, '#2a2a38');
+        for (let i = 0; i <= 6; i++) rr(Math.round(hx + ((ex - hx) * i) / 6), 16 + i, 1, 1, '#2a2a38');
         return c;
       };
-      const panic = (k) => P(24, (r) => { person(r, L, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 0 }); mowerArt(r, 13, 13, 1); });
+      const panic = (k) => P(24, (r) => { person(r, L, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 0 }); mowerArt(r, 13, 13 + GROUND, 1); });
       return { idle: [walk(1, 0)], panic: [panic(0), panic(1)], walk: { right: [0, 1, 2].map((f) => walk(1, f)), left: [0, 1, 2].map((f) => walk(-1, f)) } };
     },
     stretch: () => ({ // overhead side bends: lean left, up, lean right, up
@@ -6854,7 +6862,7 @@ body.mouseaim #screen { cursor: none; }
       panic: [0, 1].map((k) => P(18, (r) => person(r, LOOK.jacks, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 2 }))),
     }),
     tourists: () => { // two of them, one holding a selfie stick up with the phone at the end
-      const pair = (k, panic) => sprite(32, 28, (r) => { // 6px taller than a person (feet still 2px from the bottom): room for the stick
+      const pair = (k, panic) => sprite(32, 36, (r) => { // 6px taller than a person (feet still 2px from the bottom): room for the stick
         if (!panic) { for (let i = 0; i < 7; i++) r(4 - Math.floor(i / 3), 9 - i, 1, 1, '#8a8aa0'); r(0, 0, 4, 3, '#1a1a28'); r(1, 1, 2, 1, k ? '#ffffff' : '#7ff0ff'); }
         person(r, LOOK.tourist1, { arms: panic ? 'up' : 'stick', legs: panic && k ? 'step1' : 'together', mouth: panic, dx: 2, dy: 6 });
         person(r, LOOK.tourist2, { arms: panic ? 'up' : 'wave', legs: panic && !k ? 'step1' : 'together', mouth: panic, dx: 15, dy: 6 });
@@ -6889,8 +6897,8 @@ body.mouseaim #screen { cursor: none; }
     gnome: () => { // grandma kneeling by her garden gnome, patting it
       const L = { ...G.LOOKS.grandma, extra: (u) => { u(5, -2, 4, 2, '#d8d8e8'); } };
       return {
-        idle: [0, 1].map((k) => P(26, (r) => { gnome(r, 18, 10); person(r, L, { arms: k ? 'pat' : 'down', legs: 'kneel', dy: 2, dx: 2 }); })),
-        panic: [0, 1].map((k) => P(26, (r) => { gnome(r, 18, 10); person(r, L, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 2 }); })),
+        idle: [0, 1].map((k) => P(26, (r) => { gnome(r, 18, 10 + GROUND); person(r, L, { arms: k ? 'pat' : 'down', legs: 'kneel', dy: 2, dx: 2 }); })),
+        panic: [0, 1].map((k) => P(26, (r) => { gnome(r, 18, 10 + GROUND); person(r, L, { arms: 'up', legs: k ? 'step1' : 'step2', mouth: true, dx: 2 }); })),
       };
     },
     swan: () => { // a swimmer on a swan floatie: head and shoulders above it, the swan's neck curling up in front
@@ -7279,7 +7287,7 @@ body.mouseaim #screen { cursor: none; }
         ctx.globalAlpha = 1;
       }
     },
-    drawTop(e, ctx, sx, sy) { if (e.idle > 20 && e.chat) G.text(e.chat, sx, sy - 32, '#9af0ff', { align: 'center', shadow: '#140c1c' }); },
+    drawTop(e, ctx, sx, sy) { if (e.idle > 20 && e.chat) G.text(e.chat, sx, sy - 40, '#9af0ff', { align: 'center', shadow: '#140c1c' }); },
   };
 
   // Head for the target. Players are followed along the shared flow field (around walls); neighbors, and anyone
@@ -7461,11 +7469,11 @@ body.mouseaim #screen { cursor: none; }
     draw(e, ctx, sx, sy) { // wind-up: a little arm-back flicker on the far side
       if (e.swipeT <= SWING || !((e.swipeT >> 2) & 1)) return;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(Math.round(sx - e.fx * 6 - e.fy * 5), Math.round(sy - 16 - e.fy * 3 + e.fx * 2), 2, 2);
+      ctx.fillRect(Math.round(sx - e.fx * 6 - e.fy * 5), Math.round(sy - 20 - e.fy * 3 + e.fx * 2), 2, 2);
     },
     drawTop(e, ctx, sx, sy) { // the swing: a thick bright arc sweeping across the front (over whoever it hits)
       if (e.swipeT <= 0 || e.swipeT > SWING) return;
-      const fx = e.fx, fy = e.fy, a0 = Math.atan2(fy, fx), k = 1 - e.swipeT / SWING, cx = sx + fx * 5, cy = sy - 11 + fy * 3;
+      const fx = e.fx, fy = e.fy, a0 = Math.atan2(fy, fx), k = 1 - e.swipeT / SWING, cx = sx + fx * 5, cy = sy - 15 + fy * 3;
       for (let i = 0; i < 10; i++) {
         const t = i / 9;
         if (t > k + 0.45) continue; // sweeps in over the swing
@@ -8113,7 +8121,7 @@ body.mouseaim #screen { cursor: none; }
       const f = this.moving ? [1, 0, 2, 0][(this.anim >> this.animShift) & 3] : 0;
       const spr = this.sprites[this.dir][f];
       if (this.rise > 0 || this.sink > 0) { // rising out of (or sinking back into) the ground: shown from the head down
-        const h = Math.round(23 * (this.sink > 0 ? this.sink / SINK : 1 - this.rise / this.riseMax));
+        const h = Math.round((G.PERSON_Y + 1) * (this.sink > 0 ? this.sink / SINK : 1 - this.rise / this.riseMax));
         ctx.fillStyle = '#3a2a20'; ctx.fillRect(sx - 6, sy - 2, 12, 3); ctx.fillStyle = '#5a4a30'; ctx.fillRect(sx - 4, sy - 3, 8, 1);
         if (h > 0) ctx.drawImage(spr, 0, 0, 16, h, sx - 8, sy - h, 16, h);
         return;
@@ -8122,7 +8130,7 @@ body.mouseaim #screen { cursor: none; }
       const shake = this.windT > 0 ? ((G.tick >> 1) & 1) * 2 - 1 : 0; // trembling before a lunge
       const swing = this.swipeT > 0 && this.swipeT <= SWING, wind = this.swipeT > SWING;
       const lx = swing ? Math.round(this.fx * 2) : wind ? -Math.round(this.fx) : 0, ly = swing ? Math.round(this.fy * 2) : 0; // lean back, then into the swing
-      ctx.drawImage(this.flash ? G.tinted(spr, '#ffffff') : spr, sx - 8 + shake + lx, sy - 22 + ly - Math.round(this.z || 0));
+      ctx.drawImage(this.flash ? G.tinted(spr, '#ffffff') : spr, sx - 8 + shake + lx, sy - G.PERSON_Y + ly - Math.round(this.z || 0));
       for (const [name] of this.brain) if (B[name].draw) B[name].draw(this, ctx, sx, sy);
     }
     // Drawn after the whole world (G.drawEnemyFx): swing arcs, chat bubbles and !/? marks are never hidden by
@@ -8132,15 +8140,15 @@ body.mouseaim #screen { cursor: none; }
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y - (this.flying ? Math.max(0, (this.z || 0) - 14) : 0)); // over a drone, not its shadow
       for (const [name] of this.brain) if (B[name].drawTop) B[name].drawTop(this, ctx, sx, sy);
       if (this.stunT > 0) { // asleep: z's drifting up; fried: a flicker of sparks round the head
-        if (this.stunKind === 'zap') { if ((G.tick >> 2) & 1) { ctx.fillStyle = '#7ff0ff'; ctx.fillRect(sx - 5, sy - 26, 1, 2); ctx.fillRect(sx + 4, sy - 25, 2, 1); } }
+        if (this.stunKind === 'zap') { if ((G.tick >> 2) & 1) { ctx.fillStyle = '#7ff0ff'; ctx.fillRect(sx - 5, sy - 34, 1, 2); ctx.fillRect(sx + 4, sy - 33, 2, 1); } }
         else if (this.stunKind === 'dizzy') { // seeing stars: three going round the head
-          for (let i = 0; i < 3; i++) { const a = G.tick / 8 + (i * Math.PI * 2) / 3; ctx.fillStyle = i ? '#ffd23a' : '#ffffff'; ctx.fillRect(Math.round(sx + Math.cos(a) * 6), Math.round(sy - 26 + Math.sin(a) * 2), 2, 1); }
+          for (let i = 0; i < 3; i++) { const a = G.tick / 8 + (i * Math.PI * 2) / 3; ctx.fillStyle = i ? '#ffd23a' : '#ffffff'; ctx.fillRect(Math.round(sx + Math.cos(a) * 6), Math.round(sy - 34 + Math.sin(a) * 2), 2, 1); }
         }
-        else { const k = (G.tick >> 1) % 24; G.text('Z', sx + 3 + (k >> 3), sy - 28 - (k >> 1), '#c8a8ff', { shadow: '#140c1c' }); }
+        else { const k = (G.tick >> 1) % 24; G.text('Z', sx + 3 + (k >> 3), sy - 36 - (k >> 1), '#c8a8ff', { shadow: '#140c1c' }); }
         return;
       }
-      if (this.alert > 0 && (this.alert >> 2) & 1) G.text('!', sx, sy - 31, '#ffd23a', { align: 'center', shadow: '#140c1c' });
-      else if (this.lost > 0) G.text('?', sx, sy - 31, '#9a8ec0', { align: 'center', shadow: '#140c1c' }); // lost interest
+      if (this.alert > 0 && (this.alert >> 2) & 1) G.text('!', sx, sy - 39, '#ffd23a', { align: 'center', shadow: '#140c1c' });
+      else if (this.lost > 0) G.text('?', sx, sy - 39, '#9a8ec0', { align: 'center', shadow: '#140c1c' }); // lost interest
     }
   }
   G.Enemy = Enemy;
@@ -8958,7 +8966,7 @@ body.mouseaim #screen { cursor: none; }
         ring(ctx, x, y, t.giveUp || 190, '#6a6080');
       }
       if (e.target) line(ctx, x, y, e.target.x - v.x, e.target.y - 6 - v.y, '#ff3a5a');
-      G.text(stateOf(e), x, y - 34, e.target ? '#ff8a8a' : '#9a8ec0', { align: 'center', shadow: '#140c1c' });
+      G.text(stateOf(e), x, y - 42, e.target ? '#ff8a8a' : '#9a8ec0', { align: 'center', shadow: '#140c1c' });
     }
     // panel: counts and the current numbers for the selected kind
     const k = kinds()[D.kind], o = targetOpts(k);
@@ -9313,14 +9321,15 @@ body.mouseaim #screen { cursor: none; }
 (function () {
   'use strict';
   const G = window.G, I = G.input;
-  const S = 2, SW = 16 * S, SH = 24 * S; // sprite scale and drawn size
+  const S = 2, SW = 16 * S, SH = 32 * S; // sprite scale and drawn size
+  const SEAT = 24; // sitting (in a booth, on a stool): only the sprite's top 24 rows show over the table, drawn SEAT * S tall
   const BOOTHS = [4, 88, 172];           // booth left edges
   const TABLE_Y = 138;
 
   // Recruitable spots. tier 0 = counter row, tier 1 = booths. rise = how far they move when they stand.
   const SPOTS = [
     { id: 'lou', tier: 0, x: 46, y: 30, rise: -8 },        // behind the counter, in the kitchen window
-    { id: 'dot', tier: 0, x: 212, y: 50, rise: 6 },        // standing by the end of the counter
+    { id: 'dot', tier: 0, x: 212, y: 34, rise: 6 },        // standing by the end of the counter (feet where they always were: she's two tiles tall)
     { id: 'pixel', tier: 1, x: 12, y: 106, rise: -14 },
     { id: 'root', tier: 1, x: 44, y: 106, rise: -14 },
     { id: 'june', tier: 1, x: 96, y: 106, rise: -14 },
@@ -9461,17 +9470,18 @@ body.mouseaim #screen { cursor: none; }
       return -1;
     }
     drawPerson(ctx, s, spr) {
-      const y = Math.round(s.y + s.rise * s.up), on = s === this.cur;
+      const y = Math.round(s.y + s.rise * s.up), on = s === this.cur, sh = s.tier === 1 ? SEAT : 32; // a booth: from the waist up
+      const put = (img, x, yy) => ctx.drawImage(img, 0, 0, 16, sh, x, yy, SW, sh * S);
       if (on) { // soft spotlight from the ceiling
         ctx.globalAlpha = 0.1;
         ctx.fillStyle = '#fff4c0';
-        const cx = s.x + SW / 2, bottom = y + SH;
+        const cx = s.x + SW / 2, bottom = y + sh * S;
         for (let yy = 0; yy < bottom; yy += 2) { const hw = 8 + (yy / bottom) * 22; ctx.fillRect(Math.round(cx - hw), yy, Math.round(hw * 2), 2); }
         ctx.globalAlpha = 1;
         const glow = G.tinted(spr, (this.t >> 3) & 1 ? '#ffd23a' : '#fff0a0');
-        for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) ctx.drawImage(glow, s.x + ox, y + oy, SW, SH);
+        for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) put(glow, s.x + ox, y + oy);
       }
-      ctx.drawImage(spr, s.x, y, SW, SH);
+      put(spr, s.x, y);
       if (this.picks.length && this.picks[0] === s.id && this.need > 1) G.text('P1', s.x + SW / 2, y - 2, '#ff5ab0', { align: 'center', shadow: '#140c1c' }); // player 1's pick
       if (this.taken.includes(s.id)) G.text('TAKEN', s.x + SW / 2, y - 2, '#ff3a5a', { align: 'center', shadow: '#140c1c' }); // online: someone else has them
     }
@@ -9494,11 +9504,11 @@ body.mouseaim #screen { cursor: none; }
       if (hopId !== 'lou') this.drawPerson(ctx, spot('lou'), this.frameFor(spot('lou')));
       ctx.drawImage(this.counter, 0, 0);
       G.text('100% VEGAN', 100, 76, '#7ff0a0', { align: 'center', shadow: '#4a0a1a' }); // painted on the counter
-      ctx.drawImage(G.art.people.trucker.up[0], 136, 46, SW, SH); // regular, back to us, hunched over his pie
+      ctx.drawImage(G.art.people.trucker.up[0], 0, 0, 16, SEAT, 136, 46, SW, SEAT * S); // regular, back to us, hunched over his pie (on a stool: from the waist up)
       if (hopId !== 'dot') this.drawPerson(ctx, spot('dot'), this.frameFor(spot('dot')));
       // booths: patrons, the newspaper guy, then the tables in front of them
       for (const id of ['pixel', 'root', 'june', 'ted']) if (hopId !== id) this.drawPerson(ctx, spot(id), this.frameFor(spot(id)));
-      ctx.drawImage(G.art.people.newsguy.down[0], 128, 106, SW, SH);
+      ctx.drawImage(G.art.people.newsguy.down[0], 0, 0, 16, SEAT, 128, 106, SW, SEAT * S);
       ctx.fillStyle = '#e8e0c8'; ctx.fillRect(130, 112, 28, 24); ctx.fillStyle = '#8a8070';
       for (let k = 0; k < 5; k++) ctx.fillRect(132 + (k % 2) * 13, 119 + Math.floor(k / 2) * 5, 11, 1);
       ctx.fillStyle = '#1a1020'; ctx.fillRect(132, 114, 24, 3); // headline
@@ -9506,7 +9516,7 @@ body.mouseaim #screen { cursor: none; }
 
       // the chosen one hops over the table toward you, getting bigger
       if (this.hop) {
-        const h = this.hop, k = Math.min(1, h.t / 50), sc = S + 3 * k * k, w = 16 * sc, hh = 24 * sc;
+        const h = this.hop, k = Math.min(1, h.t / 50), sc = S + 3 * k * k, w = 16 * sc, hh = 32 * sc;
         const cx = G.lerp(h.x + SW / 2, 128, k), feet = G.lerp(h.y + SH, 250, k * k) - Math.sin(k * Math.PI) * 34;
         const spr = G.art.crew[h.id].down[h.t < 12 ? 0 : 1 + ((h.t >> 3) & 1)];
         ctx.drawImage(spr, Math.round(cx - w / 2), Math.round(feet - hh), Math.round(w), Math.round(hh));
@@ -10522,7 +10532,7 @@ body.mouseaim #screen { cursor: none; }
         o.fillRect(hx, hy, 16, 1); o.fillRect(hx, hy + 15, 16, 1); o.fillRect(hx, hy, 1, 16); o.fillRect(hx + 15, hy, 1, 16);
       }
       const p = st.players[0];
-      o.globalAlpha = 0.6; o.drawImage(p.frame(), Math.round(p.x - v.x) - 8, Math.round(p.y - v.y) - 22); o.globalAlpha = 1;
+      o.globalAlpha = 0.6; o.drawImage(p.frame(), Math.round(p.x - v.x) - 8, Math.round(p.y - v.y) - G.PERSON_Y); o.globalAlpha = 1;
       G.textCtx = null;
       ctx.imageSmoothingEnabled = z < 1; // smooth when shrinking so the zoomed-out map stays readable
       ctx.drawImage(EM.off, 0, 0, G.W, G.H);
@@ -10550,6 +10560,7 @@ body.mouseaim #screen { cursor: none; }
     touch: ['DRAG LEFT SIDE TO MOVE  HOLD FIRE', 'TAP WEAPON OR ITEM UP TOP TO SWAP'],
     coop: ['P1 WASD  SPACE FIRE  SHIFT SKILL  F ITEM', 'P2 ARROWS  / FIRE  . SKILL  , ITEM', "STAND OVER A DOWNED PARTNER: THEY'RE BACK", 'ONE SCREEN: STICK TOGETHER'],
   };
+  const HINT_TICKS = 2400; // how long the controls line shows at the bottom of a level
   const hintLine = (t, coop) => { const h = (coop && HINTS.coop) || HINTS[I.source] || HINTS.keyboard; return h[Math.floor(t / 240) % h.length]; };
 
   const MAX_PARTS = 700; // most particles alive at once
@@ -10664,7 +10675,8 @@ body.mouseaim #screen { cursor: none; }
     mapChanged() { if (this.flow) this.flow.refreshOpen(); if (this.flowJump) this.flowJump.refreshOpen(); }
     addScore(n) { this.score += n; if (this.score > G.save.data.best) G.save.data.best = this.score; }
     shake(t, a) { this.shakeT = Math.max(this.shakeT, t); this.shakeA = Math.max(this.shakeA, a); if (this.out) this.out.push(['h', t, a]); }
-    floater(x, y, text, col) { this.floaters.push({ x, y, text, col, life: 50 }); if (this.out) this.out.push(['f', Math.round(x), Math.round(y), text, col]); }
+    // a floating word (6px up: over a two-tile-tall person's head; guests get the raw y and lift it themselves)
+    floater(x, y, text, col) { this.floaters.push({ x, y: y - 6, text, col, life: 50 }); if (this.out) this.out.push(['f', Math.round(x), Math.round(y), text, col]); }
     // a dash afterimage of player p
     addGhost(p) { this.ghosts.push({ spr: p.frame(), x: p.x, y: p.y, life: 14 }); if (this.out) this.out.push(['g', p.num, Math.round(p.x), Math.round(p.y)]); }
     onScreen(x, y, margin = 16) { return x > this.cam.x - margin && x < this.cam.x + G.W + margin && y > this.cam.y - margin && y < this.cam.y + G.H + margin; }
@@ -10952,7 +10964,7 @@ body.mouseaim #screen { cursor: none; }
         }
       }
       for (const g of this.ghosts) { // frame-skip afterimages: RGB-split ghosts
-        const sx = Math.round(g.x - cx) - 8, sy = Math.round(g.y - cy) - 22;
+        const sx = Math.round(g.x - cx) - 8, sy = Math.round(g.y - cy) - G.PERSON_Y;
         ctx.globalAlpha = (g.life / 14) * 0.55;
         ctx.drawImage(G.tinted(g.spr, '#ff3ab0'), sx - 2, sy);
         ctx.drawImage(G.tinted(g.spr, '#3ad0ff'), sx + 2, sy);
@@ -10974,7 +10986,7 @@ body.mouseaim #screen { cursor: none; }
         ctx.fillRect(Math.round(q.x - cx), Math.round(q.y - cy - q.z), q.size, q.size);
       }
       // roofs (with a peek window around anyone walking behind a house)
-      const peeks = this.players.filter((p) => !p.dead && G.roofCover(this.room, p).covered > 0).map((p) => ({ x: p.x - cx, y: p.y - 11 - cy }));
+      const peeks = this.players.filter((p) => !p.dead && G.roofCover(this.room, p).covered > 0).map((p) => ({ x: p.x - cx, y: p.y - 15 - cy }));
       G.drawRoofs(ctx, this.room, v, 1, peeks);
       if (this.pda || this.players.some((p) => p.revealT > 0)) this.drawShimmer(ctx, v); // the PDA, or Ted's I Knew It!
       if (this.exit) this.exit.drawSign(ctx, v);
@@ -10984,14 +10996,14 @@ body.mouseaim #screen { cursor: none; }
       }
       for (const p of this.players) {
         if (this.coop && p.dead) { // down: HELP! and how far along the revive is
-          if ((this.t >> 4) & 1) G.text('HELP!', p.x - cx, p.y - cy - 32, '#ff3a5a', { align: 'center', shadow: '#140c1c' });
+          if ((this.t >> 4) & 1) G.text('HELP!', p.x - cx, p.y - cy - 40, '#ff3a5a', { align: 'center', shadow: '#140c1c' });
           if (p.reviveT > 0) { ctx.fillStyle = '#140c1c'; ctx.fillRect(Math.round(p.x - cx) - 11, Math.round(p.y - cy) + 3, 22, 4); ctx.fillStyle = '#38f0a0'; ctx.fillRect(Math.round(p.x - cx) - 10, Math.round(p.y - cy) + 4, Math.round(20 * Math.min(1, p.reviveT / REVIVE_T)), 2); }
           continue;
         }
-        if (this.coop && !p.label && !p.dead && p.num) G.text(String(p.num), p.x - cx, p.y - cy - 31, G.PCOLS[p.num - 1], { align: 'center', shadow: '#140c1c' }); // which one's you
+        if (this.coop && !p.label && !p.dead && p.num) G.text(String(p.num), p.x - cx, p.y - cy - 39, G.PCOLS[p.num - 1], { align: 'center', shadow: '#140c1c' }); // which one's you
         if (!p.label || p.dead) continue;
         const hw = G.textWidth(p.label.text) / 2;
-        G.text(p.label.text, G.clamp(p.x - cx, hw + 2, G.W - hw - 2), p.y - cy - 34, p.label.col, { align: 'center', shadow: '#140c1c' });
+        G.text(p.label.text, G.clamp(p.x - cx, hw + 2, G.W - hw - 2), p.y - cy - 42, p.label.col, { align: 'center', shadow: '#140c1c' });
       }
       drawHud(ctx, this);
       G.Debug.draw(this, ctx, v);
@@ -11000,8 +11012,10 @@ body.mouseaim #screen { cursor: none; }
       this.drawCrosshair(ctx);
       this.drawNeighborCount(ctx);
       if (this.overT > 0) this.drawGameOver(ctx);
-      ctx.fillStyle = 'rgba(11,6,20,.82)'; ctx.fillRect(0, G.H - 11, G.W, 11);
-      G.text(hintLine(this.t, this.shared), G.W / 2, G.H - 9, '#9a8ec0', { align: 'center' });
+      if (this.t < HINT_TICKS || this.test) { // the controls, along the bottom: only for the first 40 s of a level (always in the test room and practice)
+        ctx.fillStyle = 'rgba(11,6,20,.82)'; ctx.fillRect(0, G.H - 11, G.W, 11);
+        G.text(hintLine(this.t, this.shared), G.W / 2, G.H - 9, '#9a8ec0', { align: 'center' });
+      }
       if (this.remote && (this.hostPaused || !this.gotSnap || this.snapT > 90) && (this.t >> 4) & 1) { // online guest: waiting on the host
         const msg = this.hostPaused ? 'HOST PAUSED' : !this.gotSnap ? 'JOINING...' : 'WAITING FOR THE HOST...';
         G.box(G.W / 2 - G.textWidth(msg) / 2 - 7, 100, G.textWidth(msg) + 14, 14); G.text(msg, G.W / 2, 104, '#ffd23a', { align: 'center' });
@@ -11152,16 +11166,19 @@ body.mouseaim #screen { cursor: none; }
       G.text('EXIT', tx, ty, col, { align: 'center', shadow: '#140c1c' });
     }
     // Saved / lost / left, just under the HUD (flashes when it changes)
+    // Solo: just how many are LEFT, top right (all three for a moment, just under the HUD, when one is saved or lost). Co-op: the full
+    // line under the shared HUD, with the score (no room for it up there).
     drawNeighborCount(ctx) {
       const total = this.saved + this.lost + this.neighbors.length;
       if (!total) return;
-      const hot = this.tallyFlash > 0 && (this.tallyFlash >> 2) & 1, gap = 6;
+      const hot = this.tallyFlash > 0 && (this.tallyFlash >> 2) & 1, gap = 6, solo = !this.shared;
       const parts = [['SAVED ' + this.saved, '#7ff0ff'], ['LOST ' + this.lost, '#ff5a6a'], ['LEFT ' + this.neighbors.length, '#ffffff']];
-      if (this.coop) parts.push(['SCORE ' + this.score, '#ffd23a']); // no room for it in the co-op HUD
-      const w = parts.reduce((a, [t]) => a + G.textWidth(t), 0) + gap * (parts.length - 1) + 6; // sized to the text
-      ctx.fillStyle = hot ? 'rgba(58,42,16,.9)' : 'rgba(11,6,20,.75)'; ctx.fillRect(G.W - w, 21, w, 10);
+      if (solo && !(this.tallyFlash > 0)) parts.splice(0, 2);
+      if (!solo) parts.push(['SCORE ' + this.score, '#ffd23a']);
+      const w = parts.reduce((a, [t]) => a + G.textWidth(t), 0) + gap * (parts.length - 1) + 6, y = solo && parts.length === 1 ? 0 : 21; // sized to the text; the full line drops under the HUD
+      ctx.fillStyle = hot ? 'rgba(58,42,16,.9)' : 'rgba(11,6,20,.72)'; ctx.fillRect(G.W - w, y, w, 10);
       let x = G.W - w + 3;
-      for (const [t, col] of parts) { G.text(t, x, 23, col); x += G.textWidth(t) + gap; }
+      for (const [t, col] of parts) { G.text(t, x, y + 2, col); x += G.textWidth(t) + gap; }
     }
     // A dropped phone: 3x5 px, tumbling (alternates upright and sideways) until it lands; cracked screen after
     drawPhone(ctx, o, cx, cy) {
@@ -11316,7 +11333,7 @@ body.mouseaim #screen { cursor: none; }
     const w = p.weapon, wd = G.WEAPONS[w.id], WX = x0 + 72;
     slot(ctx, WX, G.art.icons[wd.icon], p.invShow > 0 && p.invKind === 'w');
     if (wd.signature) for (let i = 0; i < 3; i++) { ctx.fillStyle = i < w.lv ? '#ffd23a' : '#3a2f58'; ctx.fillRect(WX + 2 + i * 4, 16, 3, 1); } // level pips
-    const ammo = wd.returns ? '' : w.ammo <= 0 ? 'MELEE' : String(w.ammo);
+    const ammo = wd.returns || wd.keeps ? '' : w.ammo <= 0 ? 'MELEE' : String(w.ammo); // (the skillet and the hockey stick: no count)
     G.text(ammo, WX - 2, 2, w.ammo <= wd.ammo * 0.2 && blink ? '#ff3a5a' : '#ff8a2a', { align: 'right' });
     const it = p.item, IX = x0 + 90;
     slot(ctx, IX, it && G.art.icons[G.ITEMS[it.id].icon], p.invShow > 0 && p.invKind === 'i');
@@ -11331,71 +11348,69 @@ body.mouseaim #screen { cursor: none; }
     if (p.keys) G.text('K' + p.keys, x0 + 109, 11, '#e0c060');
     if (p.invShow > 0) invStrip(ctx, p, p.invKind === 'w' ? WX : IX, blink);
   }
+  // A HUD plate: a small see-through panel behind one group, over the world (ZAMN keeps its HUD small: no bar)
+  function plate(ctx, x, w) { ctx.fillStyle = 'rgba(11,6,20,.72)'; ctx.fillRect(x, 0, w, 20); ctx.fillStyle = 'rgba(255,90,176,.55)'; ctx.fillRect(x, 20, w, 1); }
   function drawHud(ctx, st) {
     const p = st.me, blink = (st.t >> 3) & 1;
     if (st.online && p) partners(ctx, st, p);
-    ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, 20);
-    ctx.fillStyle = '#3a1a4a'; ctx.fillRect(0, 19, G.W, 1);
-    ctx.fillStyle = '#ff5ab0'; ctx.fillRect(0, 20, G.W, 1);
     st.hudTap = null;
     if (!p) return; // an online guest before the first snapshot
-    if (st.shared) {
+    if (st.shared) { // co-op on one screen: each player gets half the top
+      plate(ctx, 0, G.W);
       st.players.slice(0, 2).forEach((q, i) => hudHalf(ctx, st, q, i * 128, blink));
       ctx.fillStyle = '#3a1a4a'; ctx.fillRect(127, 2, 1, 16); // the split
       return;
     }
+    // Solo, three small plates: you (portrait = skill meter with your lives, hearts, score under them), your weapon
+    // (icon, ammo, level pips), your item (icon, count) with keycards and keys. Names show only when you swap.
+    const HW = (p.maxHp / 2) * 8, PW = 21 + Math.max(HW, 36) + 2;
+    plate(ctx, 0, PW);
     portrait(ctx, p, 2, blink);
-    G.text(p.def.short || p.def.name, 21, 2, '#ffffff');
-    hearts(ctx, p, 20, 11, 8);
+    hearts(ctx, p, 21, 3, 8);
+    G.text(String(st.score).padStart(6, '0'), 21, 12, '#ffd23a');
     // Full-health perk: a thin bar under the hearts while it's on (bright when the charged dart or the guard is ready)
     const perk = G.perkOf(p);
     if (perk !== 'off') {
       const ready = perk === 'charged' ? p.perkReady() : perk === 'guard' ? !(p.guardCd > 0) : true;
       ctx.fillStyle = !ready ? '#5a4a20' : perk === 'guard' ? '#7ff0ff' : blink && perk === 'charged' ? '#ffffff' : '#ffd23a';
-      ctx.fillRect(20, 18, p.maxHp * 4 - 2, 1);
+      ctx.fillRect(21, 10, HW - 2, 1);
     }
-    // Weapon slot (everything from here on slides right a heart's width for each heart over 4: Lou has 6)
-    const sh = Math.max(0, p.maxHp / 2 - 4) * 8, WX = 56 + sh, IX = 120 + sh;
-    st.hudTap = { wpn: [WX - 2, IX - 2], itm: [IX - 2, IX + 56] }; // touch: tap the weapon or the item up here to swap it (input.js)
-    const w = p.weapon, wd = G.WEAPONS[w.id];
+    // weapon
+    const w = p.weapon, wd = G.WEAPONS[w.id], WX = PW + 3;
+    let ammo, acol = '#ffffff';
+    if (wd.signature && wd.returns) { const out = st.shots.filter((q) => q.kind === 'skillet' && (q.owner === p || (q.ow && q.ow === p.num))).length; ammo = out >= w.lv ? 'OUT' : 'X' + (w.lv - out); if (out >= w.lv) acol = '#8a7aa8'; } // the skillet: how many in hand
+    else if (wd.keeps) ammo = ''; // the hockey stick never runs out
+    else if (wd.signature && w.ammo <= 0) { ammo = 'MELEE'; acol = blink ? '#ff3a5a' : '#ff8a8a'; } // out: you're bonking
+    else { ammo = 'X' + w.ammo; if (w.ammo <= Math.max(1, wd.ammo * (wd.signature ? 0.2 : 0.25)) && blink) acol = '#ff3a5a'; }
+    const WW = 19 + Math.max(G.textWidth(ammo), wd.signature ? 14 : 0) + 3;
+    plate(ctx, WX - 1, WW);
     slot(ctx, WX, G.art.icons[wd.icon], p.invShow > 0 && p.invKind === 'w');
-    G.text(wd.name, WX + 19, 2, '#ff8a2a');
-    if (wd.signature) {
-      for (let i = 0; i < 3; i++) { ctx.fillStyle = i < w.lv ? '#ffd23a' : '#3a2f58'; ctx.fillRect(WX + 19 + i * 5, 13, 4, 3); }
-      if (wd.returns) { // the skillet: how many are in hand (the rest are flying)
-        const out = st.shots.filter((s) => s.kind === 'skillet' && (s.owner === p || (s.ow && s.ow === p.num))).length;
-        G.text(out >= w.lv ? 'OUT' : String(w.lv - out), WX + 36, 11, out >= w.lv ? '#8a7aa8' : '#ffffff');
-      }
-      else if (w.ammo <= 0) G.text('MELEE', WX + 36, 11, blink ? '#ff3a5a' : '#ff8a8a'); // out: you're bonking
-      else G.text('X' + w.ammo, WX + 36, 11, w.ammo <= wd.ammo * 0.2 && blink ? '#ff3a5a' : '#ffffff');
-    } else {
-      G.text('X' + w.ammo, WX + 19, 11, w.ammo <= Math.max(1, wd.ammo * 0.25) && blink ? '#ff3a5a' : '#ffffff');
-    }
-    // Item slot
-    const it = p.item;
+    if (ammo) G.text(ammo, WX + 19, 4, acol);
+    if (wd.signature) for (let i = 0; i < 3; i++) { ctx.fillStyle = i < w.lv ? '#ffd23a' : '#3a2f58'; ctx.fillRect(WX + 19 + i * 5, ammo ? 13 : 8, 4, 3); } // level pips
+    // item, keycards and keys
+    const it = p.item, IX = WX + WW + 2, cnt = it ? (G.ITEMS[it.id].keep ? 'MAP' : 'X' + it.n) : '';
+    let hw2 = 19 + G.textWidth(cnt) + 3;
+    const cards = G.CARDS.filter((c) => p.cards[c]);
+    for (const c of cards) hw2 += p.cards[c] > 1 ? 14 : 8;
+    if (p.keys) hw2 += p.keys > 1 ? 20 : 12;
+    plate(ctx, IX - 1, hw2);
+    st.hudTap = { wpn: [WX - 2, IX - 2], itm: [IX - 2, IX + hw2] }; // touch: tap the weapon or the item up here to swap it (input.js)
     slot(ctx, IX, it && G.art.icons[G.ITEMS[it.id].icon], p.invShow > 0 && p.invKind === 'i');
-    if (it) { G.text(G.ITEMS[it.id].name, IX + 19, 2, '#38f0a0'); G.text(G.ITEMS[it.id].keep ? 'MAP' : 'X' + it.n, IX + 19, 11, G.ITEMS[it.id].keep ? '#7ff0a0' : '#ffffff'); }
-    else G.text('NONE', IX + 19, 6, '#4a3e6a');
-    // what you hold to open things: keycards by color (a small card each, with a count if you have more than one),
-    // then plain house keys
-    let hx = IX + 57; // clear of the item name (6 letters at most)
-    for (const col of G.CARDS) {
-      const n = p.cards[col];
-      if (!n) continue;
-      const [c, l] = G.CARD_COLORS[col];
+    if (cnt) G.text(cnt, IX + 19, 4, G.ITEMS[it.id].keep ? '#7ff0a0' : '#ffffff');
+    let hx = IX + 19 + G.textWidth(cnt) + 3; // keycards by color (a small card each, with a count if more than one), then house keys
+    for (const col of cards) {
+      const n = p.cards[col], [c, l] = G.CARD_COLORS[col];
       ctx.fillStyle = '#140c1c'; ctx.fillRect(hx - 1, 3, 7, 10); ctx.fillStyle = c; ctx.fillRect(hx, 4, 5, 8); ctx.fillStyle = l; ctx.fillRect(hx, 4, 5, 1);
       ctx.fillStyle = '#140c1c'; ctx.fillRect(hx, 6, 5, 1); ctx.fillStyle = '#ffffff'; ctx.fillRect(hx + 1, 9, 3, 1);
       if (n > 1) G.text(String(n), hx + 7, 9, c);
       hx += n > 1 ? 14 : 8;
     }
-    if (p.keys) {
-      ctx.drawImage(G.art.icons.hkey, hx - 2, 3);
-      if (p.keys > 1) G.text(String(p.keys), hx + 11, 9, '#e0c060');
+    if (p.keys) { ctx.drawImage(G.art.icons.hkey, hx - 2, 3); if (p.keys > 1) G.text(String(p.keys), hx + 11, 9, '#e0c060'); }
+    if (p.invShow > 0) { // just swapped or picked something up: the strip of what you carry, and its name
+      invStrip(ctx, p, p.invKind === 'w' ? WX : IX, blink);
+      const name = p.invKind === 'w' ? wd.name : it ? G.ITEMS[it.id].name : '';
+      if (name) G.text(name, G.clamp((p.invKind === 'w' ? WX : IX) + 8, G.textWidth(name) / 2 + 2, G.W - G.textWidth(name) / 2 - 2), 46, p.invKind === 'w' ? '#ff8a2a' : '#38f0a0', { align: 'center', shadow: '#140c1c' });
     }
-    G.text('SCORE', 254, 2, '#8a7aa8', { align: 'right' });
-    G.text(String(st.score).padStart(6, '0'), 254, 11, '#ffffff', { align: 'right' });
-
-    if (p.invShow > 0) invStrip(ctx, p, p.invKind === 'w' ? WX : IX, blink);
   }
 
   // ===== Generic vertical menu helper (keyboard/gamepad/touch) =====

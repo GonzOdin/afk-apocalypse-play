@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 04:15';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 04:30';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1693,7 +1693,19 @@ body.mouseaim #screen { cursor: none; }
       const arrive = e.rise > 0 ? e.rise / e.riseMax : e.sink > 0 ? 1 - e.sink / SINK : 0; // 1 = up in the sky
       const z = Math.round((e.z || 0) + arrive * 80);
       G.drawShadow(ctx, sx, sy, z > 40 ? 3 : 5);
+      if (e.tumbleT > 0) { // blown away: tumbling end over end
+        const ph = (G.tick >> 2) & 3;
+        ctx.save(); ctx.translate(sx, sy - (h >> 1) - z); ctx.scale(ph & 1 ? -1 : 1, ph & 2 ? -1 : 1);
+        ctx.drawImage(img, -(w >> 1), -(h >> 1)); ctx.restore();
+        return;
+      }
       ctx.drawImage(img, sx - (w >> 1), sy - h - z);
+      const P = e.type === 'drone' && e.hasPkg && G.PARCELS[e.pkgKind];
+      if (P && !e.flash) { // the box slung under it, in its color (G.PARCELS: red bursts, blue ticks, green holds an enemy)
+        const px = sx - (w >> 1) + 7, py = sy - h - z + 10;
+        ctx.fillStyle = P.body; ctx.fillRect(px, py, 6, 3); ctx.fillStyle = P.light; ctx.fillRect(px, py, 6, 1);
+        ctx.fillStyle = P.tape; ctx.fillRect(px + 2, py, 2, 3);
+      }
       if (e.drawDrop) e.drawDrop(ctx, sx, sy - z); // (the drop behavior's wind-up)
       return;
     }
@@ -3652,7 +3664,7 @@ body.mouseaim #screen { cursor: none; }
       name: 'PLATES', icon: 'plate',
       held: { plate: true },
       ammo: 8, max: 64, dmg: 2, speed: 3.2, range: 34, rate: 18, // tunable: plates per stack, most carried, damage, px/tick, ticks before it drops, fire delay
-      charge: true, chargeRate: 8, most: 8, // tunable: ticks per extra plate while held, most thrown at once
+      charge: true, chargeRate: 10.4, most: 8, // tunable: ticks per extra plate while held, most thrown at once
       cd() { return this.rate; },
       count(p, w) { return Math.max(1, Math.min(this.most, w.ammo, 1 + Math.floor(((p.charge || 1) - 1) / this.chargeRate))); },
       fan() { return 180 / Math.max(1, this.most - 1); }, // degrees between plates: the most at once spans a half circle
@@ -3676,6 +3688,7 @@ body.mouseaim #screen { cursor: none; }
       held: { len: 8, thick: 2, butt: '#d8c040', body: '#8a8aa0', tip: '#3a3a48', tipLen: 1 }, // yellow motor, grey tube
       ammo: 160, max: 320, dmg: 0.12, rate: 2, range: 16, // tunable
       push: 0.9, leafLoot: 0.12, phone: 0.05, fall: 1.5, ballDmg: 4, ballPop: 1.5, // tunable: shove per gust, chance a leaf pile hides loot, chance per gust a phone flies, damage landing off a trampoline, a ball's hit, its pop
+      droneToss: 6, droneGlide: 0.9, droneTumble: 50, droneHit: 2, // tunable: a drone's shove (x a teen's), how far it glides (speed kept per tick), ticks it tumbles, damage to each enemy it crashes into
       cd() { return this.rate; },
       fire(p, st, dx, dy) {
         const base = Math.atan2(dy, dx);
@@ -3861,6 +3874,9 @@ body.mouseaim #screen { cursor: none; }
     { group: 'BLOWER', label: 'LOOT IN LEAVES', o: W.blower, k: 'leafLoot', min: 0, max: 1, step: 0.02, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'PHONE BLOWN AWAY', o: W.blower, k: 'phone', min: 0, max: 0.5, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'BALL HIT', o: W.blower, k: 'ballDmg', min: 0, max: 20, step: 0.5 },
+    { group: 'BLOWER', label: 'DRONE TOSS', o: W.blower, k: 'droneToss', min: 1, max: 10, step: 0.5, note: (v) => 'X' + v + ' A TEEN' },
+    { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.95, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
+    { group: 'BLOWER', label: 'DRONE CRASH HIT', o: W.blower, k: 'droneHit', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'RANGE', o: W.blower, k: 'range', min: 4, max: 40, step: 1 },
     { group: 'BLOWER', label: 'FUEL/PICKUP', o: W.blower, k: 'ammo', min: 10, max: 400, step: 10 },
     { group: 'BLOWER', label: 'MAX FUEL', o: W.blower, k: 'max', min: 10, max: 900, step: 10 },
@@ -3892,7 +3908,7 @@ body.mouseaim #screen { cursor: none; }
     { group: 'PLATES', label: 'PER STACK', o: W.plates, k: 'ammo', min: 1, max: 16, step: 1 },
     { group: 'PLATES', label: 'MOST CARRIED', o: W.plates, k: 'max', min: 8, max: 99, step: 1 },
     { group: 'PLATES', label: 'MOST AT ONCE', o: W.plates, k: 'most', min: 1, max: 12, step: 1, note: (v) => (v > 1 ? Math.round(180 / (v - 1)) + ' DEG APART' : 'STRAIGHT') },
-    { group: 'PLATES', label: 'CHARGE SPEED', o: W.plates, k: 'chargeRate', min: 2, max: 30, step: 1, note: (v) => 'FULL IN ' + ((v * (W.plates.most - 1)) / 60).toFixed(1) + 'S' },
+    { group: 'PLATES', label: 'CHARGE SPEED', o: W.plates, k: 'chargeRate', min: 2, max: 30, step: 0.4, note: (v) => 'FULL IN ' + ((v * (W.plates.most - 1)) / 60).toFixed(1) + 'S' },
     { group: 'FULL-HP PERK', label: 'CHARGE TIME', o: G.PERK, k: 'recharge', min: 10, max: 300, step: 10, note: (v) => (v / 60).toFixed(1) + 'S' },
     { group: 'FULL-HP PERK', label: 'CHARGED DMG', o: G.PERK, k: 'critDmg', min: 2, max: 99, step: 1 },
     { group: 'FULL-HP PERK', label: 'RAPID BOOST', o: G.PERK, k: 'rapid', min: 0, max: 80, step: 5, note: () => '%' },
@@ -4007,7 +4023,8 @@ body.mouseaim #screen { cursor: none; }
         if (t) {
           t.hit(st, s.dmg, s.x, s.y);
           if (t.isEnemy && !t.dead) {
-            const k = t.flying ? 3 : 1; t.kx += s.vx * W.push * k; t.ky += s.vy * W.push * k; // the shove (a drone is light: it gets blown away)
+            const k = t.flying ? W.droneToss : 1; t.kx += s.vx * W.push * k; t.ky += s.vy * W.push * k; // the shove (a drone is light: it gets blown away)
+            if (t.flying) { t.tumbleT = W.droneTumble; if (!t._tumbled) t._tumbled = new Set(); } // ...tumbling into the others (enemies.js: tumble)
             if (t.tj && t.z > 6) { // blown off a trampoline mid-jump: it comes down hard
               t.tj = null; t.z = 0; t.trampCd = 90;
               st.floater(t.x, t.y - 28, 'THUD!', '#ff8a2a'); st.shake(3, 1);
@@ -4458,7 +4475,7 @@ body.mouseaim #screen { cursor: none; }
   window.G.ENEMY_TUNING = {
     shambler: { hp: 3, speed: 0.34, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { pace: 0.55, chance: 0.01 }, hurry: { chance: 0.25, mul: 1.6 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
     rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2, windup: 14, cooldown: 120 } },
-    flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 150, radius: 16, dmg: 2, lead: 0.4 } },
+    flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 150, radius: 16, dmg: 2, lead: 0.4, red: 5, blue: 3, green: 2, fuse: 150, fuseRadius: 26, fuseDmg: 3, open: 40, pool: 'level' } },
     hound: { hp: 3, speed: 0.9, sight: { notice: 100, giveUp: 150, cone: 70, feel: 30, neighbors: 0 }, grip: { drag: 0.15 }, mosey: { pace: 0.5, chance: 0.012 }, lunge: { range: 64, speed: 2.6, windup: 18, cooldown: 110, dmg: 1 }, circle: { dist: 44 }, retreat: { time: 36 }, bark: { radius: 130, cooldown: 360, hunt: 240 }, fetch: { range: 120 } },
     mimic: { hp: 4, speed: 0.7, sight: { notice: 130, giveUp: 200, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, keep: { min: 50, max: 100 }, shoot: { range: 120, windup: 24, cooldown: 70, dmg: 1 }, blink: { chance: 0.35, dist: 40, cooldown: 90 } },
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
@@ -5866,11 +5883,30 @@ body.mouseaim #screen { cursor: none; }
   };
 
   // Get shoved by hits (knockback decays quickly)
+  // A drone blown by the leaf blower tumbles (e.tumbleT): it glides much further (G.WEAPONS.blower.droneGlide) and
+  // crashes into every other enemy it passes (droneHit damage, knocked aside), each once per tumble.
+  const tumble = (e, st) => {
+    const W = G.WEAPONS.blower, sp = Math.hypot(e.kx, e.ky);
+    if (--e.tumbleT <= 0 || sp < 0.5) { e.tumbleT = 0; return; }
+    const hit = e._tumbled || (e._tumbled = new Set());
+    if (e.tumbleT % 3 === 0) st.burst(e.x, e.y - (e.z || 0) - 6, 1, ['#ffd23a', '#ffffff', '#8a8aa0'], 0.6, 8, 10);
+    for (const o of st.enemies) {
+      if (o === e || hit.has(o) || o.dead || !o.hittable() || Math.hypot(o.x - e.x, o.y - e.y) > 12) continue;
+      hit.add(o);
+      o.hit(st, W.droneHit, o.x, o.y - 8);
+      if (!o.dead) { o.kx = (o.kx || 0) + (e.kx / sp) * 3; o.ky = (o.ky || 0) + (e.ky / sp) * 3; }
+      st.burst(o.x, o.y - 10, 8, ['#ffffff', '#ffd23a', '#8a8aa0'], 1.4, 8, 14);
+      st.floater(o.x, o.y - 30, 'CRASH!', '#ffd23a');
+      G.sfx.play('clang');
+    }
+  };
   B.knockback = {
     update(e, st) {
+      if (e.tumbleT > 0) tumble(e, st);
       if (!e.kx && !e.ky) return false;
       e.move(st, e.kx, e.ky);
-      e.kx *= 0.6; e.ky *= 0.6;
+      const keep = e.tumbleT > 0 ? G.WEAPONS.blower.droneGlide : 0.6;
+      e.kx *= keep; e.ky *= keep;
       if (Math.abs(e.kx) + Math.abs(e.ky) < 0.1) e.kx = e.ky = 0;
       return false;
     },
@@ -6193,40 +6229,87 @@ body.mouseaim #screen { cursor: none; }
     },
   };
 
-  // Drop a parcel (delivery drone): within o.reach px of a player it lets go of the parcel slung under it. A red
-  // target marks where it'll land (aimed o.lead of the way ahead of where you're walking) and it takes o.windup ticks
-  // to fall: step out of the circle. It bursts in o.radius px for o.dmg half-hearts, and hurts teens caught in it too.
-  // Then the drone needs o.cooldown ticks to pick up another one.
+  // Drop a parcel (delivery drone): within o.reach px of a player it lets go of the box slung under it. A target
+  // marks where it'll land (aimed o.lead of the way ahead of where you're walking) and it takes o.windup ticks to
+  // fall: step out of the circle. Then the drone needs o.cooldown ticks to pick up another one. Each box is one of
+  // G.PARCELS, picked by the weights o.red, o.blue, o.green:
+  //   red: bursts where it lands, o.radius px, o.dmg half-hearts (and hurts teens caught in it too)
+  //   blue: lands and ticks for o.fuse ticks (beeping faster), then a bigger blast: o.fuseRadius px, o.fuseDmg
+  //   green: lands, shakes for o.open ticks, then out pops an enemy from the pool o.pool (G.poolTypes)
+  G.PARCELS = {
+    red: { name: 'BOOM BOX', body: '#d83848', light: '#ff8a96', tape: '#f8e0a0', ring: '#ff3a5a' },
+    blue: { name: 'TICKER', body: '#3a6ad0', light: '#7aa8ff', tape: '#e8e8f8', ring: '#3ad0ff' },
+    green: { name: 'SURPRISE', body: '#2e9a50', light: '#70e090', tape: '#f0f0c0', ring: '#38f0a0' },
+  };
+  const boxKind = (o) => { const w = { red: o.red !== undefined ? o.red : 1, blue: o.blue || 0, green: o.green || 0 }; return w.red + w.blue + w.green > 0 ? G.weightedPick(w) : 'red'; };
   B.drop = {
-    init(e) { e.dropCd = G.randi(40, 100); e.hasPkg = true; },
+    init(e, o) { e.dropCd = G.randi(40, 100); e.hasPkg = true; e.pkgKind = boxKind(o); },
     update(e, st, o) {
-      if (e.dropCd > 0 && --e.dropCd === 0) e.hasPkg = true; // restocked
+      if (e.dropCd > 0 && --e.dropCd === 0) { e.hasPkg = true; e.pkgKind = boxKind(o); } // restocked
       const t = e.target;
       if (!e.hasPkg || !t || !t.def || t.dead || Math.hypot(t.x - e.x, t.y - e.y) > (o.reach || 70)) return false;
       const T = o.windup || 48, ahead = (o.lead || 0) * T * (t.speed || 1);
       const R = st.room, x = G.clamp(t.x + (t.pushX || 0) * ahead, 8, R.pw - 8), y = G.clamp(t.y + (t.pushY || 0) * ahead, 8, R.ph - 4);
-      st.shots.push({ kind: 'parcel', x, y, x0: e.x, y0: e.y, z0: (e.z || 0) + 6, t: 0, T, r: o.radius || 16, dmg: o.dmg || 2 });
+      const box = G.PARCELS[e.pkgKind] ? e.pkgKind : 'red';
+      st.shots.push({ kind: 'parcel', box, x, y, x0: e.x, y0: e.y, z0: (e.z || 0) + 6, t: 0, T, r: o.radius || 16, dmg: o.dmg || 2,
+        fuse: o.fuse || 150, fr: o.fuseRadius || 26, fd: o.fuseDmg || 3, open: o.open || 40, pool: o.pool || 'level' });
       e.hasPkg = false; e.dropCd = o.cooldown || 150;
       G.sfx.play('whistle');
       return false;
     },
   };
-  // The falling parcel: a shot (so online guests see it), drawn as a red target on the ground and the box dropping in
+  // The falling box: a shot (so online guests see it), drawn as a target on the ground and the box dropping in
+  const blast = (s, st, r, dmg) => {
+    for (const p of st.players) if (!p.dead && Math.hypot(p.x - s.x, (p.y - s.y) * 1.4) < r + 4) p.hurt(st, dmg, s.x, s.y);
+    st.explode(s.x, s.y, r, dmg); // a teen standing in it gets it too
+  };
   G.SHOTS.parcel = {
     update(s, st) {
       if (++s.t < s.T) return true;
-      for (const p of st.players) if (!p.dead && Math.hypot(p.x - s.x, (p.y - s.y) * 1.4) < s.r + 4) p.hurt(st, s.dmg, s.x, s.y);
-      st.explode(s.x, s.y, s.r, s.dmg); // a teen standing in it gets it too
+      const box = s.box || 'red';
+      if (box === 'red') { blast(s, st, s.r, s.dmg); return false; }
+      if (s.t === s.T) { st.burst(s.x, s.y - 2, 6, ['#a89878', '#7a6a5a'], 0.9, 4, 12); G.sfx.play('door'); } // thud
+      if (box === 'blue') { // ticking: beeps faster as it runs down, then goes off
+        const left = s.T + s.fuse - s.t;
+        if (left > 0) { if (left % (left < 45 ? 8 : left < 90 ? 16 : 30) === 0) G.sfx.play('blip'); return true; }
+        blast(s, st, s.fr, s.fd);
+        return false;
+      }
+      if (s.T + s.open - s.t > 0) return true; // green: something's in there
+      st.burst(s.x, s.y - 4, 14, [G.PARCELS.green.body, G.PARCELS.green.light, '#c8945a', '#ffffff'], 1.6, 6, 20, true);
+      G.sfx.play('open');
+      const type = G.pickFromPool(st, s.pool), A = type && G.ARCHETYPES[G.ENEMY_TYPES[type].archetype];
+      if (!type || st.enemies.length >= 40 || (!A.stats.flying && st.room.boxHits(s.x, s.y, 4, 4))) { st.floater(s.x, s.y - 20, 'EMPTY!', '#a8a0c8'); return false; }
+      const e = new Enemy(type, s.x, s.y);
+      e.provoked = true; e.aggro = true; e.huntT = 600; // out of the box and straight at you
+      st.enemies.push(e);
+      st.floater(s.x, s.y - 24, 'SURPRISE!', G.PARCELS.green.ring);
+      G.sfx.play(e.bot || e.glitch ? 'beep' : 'rise');
       return false;
     },
     draw(ctx, s, v) {
-      const k = s.t / s.T, x = s.x - v.x, y = s.y - v.y, n = 20, rad = s.r * (1.15 - 0.15 * k);
-      ctx.fillStyle = k > 0.7 && (s.t >> 1) & 1 ? '#ffffff' : '#ff3a5a'; // the target: blinks faster as it lands
-      for (let i = 0; i < n; i++) { if (i % 2 && k < 0.7) continue; const a = (i / n) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * rad), Math.round(y + Math.sin(a) * rad * 0.6), 1, 1); }
-      ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 1); ctx.fillRect(Math.round(x), Math.round(y) - 1, 1, 3);
-      const bx = Math.round(s.x0 + (s.x - s.x0) * Math.min(1, k * 2) - v.x), by = Math.round(s.y0 + (s.y - s.y0) * Math.min(1, k * 2) - v.y - s.z0 * (1 - k * k));
+      const P = G.PARCELS[s.box] || G.PARCELS.red, k = Math.min(1, s.t / s.T), x = s.x - v.x, y = s.y - v.y, n = 20;
+      const landed = s.t >= s.T, left = s.box === 'blue' ? s.T + s.fuse - s.t : 0;
+      if (!landed || (s.box === 'blue' && left < 60)) { // the target (a blue box shows its blast ring again as it's about to go)
+        const rad = landed ? s.fr : s.r * (1.15 - 0.15 * k), hot = landed ? (s.t >> 2) & 1 : k > 0.7 && (s.t >> 1) & 1;
+        ctx.fillStyle = hot ? '#ffffff' : P.ring; // blinks faster as it lands
+        for (let i = 0; i < n; i++) { if (i % 2 && k < 0.7) continue; const a = (i / n) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * rad), Math.round(y + Math.sin(a) * rad * 0.6), 1, 1); }
+        if (!landed) { ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 1); ctx.fillRect(Math.round(x), Math.round(y) - 1, 1, 3); }
+      }
+      let bx, by;
+      if (!landed) { bx = Math.round(s.x0 + (s.x - s.x0) * Math.min(1, k * 2) - v.x); by = Math.round(s.y0 + (s.y - s.y0) * Math.min(1, k * 2) - v.y - s.z0 * (1 - k * k)); }
+      else { // on the ground: a green box shakes harder the closer it is to opening
+        const shake = s.box === 'green' ? Math.round(Math.sin(s.t * 1.7) * Math.min(2, (s.t - s.T) / 15)) : 0;
+        bx = Math.round(x) + shake; by = Math.round(y) + 1;
+        ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(bx - 4, by - 1, 9, 2);
+      }
       ctx.fillStyle = '#140c1c'; ctx.fillRect(bx - 4, by - 6, 8, 7);
-      ctx.fillStyle = '#c8945a'; ctx.fillRect(bx - 3, by - 5, 6, 5); ctx.fillStyle = '#e8d8a8'; ctx.fillRect(bx - 1, by - 5, 2, 5);
+      ctx.fillStyle = P.body; ctx.fillRect(bx - 3, by - 5, 6, 5); ctx.fillStyle = P.light; ctx.fillRect(bx - 3, by - 5, 6, 1);
+      ctx.fillStyle = P.tape; ctx.fillRect(bx - 1, by - 5, 2, 5);
+      if (landed && s.box === 'blue') { // the timer light: blinks faster as it runs down
+        const on = ((s.t >> (left < 45 ? 1 : left < 90 ? 2 : 3)) & 1) === 0;
+        ctx.fillStyle = on ? '#ff3a5a' : '#5a1a2a'; ctx.fillRect(bx - 1, by - 7, 2, 1);
+      }
     },
   };
 
@@ -6534,14 +6617,35 @@ body.mouseaim #screen { cursor: none; }
     },
   };
   // name: shown in the debug panel. looks: sprite looks from G.LOOKS (one is picked per enemy). stats override the archetype's.
+  // tier: how tough it is, for anything that picks an enemy from a pool (a drone's green box: G.pickFromPool).
+  // 'low', 'mid', 'high', 'boss' (no bosses yet: a boss pool falls back to the toughest there is).
   G.ENEMY_TYPES = {
-    phoneTeen: { name: 'PHONE TEEN', archetype: 'shambler', looks: ['teen1', 'teen2', 'teen3'] },
-    sprinter: { name: 'SPRINTER', archetype: 'rusher', looks: ['sprinter'] },
-    drone: { name: 'DELIVERY DRONE', archetype: 'flyer', looks: ['drone'] },
-    robodog: { name: 'ROBO DOG', archetype: 'hound', looks: ['robodog'] },
-    mopbot: { name: 'MOP BOT', archetype: 'sweeper', looks: ['mopbot'] },
-    clone: { name: 'DEEPFAKE', archetype: 'mimic', looks: ['clone'] },
+    phoneTeen: { name: 'PHONE TEEN', archetype: 'shambler', looks: ['teen1', 'teen2', 'teen3'], tier: 'low' },
+    sprinter: { name: 'SPRINTER', archetype: 'rusher', looks: ['sprinter'], tier: 'mid' },
+    drone: { name: 'DELIVERY DRONE', archetype: 'flyer', looks: ['drone'], tier: 'mid' },
+    robodog: { name: 'ROBO DOG', archetype: 'hound', looks: ['robodog'], tier: 'mid' },
+    mopbot: { name: 'MOP BOT', archetype: 'sweeper', looks: ['mopbot'], tier: 'low' },
+    clone: { name: 'DEEPFAKE', archetype: 'mimic', looks: ['clone'], tier: 'high' },
   };
+  // Enemy pools: which enemies something may bring in. 'level': the level's own spawn mix (its weights); a tier
+  // ('low', 'mid', 'high', 'boss') or tiers joined with '+'; 'robots'; 'any'. An array of type ids works too.
+  G.ENEMY_POOLS = ['level', 'low', 'mid', 'high', 'boss', 'low+mid', 'mid+high', 'robots', 'any'];
+  const TIERS = ['low', 'mid', 'high', 'boss'];
+  G.poolTypes = (st, pool) => { // -> { type: weight }
+    const T = G.ENEMY_TYPES, ids = Object.keys(T), out = {};
+    if (Array.isArray(pool)) { for (const t of pool) if (T[t]) out[t] = 1; return out; }
+    if (!pool || pool === 'level') { for (const [t, w] of Object.entries((st && st.enemyCfg && st.enemyCfg.types) || { phoneTeen: 1 })) if (T[t] && w > 0) out[t] = w; return out; }
+    for (const part of String(pool).split('+')) {
+      for (const t of ids) {
+        const bot = !!G.ARCHETYPES[T[t].archetype].stats.bot;
+        if (part === 'any' || (part === 'robots' && bot) || T[t].tier === part) out[t] = 1;
+      }
+      if (part === 'boss' && !ids.some((t) => T[t].tier === 'boss')) for (const t of ids) if (T[t].tier === 'high') out[t] = 1; // no bosses yet: the toughest
+    }
+    return out;
+  };
+  G.pickFromPool = (st, pool) => { const w = G.poolTypes(st, pool); return Object.keys(w).length ? G.weightedPick(w) : null; };
+  G.ENEMY_TIERS = TIERS;
 
   // ===== The enemy =====
   const SINK = 36; // ticks to sink back into the ground when it despawns
@@ -7156,6 +7260,8 @@ body.mouseaim #screen { cursor: none; }
       { g: 'drop', k: 'radius', label: 'PARCEL BLAST', step: 2, min: 6, max: 48, show: px },
       { g: 'drop', k: 'dmg', label: 'PARCEL DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'drop', k: 'lead', label: 'AIMS AHEAD', step: 0.1, min: 0, max: 1, show: pct },
+      { g: 'drop', k: 'fuseRadius', label: 'BLUE BOX BLAST', step: 2, min: 6, max: 64, show: px },
+      { g: 'drop', k: 'fuseDmg', label: 'BLUE BOX DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'shoot', k: 'range', label: 'SHOOTS WITHIN', step: 10, min: 30, max: 260, show: px },
       { g: 'shoot', k: 'windup', label: 'AIM TIME', step: 2, min: 4, max: 90, show: secs },
       { g: 'shoot', k: 'cooldown', label: 'BETWEEN SHOTS', step: 5, min: 10, max: 300, show: secs },
@@ -7176,6 +7282,12 @@ body.mouseaim #screen { cursor: none; }
       { g: 'blink', k: 'dist', label: 'DODGE DISTANCE', step: 4, min: 8, max: 100, show: px },
       { g: 'blink', k: 'cooldown', label: 'BETWEEN DODGES', step: 10, min: 0, max: 600, show: secs },
       { g: 'phone', k: 'notice', label: 'LOOKS UP AT', step: 2, min: 0, max: 80, show: px },
+      { g: 'drop', k: 'red', label: 'RED BOXES', step: 1, min: 0, max: 20, show: (v) => (v ? 'weight ' + v : 'never') },
+      { g: 'drop', k: 'blue', label: 'BLUE BOXES', step: 1, min: 0, max: 20, show: (v) => (v ? 'weight ' + v : 'never') },
+      { g: 'drop', k: 'green', label: 'GREEN BOXES', step: 1, min: 0, max: 20, show: (v) => (v ? 'weight ' + v : 'never') },
+      { g: 'drop', k: 'fuse', label: 'BLUE FUSE', step: 15, min: 15, max: 600, show: secs },
+      { g: 'drop', k: 'open', label: 'GREEN OPENS IN', step: 5, min: 5, max: 300, show: secs },
+      { g: 'drop', k: 'pool', label: 'GREEN HOLDS', choices: () => G.ENEMY_POOLS, show: (v) => String(v).toUpperCase() + ': ' + Object.keys(G.poolTypes(G.state, v)).join(', ') },
     ],
   };
   const rowId = (r) => (r.g ? r.g + '.' : '') + r.k;
@@ -7187,6 +7299,7 @@ body.mouseaim #screen { cursor: none; }
   const adjust = (kind, id, dir) => {
     const r = findRow(id), t = tuneOf(kind), o = r && holder(t, r);
     if (!o) return;
+    if (r.choices) { const L = r.choices(), i = L.indexOf(o[r.k]); o[r.k] = L[(i + dir + L.length) % L.length]; return; } // a pick from a list
     if (r.cone) { const c = G.clamp((o.cone || 180) + dir * r.step, 10, 180); if (c >= 180) delete o.cone; else o.cone = c; return; }
     const v = (o[r.k] || 0) + dir * r.step;
     o[r.k] = +G.clamp(v, limit(r.min, t), limit(r.max, t)).toFixed(4);
@@ -7397,7 +7510,7 @@ body.mouseaim #screen { cursor: none; }
   }
   // tuning.js as text, from the live numbers: plain JS literals ({ a: 1, b: [2, 3] }), one entry per line
   const lit = (v) => Array.isArray(v) ? '[' + v.map(lit).join(', ') + ']'
-    : v && typeof v === 'object' ? '{ ' + Object.entries(v).map(([k, x]) => k + ': ' + lit(x)).join(', ') + ' }' : String(v);
+    : v && typeof v === 'object' ? '{ ' + Object.entries(v).map(([k, x]) => k + ': ' + lit(x)).join(', ') + ' }' : typeof v === 'string' ? "'" + v + "'" : String(v);
   const table = (name, obj) => '  window.G.' + name + ' = {\n' + Object.entries(obj).map(([k, o]) => '    ' + k + ': ' + lit(o) + ',').join('\n') + '\n  };\n';
   const tuningFile = () => TUNING_HEAD + '(function () {\n' + table('ENEMY_TUNING', G.ENEMY_TUNING) + table('ENEMY_SPAWN', G.ENEMY_SPAWN) + '})();\n';
   let TUNING_HEAD = '/* AFK APOCALYPSE — enemy tuning */\n'; // replaced by the file's real header comment once it's fetched

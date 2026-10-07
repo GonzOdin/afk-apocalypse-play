@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 04:04';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 04:15';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -4235,6 +4235,38 @@ body.mouseaim #screen { cursor: none; }
       ],
       kinds: { "13,9": "blue", "24,18": "blue" },
     },
+    "range": {
+      name: "WEAPON PRACTICE", theme: "suburb",
+      rows: [
+        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+        "JwwwwwwwwwwwwwwwwwwwwwJwwwwwwwwwwwwwwwwJ",
+        "Ju...u...u...u...u...uJ................J",
+        "Ju...u...u...u.T.u...uJ........~~......J",
+        "Ju...u...u...u...uTTTuJ....t...Z...t...J",
+        "Ju...u...u...u...u...uJ................J",
+        "Ju...u...u.T.u...u...uJ...Z.........Z..J",
+        "Ju...u...u...u...u...uJ.......hhh......J",
+        "Ju...u...u...u...u...uJ................J",
+        "Ju...u.T.u...u...u...uJ................J",
+        "Ju...u...u...u...u...uJ.....g..Z..g....J",
+        "Ju...u...u...u...u...uJ...Z.........Z..J",
+        "Ju.T.u...u...u...u...uJ...~~........~..J",
+        "Ju...u...u...u...u...uJ............~...J",
+        "Ju...u...u...u...u...uJ................J",
+        "J:::::::::::::::::::::Jfffffff...ffffffJ",
+        "J....l.......l........J::$::$::$::$::$:J",
+        "J......................::::::::::::::::J",
+        "J...U.U................................J",
+        "J..........P...........................J",
+        "J......................................J",
+        "J......................................J",
+        "J..ee..IVI..xw.........................J",
+        "J..............~~~~~~..................J",
+        "J......................................J",
+        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+      ],
+      kinds: { "25,16": "phoneTeen", "28,16": "sprinter", "31,16": "robot", "34,16": "clone", "37,16": "clear" },
+    },
     "culdesac": {
       name: "CUL-DE-SAC", theme: "suburb",
       rows: [
@@ -4439,7 +4471,7 @@ body.mouseaim #screen { cursor: none; }
 <script>
 /* AFK APOCALYPSE — level data.
    Marker chars (become ground once parsed): P player  E exit (time door)  N neighbor  Z zombie spawn point
-   B package (contents from `packages`, in reading order)  Q PDA  T practice target
+   B package (contents from `packages`, in reading order)  Q PDA  T practice target  $ spawn button (practice.js)
    Pickups: U signature level-up  1 soda  2 blower  3 rockets  4 pie  5 coffee  6 soda bomb  7 burger  8 keycard  9 quarter
    Map layouts live in maps.js (edit them in edit mode: press ` while playing). Tile legends live with each theme in tiles-*.js. */
 (function () {
@@ -4448,6 +4480,13 @@ body.mouseaim #screen { cursor: none; }
 
   G.TEST_ROOM = {
     id: 'test', name: 'TEST ROOM', theme: G.MAPS.test.theme, test: true, map: G.MAPS.test.rows, kinds: G.MAPS.test.kinds, floors: G.MAPS.test.floors,
+  };
+
+  // The weapon practice range (title: WEAPON PRACTICE; practice.js): every weapon, targets in the lanes, buttons that
+  // bring enemies up in the arena. No enemies of its own (cap 0): only the buttons spawn them.
+  G.PRACTICE = {
+    id: 'range', name: 'WEAPON PRACTICE', theme: G.MAPS.range.theme, test: true, practice: true, enemies: { cap: 0 },
+    map: G.MAPS.range.rows, kinds: G.MAPS.range.kinds, floors: G.MAPS.range.floors,
   };
 
   G.LEVELS = [
@@ -4479,7 +4518,7 @@ body.mouseaim #screen { cursor: none; }
 
   // ===== Room =====
   G.PICKUP_CHARS = { A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
-  const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', ...Object.keys(G.PICKUP_CHARS)]); // &: a lawn mower (mower.js)
+  const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', '$', ...Object.keys(G.PICKUP_CHARS)]); // &: a lawn mower (mower.js), $: a spawn button (practice.js)
 
   class Room {
     constructor(def) {
@@ -6941,6 +6980,97 @@ body.mouseaim #screen { cursor: none; }
 })();
 </script>
 <script>
+/* AFK APOCALYPSE — the weapon practice range (title: WEAPON PRACTICE, map `range`, def G.PRACTICE in levels.js).
+   You get every weapon and item and they never run out (G.practiceKit, topped up every tick); practice targets stand
+   in the lanes; floor buttons ($ markers, G.SpawnButton) bring enemies up in the fenced arena for live practice.
+   A button's kind is the map's `kinds` at its cell: an enemy type id, 'robot' (any robot), or 'clear'. */
+(function () {
+  'use strict';
+  const G = window.G;
+
+  // ===== Everything to try, never running out =====
+  // Your own signature weapon stays first; then every pickup weapon, then the rest of the crew's signature weapons.
+  const ORDER = () => {
+    const W = G.WEAPONS, ids = Object.keys(W);
+    return [...ids.filter((id) => !W[id].signature), ...ids.filter((id) => W[id].signature)];
+  };
+  const ITEMS = ['pie', 'coffee', 'bomb', 'pogo']; // (not the PDA: practice has no map to show)
+  const itemMax = (id) => G.ITEMS[id].max || G.ITEM_STACK;
+  G.practiceKit = (p, first) => {
+    for (const id of ORDER()) {
+      const d = G.WEAPONS[id];
+      let w = p.weapons.find((k) => k.id === id);
+      if (!w) { if (!first && d.signature) continue; w = { id, lv: 1, ammo: d.max }; p.weapons.push(w); } // (dropped weapons come back below)
+      w.ammo = d.max;
+    }
+    for (const id of ITEMS) {
+      const it = p.items.find((k) => k.id === id);
+      if (it) it.n = itemMax(id); else p.items.push({ id, n: itemMax(id) });
+    }
+    if (p.lives < 3) p.lives = 3; // nobody runs out of lives here
+  };
+
+  // ===== Spawn buttons =====
+  const BUTTON = {
+    phoneTeen: { label: 'TEEN', col: '#e83040' },
+    sprinter: { label: 'SPRINTER', col: '#ff8a2a' },
+    robot: { label: 'ROBOT', col: '#3ad0ff' },
+    clone: { label: 'CLONE', col: '#ff5ab0' },
+    clear: { label: 'CLEAR', col: '#38f0a0' },
+  };
+  G.SPAWN_BUTTONS = BUTTON;
+  const MOST = 12; // live enemies at once
+  const isBot = (t) => !!G.ARCHETYPES[G.ENEMY_TYPES[t].archetype].stats.bot;
+  class SpawnButton {
+    constructor(x, y, kind) { this.x = x; this.y = y; this.kind = kind || 'phoneTeen'; this.down = false; this.flash = 0; }
+    get look() { return BUTTON[this.kind] || { label: (G.ENEMY_TYPES[this.kind] || { name: '?' }).name, col: '#e83040' }; }
+    on(p) { return !p.dead && !p.jump && !(p.z > 0) && Math.abs(p.x - this.x) < 8 && Math.abs(p.y - this.y) < 7; }
+    update(st) {
+      if (this.flash > 0) this.flash--;
+      const down = st.players.some((p) => this.on(p));
+      if (down && !this.down) this.press(st);
+      this.down = down; // step off and on again for another
+    }
+    press(st) {
+      this.flash = 12;
+      G.sfx.play('blip');
+      if (this.kind === 'clear') {
+        for (const e of st.enemies) st.burst(e.x, e.y - 8, 10, ['#ffffff', '#c8c0e0', '#38f0a0'], 1.2, 10, 18);
+        if (st.enemies.length) G.sfx.play('poof');
+        st.floater(this.x, this.y - 24, st.enemies.length ? 'ALL CLEAR' : 'NOBODY HERE', '#38f0a0');
+        st.enemies.length = 0;
+        return;
+      }
+      if (st.enemies.length >= MOST) { G.sfx.play('deny'); st.floater(this.x, this.y - 24, 'THAT\'S PLENTY', '#ff3a5a'); return; }
+      const types = Object.keys(G.ENEMY_TYPES);
+      const type = this.kind === 'robot' ? G.pick(types.filter(isBot)) : G.ENEMY_TYPES[this.kind] ? this.kind : 'phoneTeen';
+      const far = st.spawners.filter((s) => st.players.every((p) => Math.hypot(p.x - s.x, p.y - s.y) > 56));
+      const s = G.pick(far.length ? far : st.spawners);
+      const e = s ? new G.Enemy(type, s.x, s.y) : G.spawnEnemyNear(st, type);
+      if (!e) { G.sfx.play('deny'); return; }
+      if (s) { st.enemies.push(e); G.sfx.play(e.bot || e.glitch ? 'beep' : 'rise'); }
+      e.provoked = true; e.aggro = true; e.huntT = 900; // it comes for you
+      st.floater(this.x, this.y - 24, G.ENEMY_TYPES[type].name, this.look.col);
+    }
+    // A big arcade button set into the floor, its label over it (drawn flat, under everyone)
+    drawFloor(ctx, v, label = true) {
+      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y), L = this.look, d = this.down ? 1 : 0;
+      ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - 8, sy - 7, 16, 11);
+      ctx.fillStyle = '#5a5a70'; ctx.fillRect(sx - 7, sy - 6, 14, 9);
+      ctx.fillStyle = '#8a8aa0'; ctx.fillRect(sx - 7, sy - 6, 14, 1);
+      ctx.fillStyle = '#34344a'; ctx.fillRect(sx - 7, sy + 2, 14, 1);
+      const top = sy - 6 + d, col = this.flash > 0 && (this.flash >> 1) & 1 ? '#ffffff' : L.col;
+      ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - 5, top, 10, 7 - d); ctx.fillRect(sx - 4, top - 1, 8, 1);
+      ctx.fillStyle = G.shade(L.col, -0.35); ctx.fillRect(sx - 4, top + 3, 8, 3 - d);
+      ctx.fillStyle = col; ctx.fillRect(sx - 4, top, 8, 3); ctx.fillRect(sx - 3, top - 1 + 1, 6, 1);
+      if (!d) { ctx.fillStyle = '#ffffff'; ctx.fillRect(sx - 3, top, 2, 1); } // shine
+      if (label) G.text(L.label, sx, sy - 16, L.col, { align: 'center', shadow: '#140c1c', ctx });
+    }
+  }
+  G.SpawnButton = SpawnButton;
+})();
+</script>
+<script>
 /* AFK APOCALYPSE — debug overlay for tuning enemies. Press \ (backslash) in a level, or open with ?debug.
  *
  *   yellow        notice range: come this close (inside the cone, for enemies that have one) and it chases you
@@ -7744,13 +7874,18 @@ body.mouseaim #screen { cursor: none; }
 
   K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'], ['&', 'LAWN MOWER (PUSH IT: MOWS TEENS TILL IT RUNS OUT OF GAS)'],
     ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ZOMBIE SPAWN'], ['B', 'PACKAGE'], ['Q', 'PDA'],
-    ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
+    ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
   ];
   K.MARK = new Set(K.MARKERS.map((m) => m[0]));
   const ICON_OF = { '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
 
-  let exitIcon = null;
+  let exitIcon = null, btnIcon = null;
+  function makeBtnIcon() { // a spawn button (practice.js), as on the floor
+    const c = G.makeCanvas(16, 16), x = c.getContext('2d');
+    new G.SpawnButton(8, 12, 'phoneTeen').drawFloor(x, { x: 0, y: 0 }, false);
+    return c;
+  }
   function makeExitIcon() {
     const c = G.makeCanvas(16, 24), x = c.getContext('2d');
     x.fillStyle = '#140828';
@@ -7769,6 +7904,7 @@ body.mouseaim #screen { cursor: none; }
     if (ch === 'T') return A.dummy;
     if (ch === 'B') return A.pkg;
     if (ch === 'U') return A.upBox;
+    if (ch === '$') return btnIcon || (btnIcon = makeBtnIcon());
     if (ch === 'E') return exitIcon || (exitIcon = makeExitIcon());
     return A.icons[ICON_OF[ch]];
   };
@@ -7833,7 +7969,7 @@ body.mouseaim #screen { cursor: none; }
     return c;
   };
   // Palette sections: theme.groups is [[title, 'chars'], ...]; anything not listed lands in OTHER
-  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT'], ['PICKUPS', 'QA8CU1234567890FX&']];
+  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT$'], ['PICKUPS', 'QA8CU1234567890FX&']];
   const sections = (entries, groups) => {
     if (!groups) return [['TILES', entries]];
     const out = groups.map(([t, chars]) => [t, entries.filter((e) => chars.includes(e[0]))]);
@@ -8254,7 +8390,7 @@ body.mouseaim #screen { cursor: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -8294,18 +8430,18 @@ body.mouseaim #screen { cursor: none; }
   const rawAt = (st) => (x, y) => (x < 0 || y < 0 || x >= st.room.w || y >= st.room.h ? st.room.theme.border : st.raw[y][x]);
   // Markers for things the stage runs today (pickups, targets, neighbors, enemy spawn points) go live as you place them.
   // Package, start and exit markers are stored in the map and drawn as icons; they come alive as those features land.
-  const LIVE = (ch) => ch === 'T' || ch === 'Z' || ch === 'N' || !!G.PICKUP_CHARS[ch];
+  const LIVE = (ch) => ch === 'T' || ch === 'Z' || ch === 'N' || ch === '$' || !!G.PICKUP_CHARS[ch];
   function removeAt(st, x, y) {
     const keep = (e) => e.tile !== x + ',' + y;
-    st.pickups = st.pickups.filter(keep); st.dummies = st.dummies.filter(keep); st.spawners = st.spawners.filter(keep); st.neighbors = st.neighbors.filter(keep);
+    st.pickups = st.pickups.filter(keep); st.dummies = st.dummies.filter(keep); st.spawners = st.spawners.filter(keep); st.neighbors = st.neighbors.filter(keep); st.buttons = st.buttons.filter(keep);
   }
   function spawnAt(st, x, y, ch) {
     if (!LIVE(ch)) return;
     const px = x * 16 + 8, py = y * 16 + 12;
-    const e = ch === 'T' ? new G.Dummy(px, py) : ch === 'Z' ? new G.Spawner(px, py) : ch === 'N' ? G.makeNeighbor(st.room, x, y, st.def.kinds)
+    const e = ch === '$' ? new G.SpawnButton(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'T' ? new G.Dummy(px, py) : ch === 'Z' ? new G.Spawner(px, py) : ch === 'N' ? G.makeNeighbor(st.room, x, y, st.def.kinds)
       : new G.Pickup(G.PICKUP_CHARS[ch], px, py, { respawn: st.test, color: G.cardColor(st.room, x, y) });
     e.tile = x + ',' + y;
-    (ch === 'T' ? st.dummies : ch === 'Z' ? st.spawners : ch === 'N' ? st.neighbors : st.pickups).push(e);
+    (ch === '$' ? st.buttons : ch === 'T' ? st.dummies : ch === 'Z' ? st.spawners : ch === 'N' ? st.neighbors : st.pickups).push(e);
   }
   // Set one cell (tile char or marker) and keep the live level in sync. Returns the old char, or null if unchanged.
   // The map's `floors` { "x,y": floor tile }: the floor each object was put down on (shared with the running room)
@@ -8502,16 +8638,17 @@ body.mouseaim #screen { cursor: none; }
   // Per-cell variants: the level's { "x,y": value } (G.MAPS[id].kinds, saved with the map). Click a cell again with
   // the same brush to step it: a neighbor's kind (else picked from where it stands, G.neighborKind), a gate's or
   // keycard's color (else red), a house door locked or not (every cell of the door together).
-  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'] };
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : 'red'; };
+  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'],
+    $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === '$' ? k || 'phoneTeen' : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === '$' ? 'phoneTeen' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
     let a = x; while (ch === 'O' && R.at(a - 1, y) === 'O') a--;
     const cells = []; if (ch === 'O') for (let b = a; R.at(b, y) === 'O'; b++) cells.push(b); else cells.push(x);
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
-    if (ch === 'N' || ch === '8') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
+    if (ch === 'N' || ch === '8' || ch === '$') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
     if (ch === 'g') G.rebuildUpright(R, x, y);
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
@@ -8673,6 +8810,7 @@ body.mouseaim #screen { cursor: none; }
       o.fillStyle = '#0b0614'; o.fillRect(0, 0, VW, VH);
       o.drawImage(st.room.canvas, -v.x, -v.y);
       G.textCtx = o;
+      for (const b of st.buttons) b.drawFloor(o, v); // spawn buttons (practice.js), flat on the floor
       G.drawSorted(o, st.room, v, [...st.pickups, ...st.dummies], VW, VH);
       G.drawRoofs(o, st.room, v, 0.45); // roofs half see-through while editing
       // markers that aren't live entities: start, exit, zombie spawns, neighbors, packages
@@ -8747,7 +8885,8 @@ body.mouseaim #screen { cursor: none; }
       this.seed = seed; G.rng.seed(seed);
       this.room = new G.Room(def);
       this.players = []; this.shots = []; this.dummies = []; this.pickups = []; this.chests = [];
-      this.neighbors = []; this.enemies = []; this.spawners = []; this.mowers = [];
+      this.neighbors = []; this.enemies = []; this.spawners = []; this.mowers = []; this.buttons = [];
+      this.practice = !!def.practice; // the weapon practice range (practice.js): everything, never running out
       this.enemyCfg = { ...G.ENEMY_DEFAULTS, ...(def.enemies || {}) };
       this.overT = 0; // ticks since everyone ran out of lives
       this.saved = 0; this.lost = 0; this.beams = []; this.tallyFlash = 0; // neighbors beamed out / turned
@@ -8771,6 +8910,7 @@ body.mouseaim #screen { cursor: none; }
           case 'T': this.dummies.push(tag(new G.Dummy(s.x, s.y))); break;
           case '&': this.mowers.push(tag(new G.Mower(s.x, s.y))); break; // a lawn mower to push (mower.js)
           case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y))); break; // phone teens rise here, again and again
+          case '$': this.buttons.push(tag(new G.SpawnButton(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // step on it: an enemy rises (practice.js)
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
           case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || G.weightedPick(G.LOOT)))); break;
           case 'E': this.exit = tag(new ExitDoor(s.x, s.y)); break;
@@ -8802,7 +8942,7 @@ body.mouseaim #screen { cursor: none; }
     addPlayers(x, y) {
       this.startX = x; this.startY = y;
       if (this.remote) return; // a guest's players come from the host
-      const team = [].concat(this.crewId), o = this.test ? { hp: 5 } : {}; // the test room starts hurt so healing can be tried
+      const team = [].concat(this.crewId), o = this.test && !this.practice ? { hp: 5 } : {}; // the test room starts hurt so healing can be tried
       if (this.online) { this.players.push(...G.net.makePlayers(this, x, y, o)); return; } // one per player in the online game
       team.forEach((id, i) => {
         const ctrl = team.length > 1 && G.coop && G.coop.ctrls[i] ? G.coop.ctrls[i] : i === 0 ? I.solo : new I.Controller({ keys: 'p2', pad: 1 });
@@ -8810,12 +8950,13 @@ body.mouseaim #screen { cursor: none; }
         p.num = i + 1; p.coop = team.length > 1;
         if (i > 0) for (const dx of [16, -16, 0]) if (!this.room.boxHits(x + dx, y, p.hw, p.hh, p)) { p.x = x + dx; break; }
         this.players.push(p);
+        if (this.practice) G.practiceKit(p, true); // every weapon and item
       });
     }
     enter() {
       if (this.started) return;
       this.started = true;
-      G.toast(this.test ? 'TEST ROOM' : 'LEVEL ' + this.def.num + ' - ' + this.def.name, 180);
+      G.toast(this.practice ? 'WEAPON PRACTICE' : this.test ? 'TEST ROOM' : 'LEVEL ' + this.def.num + ' - ' + this.def.name, 180);
     }
     // Everything shots can hit
     targets() { return [...this.dummies.filter((d) => d.alive()), ...this.enemies.filter((e) => e.hittable())]; }
@@ -9048,6 +9189,8 @@ body.mouseaim #screen { cursor: none; }
       G.updateEnemies(this, this.enemyCfg);
       if (this.players.every((p) => p.dead)) this.gameOver();
       for (const d of this.dummies) d.update(this);
+      for (const b of this.buttons) b.update(this);
+      if (this.practice) for (const p of this.players) G.practiceKit(p); // never runs out
       for (const n of this.neighbors) n.update(this);
       G.compact(this.neighbors, (n) => !n.gone);
       for (const k of this.pickups) k.update(this);
@@ -9132,6 +9275,7 @@ body.mouseaim #screen { cursor: none; }
       }
       // characters and upright objects back-to-front (tall things in front of you get a peek window)
       if (this.exit) this.exit.drawFloor(ctx, v);
+      for (const b of this.buttons) b.drawFloor(ctx, v);
       G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players]);
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
       // shots and sparks under the roofs; roofs on top of everything in the world; then x-ray and hints
@@ -9656,7 +9800,8 @@ body.mouseaim #screen { cursor: none; }
       const o = G.opts();
       this.items = [
         { label: 'RESUME', act: () => this.resume() },
-        ...(game.test && !game.remote ? [ // the test room: try any enemy (pick one, then spawn it near you)
+        ...(game.practice ? [{ label: 'CHANGE CREW', act: () => practiceRecruit(() => G.setState(this)), help: () => 'TRY ANOTHER CREW MEMBER' }] : []),
+        ...(game.test && !game.practice && !game.remote ? [ // the test room: try any enemy (pick one, then spawn it near you)
           { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
@@ -9706,6 +9851,11 @@ body.mouseaim #screen { cursor: none; }
   // ===== Title screen (placeholder art until step 7) =====
   // The secret way into the Tuning Lab: the Konami code on the keyboard, or 7 taps on the logo
   const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+  // The weapon practice range: pick a crew member (back: onBack), then in you go
+  function practiceRecruit(onBack) {
+    G.coop = null; I.controllers.length = 0;
+    G.setState(new G.Recruit(1, { onPick: (crew) => G.setState(new Stage(G.PRACTICE, crew)), onBack }));
+  }
   class Boot {
     constructor() { this.menu = true; this.t = 0; this.sel = 0; this.code = 0; this.logoTaps = 0; }
     secret() {
@@ -9723,6 +9873,7 @@ body.mouseaim #screen { cursor: none; }
         { label: '2 PLAYERS (ONE SCREEN)', act: () => G.setState(new G.states.Join()) },
         { label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const o = G.opts(), L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; G.save.write(); } },
         { label: 'ONLINE (UP TO 4)', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.states.OnlineMenu()); } },
+        { label: 'WEAPON PRACTICE', act: () => practiceRecruit(() => G.setState(new Boot())) },
         { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)) },
         // on a phone or tablet: full screen instead of the map editor (which wants a mouse and keyboard)
         I.touchUI ? fullItem() : { label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); } },
@@ -9731,7 +9882,7 @@ body.mouseaim #screen { cursor: none; }
     update() {
       this.t++;
       if (this.secret()) { G.sfx.play('secret'); G.setState(new G.states.TuningLab()); return; }
-      runMenu(this, this.items(), 128, 13, 40, 216);
+      runMenu(this, this.items(), 116, 13, 40, 216);
     }
     draw(ctx) {
       const t = this.t, HZ = 128;
@@ -9765,9 +9916,9 @@ body.mouseaim #screen { cursor: none; }
       G.text('APOCALYPSE', 128, 58, '#3ad0ff', { align: 'center', scale: 2, shadow: '#0a2a5a' });
       G.text('ATTEMPT #' + G.save.data.attempt, 128, 82, '#ffd23a', { align: 'center', shadow: '#140c1c' });
       const items = this.items();
-      ctx.fillStyle = 'rgba(11,6,20,.75)'; ctx.fillRect(40, 122, 176, items.length * 13 + 6);
+      ctx.fillStyle = 'rgba(11,6,20,.75)'; ctx.fillRect(40, 110, 176, items.length * 13 + 6);
       items.forEach((it, i) => {
-        const y = 128 + i * 13, on = i === this.sel, label = it.val ? it.label + ': ' + it.val() : it.label;
+        const y = 116 + i * 13, on = i === this.sel, label = it.val ? it.label + ': ' + it.val() : it.label;
         if (on && (t >> 4) % 2 === 0) G.text(it.val ? '<' : '>', 46, y, '#ffd23a');
         if (on && it.val && (t >> 4) % 2 === 0) G.text('>', 210, y, '#ffd23a', { align: 'right' });
         G.text(label, 128, y, on ? '#ffd23a' : '#ffffff', { align: 'center', shadow: '#140c1c' });
@@ -9821,7 +9972,7 @@ body.mouseaim #screen { cursor: none; }
   const qs = new URLSearchParams(location.search), lv = G.LEVELS[(+qs.get('level') || 0) - 1];
   if (qs.has('debug')) G.Debug.on = true; // ?debug: start with the enemy debug overlay on (\ toggles it)
   if (qs.has('seed')) G.urlSeed = +qs.get('seed') | 0; // ?seed=123: replay the same random game every time
-  G.setState(lv ? new Stage(lv) : qs.has('test') ? new Stage(G.TEST_ROOM) : qs.has('recruit') ? new G.Recruit() : new Boot()); // (?join=CODE, an online join link: lobby.js)
+  G.setState(lv ? new Stage(lv) : qs.has('test') ? new Stage(G.TEST_ROOM) : qs.has('practice') ? new Stage(G.PRACTICE, qs.get('practice') || 'pixel') : qs.has('recruit') ? new G.Recruit() : new Boot()); // (?join=CODE, an online join link: lobby.js)
   requestAnimationFrame(frame);
   // ?tests: run the in-browser test suite (tools/tests.js; needs the dev server or a local copy of the repo)
   if (qs.has('tests')) {

@@ -459,11 +459,14 @@ body.mouseaim #screen { cursor: none; }
     const touch = !!(G.input && G.input.touchUI);
     const portrait = vh > vw;
     const cl = document.body.classList, panelW = cl.contains('editing') ? 260 : cl.contains('debugging') ? 250 : 0; // edit / debug panel on the right
-    // Touch: the screen sits in a handheld's bezel (bez px all round), and in portrait the wordmark goes under it
+    // Touch: the screen sits in a handheld's bezel (bez px all round), and in portrait the wordmark goes under it.
+    // In landscape the bezel only takes room at the sides (bezY 0): the screen keeps the full height, and the bezel's
+    // top and bottom run off the edges of the screen.
     const bez = touch ? Math.round(G.clamp(Math.min(vw, vh) * 0.03, 10, 18)) : 0, brandH = touch && portrait ? 26 : 0;
+    const bezY = portrait ? bez : 0;
     const rim = touch && portrait ? 8 : 0; // a sliver of shell either side of the bezel
     const availW = vw - sf.l - sf.r - panelW - bez * 2 - rim * 2;
-    let availH = vh - sf.t - sf.b - bez * 2 - brandH;
+    let availH = vh - sf.t - sf.b - bezY * 2 - brandH;
     // Portrait touch: game sits on top, controls get the bottom
     if (touch && portrait) availH = Math.min(availH, Math.max(availH * 0.5, availH - 240));
     let s = Math.min(availW / G.W, availH / G.H);
@@ -471,7 +474,7 @@ body.mouseaim #screen { cursor: none; }
     if (si >= 1 && si / s >= 0.82) s = si; // prefer crisp integer scale when it costs little space
     const w = Math.round(G.W * s), h = Math.round(G.H * s);
     const left = Math.round(sf.l + rim + bez + (availW - w) / 2);
-    const top = touch && portrait ? Math.round(sf.t + bez + 6) : Math.round(sf.t + bez + (availH - h) / 2);
+    const top = touch && portrait ? Math.round(sf.t + bez + 6) : Math.round(sf.t + bezY + (availH - h) / 2);
     Object.assign(stage.style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
     stage.style.setProperty('--px', s + 'px');
     G.scale = s; G.portrait = portrait;

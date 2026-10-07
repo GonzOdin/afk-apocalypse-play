@@ -37,23 +37,28 @@ body.scan #scan { display: block; }
 body.touch #touch { display: block; }
 #stage { z-index: 1; }
 /* the plastic shell behind everything, the dark bezel round the screen with its power light, the wordmark, a speaker */
+/* The case color comes from G.CASES (gfx.js, CASE in the pause menu) as CSS variables. A see-through case
+   (body.clearcase) has see-through colors and a circuit board (--shell-pcb) showing under them. */
+:root { --shell-hi: #8d62d8; --shell-mid: #6d43b6; --shell-lo: #522d93; --shell-ink: #2b1460; --shell-ink-shadow: rgba(255,255,255,.28); --shell-pcb: none; --shell-base: #522d93; }
 #shell { display: none; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
     radial-gradient(140% 60% at 20% 0%, rgba(255,255,255,.16), rgba(255,255,255,0) 60%),
     radial-gradient(90% 50% at 100% 100%, rgba(20,0,40,.35), rgba(20,0,40,0) 70%),
-    linear-gradient(170deg, #8d62d8 0%, #6d43b6 48%, #522d93 100%); }
+    linear-gradient(170deg, var(--shell-hi) 0%, var(--shell-mid) 48%, var(--shell-lo) 100%),
+    var(--shell-pcb) 0 0 / 180px 180px repeat;
+  background-color: var(--shell-base); }
 body.touch #shell { display: block; }
-body.touch { background: #522d93; }
+body.touch { background: var(--shell-base); }
 #bezel { position: absolute; box-sizing: border-box; border-radius: 10px 10px 36px 10px;
   background: linear-gradient(#4b4a60, #343348); box-shadow: inset 0 2px 5px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.28), 0 -1px 0 rgba(0,0,0,.25); }
 #led { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #ff3a5a; box-shadow: 0 0 6px 1px rgba(255,58,90,.8); }
 #brand { position: absolute; transform: translateX(-50%); white-space: nowrap; letter-spacing: 1px;
-  font: italic 900 15px/1 'Arial Black', 'Helvetica Neue', Arial, sans-serif; color: #2b1460; text-shadow: 0 1px 0 rgba(255,255,255,.28); }
+  font: italic 900 15px/1 'Arial Black', 'Helvetica Neue', Arial, sans-serif; color: var(--shell-ink); text-shadow: 0 1px 0 var(--shell-ink-shadow); }
 #brand b { font-weight: 900; }
 #brand b:nth-of-type(5n+1) { color: #ff3a5a; } #brand b:nth-of-type(5n+2) { color: #ffd23a; } #brand b:nth-of-type(5n+3) { color: #38f0a0; }
 #brand b:nth-of-type(5n+4) { color: #3ad0ff; } #brand b:nth-of-type(5n+5) { color: #ff5ab0; }
 #grille { position: absolute; width: 58px; height: 36px; transform: rotate(-30deg);
-  background: repeating-linear-gradient(90deg, rgba(34,10,70,.55) 0 4px, transparent 4px 10px); border-radius: 4px; }
+  background: repeating-linear-gradient(90deg, var(--shell-ink) 0 4px, transparent 4px 10px); border-radius: 4px; opacity: .55; }
 /* round buttons: berry-colored, domed, pressed in when held. Captions (data-cap: A, B, SELECT, START) printed under them */
 .tbtn {
   position: absolute; box-sizing: border-box; border-radius: 50%;
@@ -65,7 +70,7 @@ body.touch { background: #522d93; }
 }
 .tbtn.on { transform: translateY(2px); box-shadow: 0 1px 0 #2a0a22, 0 2px 4px rgba(0,0,0,.35); filter: brightness(1.15); }
 .tbtn[data-cap]::after { content: attr(data-cap); position: absolute; top: 100%; margin-top: 6px; left: 50%; transform: translateX(-50%);
-  font: italic 900 11px/1 'Arial Black', Arial, sans-serif; letter-spacing: 1px; color: #2b1460; text-shadow: 0 1px 0 rgba(255,255,255,.28); }
+  font: italic 900 11px/1 'Arial Black', Arial, sans-serif; letter-spacing: 1px; color: var(--shell-ink); text-shadow: 0 1px 0 var(--shell-ink-shadow); }
 #btnSkill { font-size: 11px; }
 /* each one its own color: A red, B blue, ITEM yellow, ITM green */
 #btnFire { background: radial-gradient(circle at 35% 30%, #ff7a7a 0%, #d8303e 55%, #8a1424 100%); border-color: #4a0a14; box-shadow: 0 3px 0 #3a0810, 0 5px 10px rgba(0,0,0,.35); }
@@ -198,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 01:48';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 02:00';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -273,7 +278,7 @@ body.mouseaim #screen { cursor: none; }
   };
 
   // ---- Save data (attempt count, best score, options) ----
-  const DEFAULT_OPTS = { scanlines: true, aimAssist: 1, sound: true, perk: 'charged', diff: 'normal', touchLayout: {} }; // touchLayout: your own placement of the touch buttons (input.js) // diff: G.DIFFICULTY // perk: the full-health perk (G.PERKS)
+  const DEFAULT_OPTS = { scanlines: true, aimAssist: 1, sound: true, perk: 'charged', diff: 'normal', touchLayout: {}, case: 'grape' }; // case: the touch screen's console color (G.CASES) // touchLayout: your own placement of the touch buttons (input.js) // diff: G.DIFFICULTY // perk: the full-health perk (G.PERKS)
   G.AIM_LABELS = ['OFF', 'LOW', 'HIGH'];
   G.AIM_CONES = [0, 14, 30]; // degrees
   const KEY = 'afk-apocalypse/save/v1';
@@ -526,7 +531,48 @@ body.mouseaim #screen { cursor: none; }
   for (const ev of ['pointerup', 'touchend', 'keyup']) window.addEventListener(ev, retry, true);
   for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { G.fs.pending = false; setTimeout(G.layout, 60); });
 
+  // ---- The console's case color (touch screens; CASE in the pause menu) ----
+  // c: [lit, middle, shadowed] for the shell's gradient; ink: the printing on it (the wordmark, captions, speaker).
+  // clear: a see-through case: its colors are see-through and a circuit board shows under them.
+  G.CASES = {
+    grape: { name: 'GRAPE', c: ['#8d62d8', '#6d43b6', '#522d93'], ink: '#2b1460' },
+    berry: { name: 'BERRY', c: ['#ff7aa8', '#d83a74', '#9a1e4e'], ink: '#4a0a24' },
+    teal: { name: 'TEAL', c: ['#4ad0cc', '#22a4a6', '#147278'], ink: '#06363a' },
+    kiwi: { name: 'KIWI', c: ['#c8ec5a', '#94c42c', '#5e8a14'], ink: '#2a4004' },
+    dandelion: { name: 'DANDELION', c: ['#ffe066', '#f4c02a', '#c48c0e'], ink: '#4a3404' },
+    carbon: { name: 'CARBON', c: ['#5a5a6c', '#3a3a48', '#22222c'], ink: '#a0a0bc', shadow: 'rgba(0,0,0,.6)' },
+    atomic: { name: 'ATOMIC', clear: true, c: ['rgba(176,128,255,.5)', 'rgba(124,74,214,.48)', 'rgba(84,42,166,.6)'], ink: '#f0e6ff', shadow: 'rgba(0,0,0,.65)' },
+    glacier: { name: 'GLACIER', clear: true, c: ['rgba(210,240,255,.45)', 'rgba(140,196,240,.38)', 'rgba(84,144,214,.5)'], ink: '#062a4a' },
+    smoke: { name: 'SMOKE', clear: true, c: ['rgba(96,96,116,.55)', 'rgba(44,44,56,.55)', 'rgba(20,20,28,.66)'], ink: '#d0d0e8', shadow: 'rgba(0,0,0,.65)' },
+    clear: { name: 'CLEAR', clear: true, c: ['rgba(255,255,255,.24)', 'rgba(255,255,255,.1)', 'rgba(255,255,255,.16)'], ink: '#ffffff', shadow: 'rgba(0,0,0,.75)' },
+  };
+  G.CASE_ORDER = Object.keys(G.CASES);
+  // The inside of a see-through case: one 180 px tile of green circuit board (traces, pads, a chip, a few parts)
+  const PCB = (() => {
+    const t = (d, w = 2.5) => "<path d='" + d + "' fill='none' stroke='%23c8a040' stroke-opacity='.7' stroke-width='" + w + "' stroke-linecap='round' stroke-linejoin='round'/>";
+    const pad = (x, y) => "<circle cx='" + x + "' cy='" + y + "' r='4' fill='%23e0c060'/><circle cx='" + x + "' cy='" + y + "' r='1.6' fill='%230e2a18'/>";
+    let s = "<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><rect width='180' height='180' fill='%2318462c'/>" +
+      t('M0 30 H60 L80 50 H130 L150 30 H180') + t('M0 120 H40 L60 100 V70 H100') + t('M100 180 V140 L120 120 H180') + t('M30 0 V20 L45 35 V90') +
+      t('M150 0 V80 L130 100 H90 V150 L70 170 V180', 2) + t('M0 160 H20 L35 145 H70', 2) + t('M120 50 V80', 1.5) +
+      "<rect x='96' y='58' width='44' height='30' rx='2' fill='%23141418'/><rect x='99' y='61' width='38' height='24' fill='%2320202a'/>";
+    for (let i = 0; i < 6; i++) s += "<rect x='" + (99 + i * 6.5) + "' y='54' width='3' height='5' fill='%23b8b8c8'/><rect x='" + (99 + i * 6.5) + "' y='87' width='3' height='5' fill='%23b8b8c8'/>";
+    s += "<rect x='20' y='60' width='14' height='6' rx='2' fill='%23c87a3a'/><rect x='22' y='60' width='2' height='6' fill='%23402010'/><rect x='28' y='60' width='2' height='6' fill='%23402010'/>" +
+      "<circle cx='60' cy='145' r='7' fill='%232a3a6a'/><circle cx='60' cy='145' r='5' fill='%233a4e8a'/>";
+    for (const [x, y] of [[60, 30], [80, 50], [130, 50], [40, 120], [100, 70], [45, 35], [45, 90], [120, 120], [70, 145], [150, 80]]) s += pad(x, y);
+    s += '</svg>';
+    return 'url("data:image/svg+xml,' + s.replace(/</g, '%3C').replace(/>/g, '%3E').replace(/'/g, '%27') + '")';
+  })();
+  G.applyCase = () => {
+    const k = G.CASES[G.opts().case] || G.CASES.grape, st = document.documentElement.style;
+    st.setProperty('--shell-hi', k.c[0]); st.setProperty('--shell-mid', k.c[1]); st.setProperty('--shell-lo', k.c[2]);
+    st.setProperty('--shell-ink', k.ink); st.setProperty('--shell-ink-shadow', k.shadow || 'rgba(255,255,255,.28)');
+    st.setProperty('--shell-pcb', k.clear ? PCB : 'none');
+    st.setProperty('--shell-base', k.clear ? '#0e2a18' : k.c[2]);
+    document.body.classList.toggle('clearcase', !!k.clear);
+  };
+
   G.applyOpts = () => {
+    G.applyCase();
     document.body.classList.toggle('scan', !!G.opts().scanlines);
   };
 })();
@@ -9373,6 +9419,9 @@ body.mouseaim #screen { cursor: none; }
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
         ...(I.touchUI ? [fullItem()] : []),
+        ...(I.touchUI ? [{ label: 'CASE', val: () => (G.CASES[o.case] || G.CASES.grape).name, act: (d = 1) => { // the console's color
+          const L = G.CASE_ORDER; o.case = L[(Math.max(0, L.indexOf(o.case)) + d + L.length) % L.length]; G.applyCase();
+        }, help: () => ((G.CASES[o.case] || G.CASES.grape).clear ? 'SEE-THROUGH: YOU CAN SEE INSIDE' : 'THE COLOR OF THE CONSOLE') }] : []),
         ...(I.touchUI ? [{ label: 'TOUCH LAYOUT', act: () => G.setState(new TouchLayout(this)), help: () => 'MOVE, RESIZE OR HIDE THE BUTTONS' }] : []),
         { label: 'SCANLINES', val: () => (o.scanlines ? 'ON' : 'OFF'), act: () => { o.scanlines = !o.scanlines; G.applyOpts(); } },
         { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; } },

@@ -62,6 +62,27 @@ body.touch { background: #522d93; }
 .tbtn[data-cap]::after { content: attr(data-cap); position: absolute; top: 100%; margin-top: 6px; left: 50%; transform: translateX(-50%);
   font: italic 900 11px/1 'Arial Black', Arial, sans-serif; letter-spacing: 1px; color: #2b1460; text-shadow: 0 1px 0 rgba(255,255,255,.28); }
 #btnSkill, #btnItem { font-size: 11px; }
+/* each one its own color: A red, B blue, ITEM yellow, ITM green */
+#btnFire { background: radial-gradient(circle at 35% 30%, #ff7a7a 0%, #d8303e 55%, #8a1424 100%); border-color: #4a0a14; box-shadow: 0 3px 0 #3a0810, 0 5px 10px rgba(0,0,0,.35); }
+#btnSkill { background: radial-gradient(circle at 35% 30%, #7ab0ff 0%, #2f64d0 55%, #18347a 100%); border-color: #0c1a44; box-shadow: 0 3px 0 #0a1436, 0 5px 10px rgba(0,0,0,.35); color: #e2eeff; }
+#btnItem { background: radial-gradient(circle at 35% 30%, #ffe680 0%, #e8b818 55%, #9a7408 100%); border-color: #4a3404; box-shadow: 0 3px 0 #3a2804, 0 5px 10px rgba(0,0,0,.35); color: #3a2400; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
+#btnItm { background: radial-gradient(circle at 35% 30%, #7af0a8 0%, #22a860 55%, #0e6234 100%); border-color: #063018; box-shadow: 0 3px 0 #04240e, 0 5px 10px rgba(0,0,0,.35); color: #e2ffee; }
+#btnFire.on, #btnSkill.on, #btnItem.on, #btnItm.on { box-shadow: 0 1px 0 rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.35); }
+/* hidden by you (TOUCH LAYOUT) */
+.tbtn.hid { display: none; }
+/* the layout editor: everything shows (hidden ones faint), the picked one outlined, a toolbar at the top */
+body.layoutedit #dpad { display: block; pointer-events: auto; }
+body.layoutedit #stickBase { display: none; }
+body.layoutedit .tbtn, body.layoutedit #btnItem, body.layoutedit #btnItm { display: flex; }
+body.layoutedit .tbtn.hid { opacity: .3; outline: 2px dashed rgba(255,255,255,.6); }
+body.layoutedit .picked { outline: 3px dashed #ffd23a; outline-offset: 4px; }
+#layoutbar { display: none; position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 2; padding: 6px 8px; border-radius: 10px;
+  background: rgba(16, 8, 34, .92); border: 2px solid #ffd23a; color: #ffd23a; font: bold 11px/1.2 ui-monospace, Menlo, Consolas, monospace;
+  text-align: center; white-space: nowrap; }
+body.layoutedit #layoutbar { display: block; }
+#layoutbar button { font: bold 12px/1 ui-monospace, Menlo, Consolas, monospace; color: #fff; background: #2a1f48; border: 1px solid #5a4a8a;
+  border-radius: 6px; padding: 7px 10px; margin: 5px 2px 0; }
+#layoutbar button.primary { background: #3a2a10; border-color: #ffd23a; color: #ffd23a; }
 .tbtn.small { font-size: 10px; border-width: 2px; }
 /* SELECT and START: slanted grey pills */
 .tbtn.pill { border-radius: 999px; transform: rotate(-25deg); background: linear-gradient(#7a7a8c, #55556a); border: 2px solid #2a2a3a;
@@ -164,6 +185,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill" id="btnPause" data-b="pause" data-cap="START"></div>
   <div class="tbtn pill" id="btnWpn" data-b="wpn" data-cap="SELECT"></div>
   <div class="tbtn small" id="btnItm" data-b="itm">ITM</div>
+  <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
@@ -239,7 +261,7 @@ body.mouseaim #screen { cursor: none; }
   };
 
   // ---- Save data (attempt count, best score, options) ----
-  const DEFAULT_OPTS = { scanlines: true, aimAssist: 1, sound: true, perk: 'charged', diff: 'normal' }; // diff: G.DIFFICULTY // perk: the full-health perk (G.PERKS)
+  const DEFAULT_OPTS = { scanlines: true, aimAssist: 1, sound: true, perk: 'charged', diff: 'normal', touchLayout: {} }; // touchLayout: your own placement of the touch buttons (input.js) // diff: G.DIFFICULTY // perk: the full-health perk (G.PERKS)
   G.AIM_LABELS = ['OFF', 'LOW', 'HIGH'];
   G.AIM_CONES = [0, 14, 30]; // degrees
   const KEY = 'afk-apocalypse/save/v1';
@@ -751,11 +773,14 @@ body.mouseaim #screen { cursor: none; }
     G.sfx.unlock();
     I.setSource('touch');
     try { els.layer.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    if (I.layoutEdit) { editDown(e); return; } // moving the buttons about (TOUCH LAYOUT in the pause menu)
     const bt = e.target.closest && e.target.closest('[data-b]');
     if (bt) { T.ptr.set(e.pointerId, { kind: 'btn', b: bt.dataset.b }); press(bt.dataset.b); return; }
     const g = G.screenToGame(e.clientX, e.clientY);
     if (g && G.wantsTaps()) { I.taps.push(g); T.ptr.set(e.pointerId, { kind: 'tap' }); return; }
     if (I.menuMode) return; // menus: only the D-pad, the buttons and taps on the screen do anything
+    const hud = g && G.state && G.state.hudTap; // in the game, tap the weapon or the item in the HUD to swap it
+    if (hud && g.y < 21) for (const b of ['wpn', 'itm']) if (g.x >= hud[b][0] && g.x < hud[b][1]) { T.ptr.set(e.pointerId, { kind: 'btn', b }); press(b); return; }
     if (e.clientX < window.innerWidth * 0.5 && T.stick.id === null) {
       T.stick.id = e.pointerId; T.stick.bx = e.clientX; T.stick.by = e.clientY; T.stick.mx = T.stick.my = 0;
       T.ptr.set(e.pointerId, { kind: 'stick' });
@@ -765,6 +790,7 @@ body.mouseaim #screen { cursor: none; }
     T.ptr.set(e.pointerId, { kind: 'btn', b: 'fire' }); press('fire'); // empty right side = fire
   }
   function onMove(e) {
+    if (I.layoutEdit) { editMove(e); return; }
     const p = T.ptr.get(e.pointerId);
     if (!p || p.kind !== 'stick') return;
     e.preventDefault();
@@ -781,6 +807,7 @@ body.mouseaim #screen { cursor: none; }
     setStickEl(T.stick.bx, T.stick.by, true, dx, dy);
   }
   function onUp(e) {
+    if (I.layoutEdit) { editUp(e); return; }
     const p = T.ptr.get(e.pointerId);
     if (!p) return;
     T.ptr.delete(e.pointerId);
@@ -825,11 +852,66 @@ body.mouseaim #screen { cursor: none; }
       stickR = G.clamp(vh * 0.14, 44, 64);
       idle = [sf.l + 24 + stickR * 1.3, vh - sf.b - 24 - stickR * 1.3];
     }
-    place(els.fire, ...fire); place(els.skill, ...skill); place(els.item, ...item); place(els.itm, ...itm);
-    place(els.wpn, sel[0], sel[1], ...pill); place(els.pause, start[0], start[1], ...pill);
+    // Your own placement (TOUCH LAYOUT), per orientation: each button's centre as a fraction of the screen, a size
+    // multiplier and whether it's hidden. Anything you haven't moved stays where it is above.
+    const at = { fire: [fire[0], fire[1], fire[2], fire[2]], skill: [skill[0], skill[1], skill[2], skill[2]], item: [item[0], item[1], item[2], item[2]],
+      itm: [itm[0], itm[1], itm[2], itm[2]], wpn: [sel[0], sel[1], ...pill], pause: [start[0], start[1], ...pill], pad: [idle[0], idle[1], stickR, stickR] };
+    lay = { vw, vh, orient: portrait ? 'portrait' : 'landscape' };
+    const mine = myLayout();
+    for (const k in at) {
+      const o = mine[k], a = at[k];
+      if (o) { if (o.x !== undefined) { a[0] = o.x * vw; a[1] = o.y * vh; } if (o.s) { a[2] *= o.s; a[3] *= o.s; } }
+      if (k !== 'pad') { place(els[KEYS[k]], ...a); els[KEYS[k]].classList.toggle('hid', !!(o && o.hide)); els[KEYS[k]].classList.toggle('picked', I.layoutEdit && pick === k); }
+    }
+    idle = [at.pad[0], at.pad[1]]; stickR = at.pad[2];
     place(els.dpad, idle[0], idle[1], Math.round(stickR * 2.3)); // the menus' D-pad sits where the joystick rests
+    els.dpad.classList.toggle('picked', I.layoutEdit && pick === 'pad');
     els.base.style.width = els.base.style.height = stickR * 2 + 'px';
     if (T.stick.id === null) setStickEl(idle[0], idle[1], false);
+  };
+  // ---- TOUCH LAYOUT (pause menu): drag the buttons where you like them, resize or hide them; saved per orientation ----
+  const KEYS = { fire: 'fire', skill: 'skill', item: 'item', itm: 'itm', wpn: 'wpn', pause: 'pause' }; // layout key -> els entry
+  const NAMES = { fire: 'A: FIRE / OK', skill: 'B: SKILL / BACK', item: 'ITEM', itm: 'ITM: SWAP ITEM', wpn: 'SELECT: SWAP WEAPON', pause: 'START: PAUSE', pad: 'D-PAD / JOYSTICK' };
+  let lay = { vw: 1, vh: 1, orient: 'portrait' }, pick = null, drag = null;
+  const myLayout = () => { const o = G.opts(); o.touchLayout = o.touchLayout || {}; return (o.touchLayout[lay.orient] = o.touchLayout[lay.orient] || {}); };
+  const keyOf = (el) => (!el ? null : el.id === 'dpad' ? 'pad' : Object.keys(KEYS).find((k) => els[KEYS[k]] === el) || null);
+  function setPick(k) {
+    pick = k;
+    els.lbName.textContent = k ? NAMES[k] + (myLayout()[k] && myLayout()[k].hide ? ' (HIDDEN)' : '') : 'TAP A BUTTON, DRAG IT';
+    if (G.layout) G.layout();
+  }
+  function editDown(e) {
+    const act = e.target.closest && e.target.closest('[data-act]');
+    if (act) return editAct(act.dataset.act);
+    const el = e.target.closest && e.target.closest('.tbtn, #dpad'), k = keyOf(el);
+    if (!k) return setPick(null);
+    const r = el.getBoundingClientRect();
+    drag = { id: e.pointerId, k, ox: e.clientX - (r.left + r.width / 2), oy: e.clientY - (r.top + r.height / 2) };
+    setPick(k);
+  }
+  function editMove(e) {
+    if (!drag || drag.id !== e.pointerId) return;
+    const o = (myLayout()[drag.k] = myLayout()[drag.k] || {});
+    o.x = +G.clamp((e.clientX - drag.ox) / lay.vw, 0.02, 0.98).toFixed(4); o.y = +G.clamp((e.clientY - drag.oy) / lay.vh, 0.02, 0.98).toFixed(4);
+    if (G.layout) G.layout();
+  }
+  function editUp(e) { if (drag && drag.id === e.pointerId) { drag = null; G.save.write(); } }
+  function editAct(a) {
+    const L = myLayout(), o = pick && (L[pick] = L[pick] || {});
+    if (a === 'done') { I.editLayout(false); if (I.onLayoutDone) I.onLayoutDone(); return; }
+    if (a === 'reset') { G.opts().touchLayout[lay.orient] = {}; G.toast('BUTTONS BACK WHERE THEY STARTED', 90); }
+    else if (!o) { G.toast('TAP A BUTTON FIRST', 60); return; }
+    else if (a === 'bigger' || a === 'smaller') o.s = +G.clamp((o.s || 1) + (a === 'bigger' ? 0.1 : -0.1), 0.6, 1.8).toFixed(2);
+    else if (a === 'hide') { if (pick === 'pad') { G.toast('THE D-PAD STAYS (YOU NEED IT)', 60); return; } o.hide = !o.hide; }
+    G.save.write(); G.sfx.play('blip'); setPick(pick);
+  }
+  I.layoutEdit = false;
+  // Turn the layout editor on or off (the TouchLayout screen in game.js does this)
+  I.editLayout = (on) => {
+    I.layoutEdit = on; pick = null; drag = null;
+    releaseAllTouch();
+    document.body.classList.toggle('layoutedit', on);
+    if (els.lbName) setPick(null);
   };
   function initTouch() {
     els.layer = document.getElementById('touch');
@@ -838,6 +920,7 @@ body.mouseaim #screen { cursor: none; }
     els.item = document.getElementById('btnItem'); els.pause = document.getElementById('btnPause');
     els.wpn = document.getElementById('btnWpn'); els.itm = document.getElementById('btnItm');
     els.dpad = document.getElementById('dpad');
+    els.lbName = document.getElementById('lbName');
     els.bezel = document.getElementById('bezel'); els.led = document.getElementById('led'); els.brand = document.getElementById('brand'); els.grille = document.getElementById('grille');
     els.dup = document.getElementById('dUp'); els.ddown = document.getElementById('dDown'); els.dleft = document.getElementById('dLeft'); els.dright = document.getElementById('dRight');
     els.layer.addEventListener('pointerdown', onDown, { passive: false });
@@ -8291,7 +8374,7 @@ body.mouseaim #screen { cursor: none; }
   const HINTS = {
     keyboard: ['WASD MOVE  SPACE FIRE  SHIFT SKILL  F ITEM', 'MOUSE AIMS  CLICK FIRES  RIGHT CLICK ITEM', 'Q SWAP WEAPON  E SWAP ITEM  ESC PAUSE', 'ARROWS + Z FIRE  X SKILL  C ITEM  V SWAP'],
     gamepad: ['STICK MOVE  A FIRE  B SKILL  R-STICK AIM', 'LB/RB WEAPON  Y SWAP ITEM  X USE ITEM'],
-    touch: ['DRAG LEFT SIDE TO MOVE  HOLD FIRE', 'SELECT: WEAPON  ITM: ITEM  START: PAUSE'],
+    touch: ['DRAG LEFT SIDE TO MOVE  HOLD FIRE', 'TAP WEAPON OR ITEM UP TOP TO SWAP'],
     coop: ['P1 WASD  SPACE FIRE  SHIFT SKILL  F ITEM', 'P2 ARROWS  / FIRE  . SKILL  , ITEM', "STAND OVER A DOWNED PARTNER: THEY'RE BACK", 'ONE SCREEN: STICK TOGETHER'],
   };
   const hintLine = (t, coop) => { const h = (coop && HINTS.coop) || HINTS[I.source] || HINTS.keyboard; return h[Math.floor(t / 240) % h.length]; };
@@ -9038,6 +9121,7 @@ body.mouseaim #screen { cursor: none; }
     ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, 20);
     ctx.fillStyle = '#3a1a4a'; ctx.fillRect(0, 19, G.W, 1);
     ctx.fillStyle = '#ff5ab0'; ctx.fillRect(0, 20, G.W, 1);
+    st.hudTap = null;
     if (!p) return; // an online guest before the first snapshot
     if (st.shared) {
       st.players.slice(0, 2).forEach((q, i) => hudHalf(ctx, st, q, i * 128, blink));
@@ -9056,6 +9140,7 @@ body.mouseaim #screen { cursor: none; }
     }
     // Weapon slot (everything from here on slides right a heart's width for each heart over 4: Lou has 6)
     const sh = Math.max(0, p.maxHp / 2 - 4) * 8, WX = 56 + sh, IX = 120 + sh;
+    st.hudTap = { wpn: [WX - 2, IX - 2], itm: [IX - 2, IX + 56] }; // touch: tap the weapon or the item up here to swap it (input.js)
     const w = p.weapon, wd = G.WEAPONS[w.id];
     slot(ctx, WX, G.art.icons[wd.icon], p.invShow > 0 && p.invKind === 'w');
     G.text(wd.name, WX + 19, 2, '#ff8a2a');
@@ -9178,6 +9263,27 @@ body.mouseaim #screen { cursor: none; }
 
   // ===== Pause / options =====
   const labEnemy = () => (G.ENEMY_TYPES[G.labEnemy] ? G.labEnemy : 'drone'); // the test room's pick (pause menu)
+  // ===== TOUCH LAYOUT (pause menu, touch screens): move, resize or hide the touch buttons (input.js does the work) =====
+  class TouchLayout {
+    constructor(back) {
+      Object.assign(this, { back, menu: false, noToast: false, t: 0 });
+      I.editLayout(true);
+      I.onLayoutDone = () => { I.onLayoutDone = null; G.sfx.play('confirm'); G.setState(this.back); };
+    }
+    update() {
+      this.t++;
+      if (I.hits.Escape && I.layoutEdit) { I.editLayout(false); I.onLayoutDone(); }
+    }
+    draw(ctx) {
+      this.back.game.draw(ctx);
+      ctx.fillStyle = 'rgba(8,4,20,.55)'; ctx.fillRect(0, 0, G.W, G.H);
+      G.text('TOUCH LAYOUT', G.W / 2, 70, '#ffd23a', { align: 'center', shadow: '#0e124a' });
+      G.text('DRAG ANY BUTTON WHERE YOU LIKE IT', G.W / 2, 90, '#ffffff', { align: 'center', shadow: '#0e124a' });
+      G.text('TAP ONE, THEN - / + TO RESIZE, HIDE', G.W / 2, 102, '#ffffff', { align: 'center', shadow: '#0e124a' });
+      G.text('PORTRAIT AND LANDSCAPE ARE SAVED APART', G.W / 2, 118, '#8ae8ff', { align: 'center', shadow: '#0e124a' });
+      G.text('TAP YOUR WEAPON OR ITEM UP TOP TO SWAP IT', G.W / 2, 134, '#8ae8ff', { align: 'center', shadow: '#0e124a' });
+    }
+  }
   class Pause {
     constructor(game) {
       this.game = game; this.menu = true; this.sel = 0; this.t = 0;
@@ -9188,6 +9294,7 @@ body.mouseaim #screen { cursor: none; }
           { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
+        ...(I.touchUI ? [{ label: 'TOUCH LAYOUT', act: () => G.setState(new TouchLayout(this)), help: () => 'MOVE, RESIZE OR HIDE THE BUTTONS' }] : []),
         { label: 'SCANLINES', val: () => (o.scanlines ? 'ON' : 'OFF'), act: () => { o.scanlines = !o.scanlines; G.applyOpts(); } },
         { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; } },
         { label: 'SOUND', val: () => (o.sound ? 'ON' : 'OFF'), act: () => { o.sound = !o.sound; G.sfx.unlock(); G.sfx.play('pickup'); }, // a test beep
@@ -9297,7 +9404,7 @@ body.mouseaim #screen { cursor: none; }
       G.text('BUILD STEP 4 - CO-OP, ONLINE', 128, 214, '#6a5a9a', { align: 'center' });
     }
   }
-  G.states = { Boot, Stage, Pause, MapView, LevelClear };
+  G.states = { Boot, Stage, Pause, MapView, LevelClear, TouchLayout };
 
   // Auto-pause when the tab is hidden
   document.addEventListener('visibilitychange', () => {

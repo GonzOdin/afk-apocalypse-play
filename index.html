@@ -198,6 +198,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
+<script>window.AFK_BUILD = 'BUILD 10-07 01:40';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -986,6 +987,10 @@ body.mouseaim #screen { cursor: none; }
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     document.addEventListener('gesturechange', (e) => e.preventDefault());
     document.addEventListener('dblclick', (e) => e.preventDefault());
+    // The surest way on iOS (and inside the Claude app's frame): a touch on the controls layer, which covers the whole
+    // screen in touch mode, cancels the browser's own handling from the start (no zoom, scroll, callout or
+    // double-tap). Pointer events, which the game uses, still come through.
+    for (const ev of ['touchstart', 'touchmove', 'touchend']) els.layer.addEventListener(ev, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
     document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     let lastEnd = 0;
     document.addEventListener('touchend', (e) => { if (e.timeStamp - lastEnd < 350) e.preventDefault(); lastEnd = e.timeStamp; }, { passive: false });
@@ -9477,6 +9482,7 @@ body.mouseaim #screen { cursor: none; }
         G.text(label, 128, y, on ? '#ffd23a' : '#ffffff', { align: 'center', shadow: '#140c1c' });
       });
       G.text('BUILD STEP 4 - CO-OP, ONLINE', 128, 214, '#6a5a9a', { align: 'center' });
+      G.text(window.AFK_BUILD || 'DEV', 254, 2, '#4a3e6a', { align: 'right' }); // which copy this is (tools/build.js)
     }
   }
   G.states = { Boot, Stage, Pause, MapView, LevelClear, TouchLayout };

@@ -27,56 +27,76 @@ html, body {
 }
 body.scan #scan { display: block; }
 
-/* ---- touch controls ---- */
+/* ---- touch controls: a handheld, in the spirit of an old color handheld (our own design, no one's logo) ---- */
 #touch { position: fixed; inset: 0; display: none; z-index: 10; touch-action: none; }
 body.touch #touch { display: block; }
+#stage { z-index: 1; }
+/* the plastic shell behind everything, the dark bezel round the screen with its power light, the wordmark, a speaker */
+#shell { display: none; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(140% 60% at 20% 0%, rgba(255,255,255,.16), rgba(255,255,255,0) 60%),
+    radial-gradient(90% 50% at 100% 100%, rgba(20,0,40,.35), rgba(20,0,40,0) 70%),
+    linear-gradient(170deg, #8d62d8 0%, #6d43b6 48%, #522d93 100%); }
+body.touch #shell { display: block; }
+body.touch { background: #522d93; }
+#bezel { position: absolute; box-sizing: border-box; border-radius: 10px 10px 36px 10px;
+  background: linear-gradient(#4b4a60, #343348); box-shadow: inset 0 2px 5px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.28), 0 -1px 0 rgba(0,0,0,.25); }
+#led { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #ff3a5a; box-shadow: 0 0 6px 1px rgba(255,58,90,.8); }
+#brand { position: absolute; transform: translateX(-50%); white-space: nowrap; letter-spacing: 1px;
+  font: italic 900 15px/1 'Arial Black', 'Helvetica Neue', Arial, sans-serif; color: #2b1460; text-shadow: 0 1px 0 rgba(255,255,255,.28); }
+#brand b { font-weight: 900; }
+#brand b:nth-of-type(5n+1) { color: #ff3a5a; } #brand b:nth-of-type(5n+2) { color: #ffd23a; } #brand b:nth-of-type(5n+3) { color: #38f0a0; }
+#brand b:nth-of-type(5n+4) { color: #3ad0ff; } #brand b:nth-of-type(5n+5) { color: #ff5ab0; }
+#grille { position: absolute; width: 58px; height: 36px; transform: rotate(-30deg);
+  background: repeating-linear-gradient(90deg, rgba(34,10,70,.55) 0 4px, transparent 4px 10px); border-radius: 4px; }
+/* round buttons: berry-colored, domed, pressed in when held. Captions (data-cap: A, B, SELECT, START) printed under them */
 .tbtn {
   position: absolute; box-sizing: border-box; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font: bold 13px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 1px; color: #fff;
-  background: rgba(20, 10, 40, .5); border: 3px solid rgba(255,255,255,.35);
-  box-shadow: 0 0 12px rgba(0,0,0,.4) inset;
+  font: bold 12px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 1px; color: #ffe2f0;
+  background: radial-gradient(circle at 35% 30%, #e0609a 0%, #a8306c 55%, #6e1a48 100%);
+  border: 2px solid #3a0f2c; box-shadow: 0 3px 0 #2a0a22, 0 5px 10px rgba(0,0,0,.35);
+  text-shadow: 0 1px 0 rgba(0,0,0,.4);
 }
-.tbtn.on { transform: scale(.94); }
-#btnFire { border-color: #ff5ab0; color: #ffd0ea; }
-#btnFire.on { background: rgba(255, 90, 176, .55); }
-#btnSkill { border-color: #3ad0ff; color: #c8f2ff; font-size: 11px; }
-#btnSkill.on { background: rgba(58, 208, 255, .5); }
-#btnItem { border-color: #ffd23a; color: #fff2c0; font-size: 11px; }
-#btnItem.on { background: rgba(255, 210, 58, .5); }
+.tbtn.on { transform: translateY(2px); box-shadow: 0 1px 0 #2a0a22, 0 2px 4px rgba(0,0,0,.35); filter: brightness(1.15); }
+.tbtn[data-cap]::after { content: attr(data-cap); position: absolute; top: 100%; margin-top: 6px; left: 50%; transform: translateX(-50%);
+  font: italic 900 11px/1 'Arial Black', Arial, sans-serif; letter-spacing: 1px; color: #2b1460; text-shadow: 0 1px 0 rgba(255,255,255,.28); }
+#btnSkill, #btnItem { font-size: 11px; }
 .tbtn.small { font-size: 10px; border-width: 2px; }
-#btnWpn { border-color: #ff8a2a; color: #ffd8b0; }
-#btnWpn.on { background: rgba(255, 138, 42, .5); }
-#btnItm { border-color: #38f0a0; color: #c8ffe4; }
-#btnItm.on { background: rgba(56, 240, 160, .45); }
-#btnPause { border-radius: 10px; font-size: 12px; border-width: 2px; opacity: .8; }
-/* the menus' D-pad (touch): where the joystick rests, in its place while a menu is up */
-#dpad { position: absolute; display: none; pointer-events: none; }
-body.menumode #dpad { display: block; }
-body.menumode #stickBase, body.menumode #btnItem, body.menumode #btnWpn, body.menumode #btnItm { display: none; }
-.dbtn, #dMid { position: absolute; width: 34%; height: 34%; box-sizing: border-box; background: rgba(20, 10, 40, .55); }
-.dbtn { pointer-events: auto; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255,255,255,.4);
-  border-radius: 8px; color: rgba(255,255,255,.85); font: bold 15px/1 ui-monospace, Menlo, Consolas, monospace; }
-.dbtn.on { background: rgba(255, 255, 255, .35); transform: scale(.94); }
-#dUp { left: 33%; top: 0; } #dDown { left: 33%; bottom: 0; } #dLeft { left: 0; top: 33%; } #dRight { right: 0; top: 33%; }
-#dMid { left: 33%; top: 33%; border-radius: 4px; }
+/* SELECT and START: slanted grey pills */
+.tbtn.pill { border-radius: 999px; transform: rotate(-25deg); background: linear-gradient(#7a7a8c, #55556a); border: 2px solid #2a2a3a;
+  box-shadow: 0 2px 0 #1e1e2a; }
+.tbtn.pill.on { transform: rotate(-25deg) translateY(1px); box-shadow: 0 0 0 #1e1e2a; }
+.tbtn.pill::after { font-size: 9px; margin-top: 5px; }
+/* the joystick (in the game): a dark rubber pad */
 #stickBase {
   position: absolute; border-radius: 50%; box-sizing: border-box;
-  border: 3px solid rgba(255,255,255,.3); background: rgba(255,255,255,.05);
-  transform: translate(-50%, -50%); opacity: .35; pointer-events: none;
+  border: 3px solid rgba(25, 12, 45, .55); background: rgba(25, 12, 45, .22);
+  transform: translate(-50%, -50%); opacity: .55; pointer-events: none;
 }
 #stickBase.active { opacity: .95; }
 #stickKnob {
   position: absolute; left: 50%; top: 50%; width: 46%; height: 46%; border-radius: 50%;
-  background: rgba(255,255,255,.45); border: 2px solid rgba(255,255,255,.7); box-sizing: border-box;
-  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, #4a4a5c, #1e1e28); border: 2px solid #121218; box-sizing: border-box;
+  transform: translate(-50%, -50%); box-shadow: 0 3px 6px rgba(0,0,0,.4);
 }
+/* the menus' D-pad: a black cross where the joystick rests */
+#dpad { position: absolute; display: none; pointer-events: none; filter: drop-shadow(0 3px 0 #120a1e) drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
+body.menumode #dpad { display: block; }
+body.menumode #stickBase, body.menumode #btnItem, body.menumode #btnItm { display: none; }
+.dbtn, #dMid { position: absolute; width: 34%; height: 34%; box-sizing: border-box; background: #22222c; }
+.dbtn { pointer-events: auto; display: flex; align-items: center; justify-content: center; border-radius: 4px;
+  color: #4c4c5e; font: bold 14px/1 ui-monospace, Menlo, Consolas, monospace; }
+.dbtn.on { background: #34344a; color: #9a9ab0; }
+#dUp { left: 33%; top: 0; border-radius: 4px 4px 0 0; } #dDown { left: 33%; bottom: 0; border-radius: 0 0 4px 4px; }
+#dLeft { left: 0; top: 33%; border-radius: 4px 0 0 4px; } #dRight { right: 0; top: 33%; border-radius: 0 4px 4px 0; }
+#dMid { left: 33%; top: 33%; background: radial-gradient(circle, #18181f 30%, #22222c 32%); }
+body.editing #touch, body.editing #shell { display: none; }
 
 /* ---- in-game edit mode panel (toggle with ` while playing) ---- */
 #editpanel { display: none; position: fixed; right: 0; top: 0; bottom: 0; width: 260px; box-sizing: border-box; overflow-y: auto; z-index: 20;
   padding: 10px; background: #160c26; border-left: 2px solid #ff5ab0; color: #e8e0ff; font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; }
 body.editing #editpanel { display: block; }
-body.editing #touch { display: none; }
 #editpanel h1 { font-size: 13px; margin: 0 0 4px; color: #ff5ab0; letter-spacing: 1px; }
 #editpanel h2 { font-size: 10px; margin: 12px 0 5px; color: #ffd23a; letter-spacing: 1px; }
 #editpanel .row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
@@ -130,6 +150,7 @@ body.mouseaim #screen { cursor: none; }
 </style>
 </head>
 <body>
+<div id="shell"><div id="bezel"><span id="led"></span></div><div id="brand">AFK <b>A</b><b>P</b><b>O</b><b>C</b><b>A</b><b>L</b><b>Y</b><b>P</b><b>S</b><b>E</b></div><div id="grille"></div></div>
 <div id="stage">
   <canvas id="screen" width="256" height="224"></canvas>
   <div id="scan"></div>
@@ -137,11 +158,11 @@ body.mouseaim #screen { cursor: none; }
 <div id="touch">
   <div id="stickBase"><div id="stickKnob"></div></div>
   <div id="dpad"><div class="dbtn" id="dUp" data-b="dup">&#9650;</div><div class="dbtn" id="dDown" data-b="ddown">&#9660;</div><div class="dbtn" id="dLeft" data-b="dleft">&#9664;</div><div class="dbtn" id="dRight" data-b="dright">&#9654;</div><div id="dMid"></div></div>
-  <div class="tbtn" id="btnFire" data-b="fire">FIRE</div>
-  <div class="tbtn" id="btnSkill" data-b="skill">SKILL</div>
+  <div class="tbtn" id="btnFire" data-b="fire" data-cap="A">FIRE</div>
+  <div class="tbtn" id="btnSkill" data-b="skill" data-cap="B">SKILL</div>
   <div class="tbtn" id="btnItem" data-b="item">ITEM</div>
-  <div class="tbtn" id="btnPause" data-b="pause">II</div>
-  <div class="tbtn small" id="btnWpn" data-b="wpn">WPN</div>
+  <div class="tbtn pill" id="btnPause" data-b="pause" data-cap="START"></div>
+  <div class="tbtn pill" id="btnWpn" data-b="wpn" data-cap="SELECT"></div>
   <div class="tbtn small" id="btnItm" data-b="itm">ITM</div>
 </div>
 <script>
@@ -410,20 +431,23 @@ body.mouseaim #screen { cursor: none; }
     const touch = !!(G.input && G.input.touchUI);
     const portrait = vh > vw;
     const cl = document.body.classList, panelW = cl.contains('editing') ? 260 : cl.contains('debugging') ? 250 : 0; // edit / debug panel on the right
-    const availW = vw - sf.l - sf.r - panelW;
-    let availH = vh - sf.t - sf.b;
+    // Touch: the screen sits in a handheld's bezel (bez px all round), and in portrait the wordmark goes under it
+    const bez = touch ? Math.round(G.clamp(Math.min(vw, vh) * 0.03, 10, 18)) : 0, brandH = touch && portrait ? 26 : 0;
+    const rim = touch && portrait ? 8 : 0; // a sliver of shell either side of the bezel
+    const availW = vw - sf.l - sf.r - panelW - bez * 2 - rim * 2;
+    let availH = vh - sf.t - sf.b - bez * 2 - brandH;
     // Portrait touch: game sits on top, controls get the bottom
     if (touch && portrait) availH = Math.min(availH, Math.max(availH * 0.5, availH - 240));
     let s = Math.min(availW / G.W, availH / G.H);
     const si = Math.floor(s);
     if (si >= 1 && si / s >= 0.82) s = si; // prefer crisp integer scale when it costs little space
     const w = Math.round(G.W * s), h = Math.round(G.H * s);
-    const left = Math.round(sf.l + (availW - w) / 2);
-    const top = touch && portrait ? Math.round(sf.t + 6) : Math.round(sf.t + (availH - h) / 2);
+    const left = Math.round(sf.l + rim + bez + (availW - w) / 2);
+    const top = touch && portrait ? Math.round(sf.t + bez + 6) : Math.round(sf.t + bez + (availH - h) / 2);
     Object.assign(stage.style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
     stage.style.setProperty('--px', s + 'px');
     G.scale = s; G.portrait = portrait;
-    if (G.input && G.input.layoutTouch) G.input.layoutTouch({ left, top, w, h }, vw, vh, portrait, sf);
+    if (G.input && G.input.layoutTouch) G.input.layoutTouch({ left, top, w, h, bez }, vw, vh, portrait, sf);
   };
   window.addEventListener('resize', () => G.layout());
   window.addEventListener('orientationchange', () => setTimeout(G.layout, 100));
@@ -690,8 +714,8 @@ body.mouseaim #screen { cursor: none; }
 
   // ---- Touch: floating joystick on the left, Fire/Skill/Item buttons on the right ----
   // In menus (any state with `menu` set: title, pause, recruit, lobby...) the joystick makes way for a D-pad, FIRE
-  // reads OK and SKILL reads BACK; the item and swap buttons hide (I.menuMode, body.menumode). Back in the game, the
-  // joystick returns.
+  // reads OK and SKILL reads BACK, SELECT moves down a row; ITEM and ITM hide (I.menuMode, body.menumode). Back in the
+  // game, the joystick returns and SELECT swaps your weapon. START pauses (and is Start in menus).
   const T = (I.touch = { stick: { id: null, bx: 0, by: 0, mx: 0, my: 0 }, btn: { fire: 0, skill: 0, item: 0, pause: 0, wpn: 0, itm: 0, dup: 0, ddown: 0, dleft: 0, dright: 0 }, hit: {}, ptr: new Map() });
   const els = {};
   let stickR = 54, idle = [80, 300];
@@ -763,32 +787,46 @@ body.mouseaim #screen { cursor: none; }
     if (p.kind === 'btn') release(p.b);
     else if (p.kind === 'stick') { T.stick.id = null; T.stick.mx = T.stick.my = 0; setStickEl(idle[0], idle[1], false); }
   }
-  function place(el, x, y, s) {
-    Object.assign(el.style, { left: Math.round(x - s / 2) + 'px', top: Math.round(y - s / 2) + 'px', width: Math.round(s) + 'px', height: Math.round(s) + 'px' });
+  function place(el, x, y, s, h = s) {
+    Object.assign(el.style, { left: Math.round(x - s / 2) + 'px', top: Math.round(y - h / 2) + 'px', width: Math.round(s) + 'px', height: Math.round(h) + 'px' });
   }
+  // The touch controls as a handheld: a bezel round the screen (r.bez px), the wordmark under it (portrait), a D-pad
+  // or joystick on the left, A (FIRE / OK) and B (SKILL / BACK) on the right with ITEM and ITM by them, and the
+  // SELECT (swap weapon) and START (pause) pills.
   I.layoutTouch = (r, vw, vh, portrait, sf) => {
     if (!els.layer) return;
-    let B, fire, skill, item, pause, wpn, itm;
+    const bz = r.bez || 0;
+    Object.assign(els.bezel.style, { left: r.left - bz + 'px', top: r.top - bz + 'px', width: r.w + bz * 2 + 'px', height: r.h + bz * 2 + 'px' });
+    Object.assign(els.led.style, { left: Math.round(bz / 2 - 3) + 'px', top: Math.round(r.h * 0.3) + 'px' });
+    let B, fire, skill, item, itm, sel, start, pill;
     if (portrait) {
-      const top = r.top + r.h, ch = vh - top - sf.b, cy = top + ch * 0.5;
-      B = G.clamp(vw * 0.21, 64, 104);
-      const fx = vw - sf.r - 18 - B / 2;
-      fire = [fx, cy, B]; skill = [fx - B * 1.02, cy - B * 0.62, B * 0.72]; item = [fx - B * 1.02, cy + B * 0.62, B * 0.72];
-      pause = [sf.l + 28, top + 26, 38];
-      wpn = [fx, cy - B * 1.02, B * 0.5]; itm = [fx, cy + B * 1.02, B * 0.5];
+      const top = r.top + r.h + bz + 26, bottom = vh - sf.b, pillY = bottom - 30, cy = top + (pillY - 22 - top) * 0.5;
+      els.brand.style.display = ''; els.brand.style.left = vw / 2 + 'px'; els.brand.style.top = r.top + r.h + bz + 7 + 'px';
+      B = G.clamp(vw * 0.19, 58, 96);
+      const ax = vw - sf.r - 16 - B / 2;
+      fire = [ax, cy - B * 0.35, B]; skill = [ax - B * 1.12, cy + B * 0.3, B];
+      item = [ax - B * 1.12, cy - B * 0.78, B * 0.6]; itm = [ax + B * 0.05, cy - B * 1.2, B * 0.42];
+      pill = [G.clamp(vw * 0.13, 42, 56), 15];
+      sel = [vw / 2 - pill[0] * 0.8, pillY]; start = [vw / 2 + pill[0] * 0.8, pillY];
       stickR = G.clamp(vw * 0.13, 44, 64);
       idle = [sf.l + vw * 0.24, cy];
+      const room = pillY - 30 - (skill[1] + B / 2); // the speaker grille, down in the corner if there's room
+      els.grille.style.display = room > 10 ? '' : 'none';
+      Object.assign(els.grille.style, { left: vw - sf.r - 74 + 'px', top: pillY - 26 + 'px' });
     } else {
-      B = G.clamp(vh * 0.22, 56, 96);
-      const fx = vw - sf.r - 20 - B / 2, fy = vh - sf.b - 20 - B / 2;
-      fire = [fx, fy, B]; skill = [fx - B * 1.05, fy - B * 0.12, B * 0.72]; item = [fx - B * 0.25, fy - B * 1.05, B * 0.72];
-      pause = [vw - sf.r - 30, sf.t + 30, 38];
-      wpn = [pause[0] - 48, pause[1], 40]; itm = [pause[0] - 94, pause[1], 40];
+      const rightL = r.left + r.w + bz, rx = (rightL + vw - sf.r) / 2, colW = vw - sf.r - rightL;
+      els.brand.style.display = 'none'; els.grille.style.display = 'none';
+      B = Math.min(G.clamp(vh * 0.21, 54, 90), colW * 0.42);
+      const ax = vw - sf.r - 14 - B / 2, ay = vh - sf.b - 18 - B;
+      fire = [ax, ay, B]; skill = [ax - B * 1.1, ay + B * 0.5, B];
+      item = [ax - B * 0.45, ay - B * 1.05, B * 0.6]; itm = [ax + B * 0.25, ay - B * 1.55, B * 0.42];
+      pill = [G.clamp(colW * 0.3, 40, 54), 15];
+      sel = [rx - pill[0] * 0.75, sf.t + 30]; start = [rx + pill[0] * 0.75, sf.t + 30];
       stickR = G.clamp(vh * 0.14, 44, 64);
       idle = [sf.l + 24 + stickR * 1.3, vh - sf.b - 24 - stickR * 1.3];
     }
-    place(els.fire, ...fire); place(els.skill, ...skill); place(els.item, ...item); place(els.pause, ...pause);
-    place(els.wpn, ...wpn); place(els.itm, ...itm);
+    place(els.fire, ...fire); place(els.skill, ...skill); place(els.item, ...item); place(els.itm, ...itm);
+    place(els.wpn, sel[0], sel[1], ...pill); place(els.pause, start[0], start[1], ...pill);
     place(els.dpad, idle[0], idle[1], Math.round(stickR * 2.3)); // the menus' D-pad sits where the joystick rests
     els.base.style.width = els.base.style.height = stickR * 2 + 'px';
     if (T.stick.id === null) setStickEl(idle[0], idle[1], false);
@@ -800,6 +838,7 @@ body.mouseaim #screen { cursor: none; }
     els.item = document.getElementById('btnItem'); els.pause = document.getElementById('btnPause');
     els.wpn = document.getElementById('btnWpn'); els.itm = document.getElementById('btnItm');
     els.dpad = document.getElementById('dpad');
+    els.bezel = document.getElementById('bezel'); els.led = document.getElementById('led'); els.brand = document.getElementById('brand'); els.grille = document.getElementById('grille');
     els.dup = document.getElementById('dUp'); els.ddown = document.getElementById('dDown'); els.dleft = document.getElementById('dLeft'); els.dright = document.getElementById('dRight');
     els.layer.addEventListener('pointerdown', onDown, { passive: false });
     els.layer.addEventListener('pointermove', onMove, { passive: false });
@@ -885,7 +924,7 @@ body.mouseaim #screen { cursor: none; }
     setMenuMode(!!(G.state && G.state.menu));
     const D = (k) => !!(T.btn[k] || T.hit[k]);
     const r = {
-      up: anyDown(['ArrowUp', 'KeyW']) || D('dup'), down: anyDown(['ArrowDown', 'KeyS']) || D('ddown'),
+      up: anyDown(['ArrowUp', 'KeyW']) || D('dup'), down: anyDown(['ArrowDown', 'KeyS']) || D('ddown') || (I.menuMode && D('wpn')), // SELECT moves down a row in menus
       left: anyDown(['ArrowLeft', 'KeyA']) || D('dleft'), right: anyDown(['ArrowRight', 'KeyD']) || D('dright'),
       confirm: anyDown(['Enter', 'Space', 'KeyZ', 'KeyJ']) || !!T.hit.fire,
       back: anyDown(['Escape', 'Backspace']) || (I.menuMode && !!T.hit.skill),
@@ -8252,7 +8291,7 @@ body.mouseaim #screen { cursor: none; }
   const HINTS = {
     keyboard: ['WASD MOVE  SPACE FIRE  SHIFT SKILL  F ITEM', 'MOUSE AIMS  CLICK FIRES  RIGHT CLICK ITEM', 'Q SWAP WEAPON  E SWAP ITEM  ESC PAUSE', 'ARROWS + Z FIRE  X SKILL  C ITEM  V SWAP'],
     gamepad: ['STICK MOVE  A FIRE  B SKILL  R-STICK AIM', 'LB/RB WEAPON  Y SWAP ITEM  X USE ITEM'],
-    touch: ['DRAG LEFT SIDE TO MOVE  HOLD FIRE', 'WPN / ITM SWAP  ITEM BUTTON USES IT'],
+    touch: ['DRAG LEFT SIDE TO MOVE  HOLD FIRE', 'SELECT: WEAPON  ITM: ITEM  START: PAUSE'],
     coop: ['P1 WASD  SPACE FIRE  SHIFT SKILL  F ITEM', 'P2 ARROWS  / FIRE  . SKILL  , ITEM', "STAND OVER A DOWNED PARTNER: THEY'RE BACK", 'ONE SCREEN: STICK TOGETHER'],
   };
   const hintLine = (t, coop) => { const h = (coop && HINTS.coop) || HINTS[I.source] || HINTS.keyboard; return h[Math.floor(t / 240) % h.length]; };

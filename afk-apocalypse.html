@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AFK">
 <meta name="theme-color" content="#0b0614">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
 <title>AFK Apocalypse</title>
 <style>
 html, body {
@@ -494,6 +499,32 @@ body.mouseaim #screen { cursor: none; }
     return x >= 0 && y >= 0 && x < G.W && y < G.H ? { x, y } : null;
   };
 
+  // ---- Full screen ----
+  // Where the browser allows it (Android, iPad, desktop) the page goes truly full screen. iPhone Safari doesn't let
+  // web pages do that: there, Add to Home Screen opens the game full screen instead (it.standalone says it already is).
+  // Browsers only allow it right after a tap or key press, so a request made from a menu tick is retried on the next
+  // finger lift / key release (pending).
+  const de = document.documentElement;
+  G.fs = {
+    pending: false,
+    can: () => !!(de.requestFullscreen || de.webkitRequestFullscreen),
+    on: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
+    // opened from the Home Screen (not just full screen right now: the browser reports that as display-mode too)
+    standalone: () => !!(navigator.standalone || (!G.fs.on() && window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches)),
+    request() {
+      const f = de.requestFullscreen || de.webkitRequestFullscreen;
+      if (!f) return;
+      try { const p = f.call(de, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => { G.fs.pending = true; }); } catch (e) { G.fs.pending = true; }
+    },
+    toggle() {
+      if (G.fs.on()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      G.fs.pending = true; G.fs.request();
+    },
+  };
+  const retry = () => { if (G.fs.pending && !G.fs.on()) { G.fs.pending = false; G.fs.request(); } else G.fs.pending = false; };
+  for (const ev of ['pointerup', 'touchend', 'keyup']) window.addEventListener(ev, retry, true);
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { G.fs.pending = false; setTimeout(G.layout, 60); });
+
   G.applyOpts = () => {
     document.body.classList.toggle('scan', !!G.opts().scanlines);
   };
@@ -950,7 +981,14 @@ body.mouseaim #screen { cursor: none; }
     els.layer.addEventListener('pointerup', onUp);
     els.layer.addEventListener('pointercancel', onUp);
     els.layer.addEventListener('contextmenu', (e) => e.preventDefault());
+    // No zooming the page: iOS ignores the viewport's user-scalable=no, so stop pinches (two fingers going down) and
+    // double-tap zoom (a second touch ending within 350 ms) here. The game reads pointer events, so it doesn't mind.
     document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('gesturechange', (e) => e.preventDefault());
+    document.addEventListener('dblclick', (e) => e.preventDefault());
+    document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    let lastEnd = 0;
+    document.addEventListener('touchend', (e) => { if (e.timeStamp - lastEnd < 350) e.preventDefault(); lastEnd = e.timeStamp; }, { passive: false });
     if (I.coarse || I.forceTouch) showTouchUI(true);
   }
   initTouch();
@@ -9284,6 +9322,19 @@ body.mouseaim #screen { cursor: none; }
   }
 
   // ===== Pause / options =====
+  // The FULL SCREEN menu row (title and pause, on touch screens): toggles it where the browser allows; on an iPhone
+  // (no full screen for web pages) it explains Add to Home Screen.
+  const fullItem = () => ({
+    label: 'FULL SCREEN',
+    val: () => (G.fs.standalone() || G.fs.on() ? 'ON' : G.fs.can() ? 'OFF' : 'HOW?'),
+    act: () => {
+      if (G.fs.on()) G.fs.toggle(); // leave it
+      else if (G.fs.standalone()) G.toast('ALREADY FULL SCREEN', 90);
+      else if (G.fs.can()) G.fs.toggle();
+      else G.toast('SHARE, THEN ADD TO HOME SCREEN', 240);
+    },
+    help: () => (G.fs.can() || G.fs.standalone() ? 'HIDES THE BROWSER BARS' : 'IPHONE: SHARE > ADD TO HOME SCREEN'),
+  });
   const labEnemy = () => (G.ENEMY_TYPES[G.labEnemy] ? G.labEnemy : 'drone'); // the test room's pick (pause menu)
   // ===== TOUCH LAYOUT (pause menu, touch screens): move, resize or hide the touch buttons (input.js does the work) =====
   class TouchLayout {
@@ -9316,6 +9367,7 @@ body.mouseaim #screen { cursor: none; }
           { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
+        ...(I.touchUI ? [fullItem()] : []),
         ...(I.touchUI ? [{ label: 'TOUCH LAYOUT', act: () => G.setState(new TouchLayout(this)), help: () => 'MOVE, RESIZE OR HIDE THE BUTTONS' }] : []),
         { label: 'SCANLINES', val: () => (o.scanlines ? 'ON' : 'OFF'), act: () => { o.scanlines = !o.scanlines; G.applyOpts(); } },
         { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; } },
@@ -9376,7 +9428,8 @@ body.mouseaim #screen { cursor: none; }
         { label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const o = G.opts(), L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; G.save.write(); } },
         { label: 'ONLINE (UP TO 4)', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.states.OnlineMenu()); } },
         { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)) },
-        { label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); } },
+        // on a phone or tablet: full screen instead of the map editor (which wants a mouse and keyboard)
+        I.touchUI ? fullItem() : { label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); } },
       ];
     }
     update() {

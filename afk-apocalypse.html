@@ -109,7 +109,9 @@ body.debugging:not(.editing) #debugpanel { display: block; }
 #debugpanel .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 #dp-dirty { color: #ffd23a; } #dp-msg { min-height: 14px; margin-top: 6px; }
 #dp-tabs { display: flex; gap: 3px; margin: 8px 0 2px; }
-#dp-tabs button { flex: 1; padding: 4px 0; font-size: 10px; letter-spacing: 1px; }
+#dp-tabs button { flex: 1; padding: 4px 0; font-size: 10px; letter-spacing: 0; }
+#debugpanel .dp-spawn { display: flex; flex-wrap: wrap; gap: 4px; }
+#debugpanel .dp-spawn button { font-size: 10px; padding: 3px 6px; }
 #dp-tabs button.on { background: #3a2a10; border-color: #ffd23a; color: #ffd23a; }
 #debugpanel .ok { color: #38f0a0; } #debugpanel .bad { color: #ff3a5a; }
 
@@ -563,6 +565,10 @@ body.mouseaim #screen { cursor: none; }
     mow: (a) => { a.noise(0.16, 0.05, 220, 0, 1.4); a.tone('sawtooth', 70, 64, 0.16, 0.025); }, // a push mower's engine
     clang: (a) => { a.tone('square', 1240, 1180, 0.09, 0.05); a.tone('triangle', 620, 600, 0.14, 0.05); a.noise(0.04, 0.08, 5000); }, // Lou's skillet hitting something
     zap: (a) => { a.tone('sawtooth', 1800, 300, 0.12, 0.04); a.noise(0.06, 0.06, 6000, 0, 2); },                 // Root's EMP
+    bark: (a) => { a.tone('square', 420, 260, 0.07, 0.07); a.tone('square', 460, 280, 0.08, 0.07, 0.12); a.noise(0.05, 0.06, 1600); }, // a robot dog (two barks)
+    whistle: (a) => a.tone('sine', 1800, 500, 0.55, 0.04),                                                        // a drone's parcel falling
+    slurp: (a) => { a.noise(0.18, 0.08, 900, 0, 1.6); a.tone('sine', 300, 900, 0.14, 0.04); },                   // a mop bot sucking up loot
+    beep: (a) => { a.tone('square', 1320, 1320, 0.05, 0.04); a.tone('square', 1760, 1760, 0.06, 0.04, 0.07); a.tone('sine', 300, 2400, 0.25, 0.03, 0.05); }, // a robot beaming in
     crack: (a) => { a.noise(0.05, 0.1, 6000, 0, 3); a.tone('square', 2400, 900, 0.04, 0.02); },              // a phone screen cracking
         gameover: (a) => { [392, 330, 262, 196].forEach((f, i) => a.tone('triangle', f, f, 0.3, 0.1, i * 0.28)); },
     pause: (a) => { a.tone('triangle', 880, 880, 0.06, 0.12); a.tone('triangle', 440, 440, 0.08, 0.12, 0.07); },
@@ -1298,6 +1304,171 @@ body.mouseaim #screen { cursor: none; }
     A.icons = {};
     for (const k in ICONS) A.icons[k] = sprite(12, 12, ICONS[k]);
     A.heart = { full: heart('full'), half: heart('half'), empty: heart('empty') };
+  };
+})();
+</script>
+<script>
+/* AFK APOCALYPSE — robot enemies' art (PLAN.md: delivery drones, robot dogs, robot mops). Drawn with r() rects, then
+   G.outline()'d, like everything else. Each look is { down, up, right, left: [3 frames] }, the same shape as a person's
+   (G.buildHuman), so the enemy code treats robots like any other look; G.drawBot draws them (robots don't climb out
+   of the ground like the teens: they beam in, and a drone flies down from the sky and back up when it leaves).
+   Also: the wet trail a robot mop leaves (G.drawWet). */
+(function () {
+  'use strict';
+  const G = window.G;
+
+  // One frame: draw(r, f, dir) on a w x h canvas, then outlined (so the sprite is w+2 x h+2)
+  const frame = (w, h, draw, f, dir) => {
+    const c = G.makeCanvas(w, h), x = c.getContext('2d');
+    draw((a, b, ww, hh, col) => { x.fillStyle = col; x.fillRect(a, b, ww, hh); }, f, dir);
+    return G.outline(c);
+  };
+  const look = (w, h, draw) => {
+    const out = {};
+    for (const dir of ['down', 'up', 'right']) out[dir] = [0, 1, 2].map((f) => frame(w, h, draw, f, dir));
+    out.left = out.right.map(G.flipH);
+    return out;
+  };
+
+  // Delivery drone (18 x 12): four rotors on a cross frame, a white shell with an orange delivery stripe, a red camera
+  // eye, and the parcel it's about to drop slung underneath (pkg = false: it's dropped it and is off to reload).
+  // Frames spin the rotors. Seen from above, so every direction is the same body; the eye shows which way it faces.
+  const drone = (pkg) => (r, f, dir) => {
+    r(2, 3, 14, 1, '#5a5a6a');                                                                  // the arms
+    for (const x of [0, 12]) {                                                                  // rotors, spinning
+      if (f === 0) r(x, 1, 6, 1, '#d8d8e8');
+      else if (f === 1) { r(x + 1, 0, 1, 1, '#d8d8e8'); r(x + 2, 1, 2, 1, '#9a9aac'); r(x + 4, 2, 1, 1, '#d8d8e8'); }
+      else { r(x + 4, 0, 1, 1, '#d8d8e8'); r(x + 2, 1, 2, 1, '#9a9aac'); r(x + 1, 2, 1, 1, '#d8d8e8'); }
+      r(x + 2, 2, 2, 2, '#3a3a48');                                                            // motor
+    }
+    r(5, 3, 8, 5, '#d8d8e0'); r(5, 3, 8, 1, '#ffffff'); r(5, 6, 8, 1, '#ff8a2a'); r(5, 7, 8, 1, '#8a8a9a'); // shell, stripe
+    const ex = dir === 'right' ? 10 : dir === 'up' ? 8 : 8;
+    if (dir !== 'up') { r(ex, 4, 2, 2, '#ff3a5a'); r(ex, 4, 1, 1, '#ffb0b8'); }                 // camera eye (not seen from behind)
+    else r(7, 4, 4, 1, '#5a5a6a');                                                              // its back: a vent
+    if (pkg) {
+      r(7, 8, 1, 1, '#3a3a48'); r(10, 8, 1, 1, '#3a3a48');                                     // straps
+      r(6, 9, 6, 3, '#c8945a'); r(6, 9, 6, 1, '#e0b07a'); r(8, 9, 2, 3, '#e8d8a8');            // the parcel, taped
+    }
+  };
+
+  // Robot dog (16 x 12): a steel quadruped with a red visor and an antenna tail. Side view for left/right (legs
+  // scissor as it trots), head-on for down, rump for up.
+  const dog = (r, f, dir) => {
+    const steel = '#b8bcc8', lit = '#e8ecf4', dark = '#6a6e7a', leg = '#4a4e5a', foot = '#2a2a38';
+    if (dir === 'right') {
+      r(1, 1, 1, 4, dark); r(1, 0, 1, 1, '#ff3a5a');                                          // antenna tail
+      r(2, 4, 10, 4, steel); r(2, 4, 10, 1, lit); r(2, 7, 10, 1, dark);                        // body
+      r(5, 5, 4, 1, '#ff8a2a');                                                                // a stripe
+      r(11, 1, 4, 4, steel); r(11, 1, 4, 1, lit); r(14, 3, 2, 2, '#8a8e9a'); r(11, 0, 2, 1, leg); // head, snout, ear
+      r(13, 2, 2, 1, '#ff3a5a');                                                               // visor
+      const k = f === 1 ? 1 : f === 2 ? -1 : 0;                                                 // legs scissor
+      for (const [x, s] of [[3, k], [5, -k], [9, k], [11, -k]]) { r(x + s, 8, 1, 3, leg); r(x + s, 11, 1, 1, foot); }
+    } else if (dir === 'down') {
+      r(3, 5, 10, 4, steel); r(3, 8, 10, 1, dark);                                             // body behind the head
+      r(5, 1, 6, 5, steel); r(5, 1, 6, 1, lit); r(4, 0, 1, 2, leg); r(11, 0, 1, 2, leg);         // head, ears
+      r(6, 3, 4, 1, '#ff3a5a'); r(7, 5, 2, 1, '#8a8e9a');                                       // visor, snout
+      const up = [f === 1 ? 1 : 0, f === 2 ? 1 : 0];
+      for (const [x, i] of [[4, 0], [6, 1], [9, 0], [11, 1]]) { r(x, 9, 1, 2 - up[i], leg); r(x, 11 - up[i], 1, 1, foot); }
+    } else { // up: its back, the antenna tail on top
+      r(3, 3, 10, 6, steel); r(3, 3, 10, 1, lit); r(3, 8, 10, 1, dark); r(6, 4, 4, 1, '#ff8a2a');
+      r(7, 0, 1, 3, dark); r(7, 0, 1, 1, '#ff3a5a');
+      r(5, 1, 6, 2, steel);                                                                    // the head beyond it
+      const up = [f === 1 ? 1 : 0, f === 2 ? 1 : 0];
+      for (const [x, i] of [[4, 0], [6, 1], [9, 0], [11, 1]]) { r(x, 9, 1, 2 - up[i], leg); r(x, 11 - up[i], 1, 1, foot); }
+    }
+  };
+
+  // Robot mop (16 x 14): a round floor cleaner with a blue wet pad, a mop handle sticking up out of its back, little
+  // brushes spinning at the front and a light strip for a face (green while it's sweeping, red once it's coming for
+  // you: angry = true).
+  const mop = (angry) => (r0, f, dir) => {
+    const r = (x, y, w, h, c) => r0(x, y + 4, w, h, c); // the body sits 4 px down, under the handle
+    const hx = dir === 'right' ? 4 : 7;                                                     // the handle, at its back
+    r0(hx, 0, 1, 6, '#c8945a'); r0(hx, 0, 1, 1, '#ff8a2a'); r0(hx + 1, 1, 1, 4, '#8a5a30');
+    r(2, 1, 12, 6, '#e8e8f0'); r(1, 2, 14, 4, '#e8e8f0'); r(3, 1, 10, 1, '#ffffff');         // the shell
+    r(1, 5, 14, 2, '#5a6a9a'); r(2, 7, 12, 1, '#3a4a7a');                                     // its skirt
+    r(3, 8, 10, 2, '#6aaee0'); r(4, 9, 8, 1, '#3a7ab0');                                      // the wet pad underneath
+    if (dir !== 'up') r(dir === 'right' ? 9 : 6, 3, 4, 1, angry ? '#ff3a5a' : '#38f0a0');    // its face
+    const bx = dir === 'up' ? [] : dir === 'right' ? [13] : [0, 13];                           // brushes at the front
+    for (const x of bx) {
+      if (f === 0) r(x, 7, 3, 1, '#ffd23a');
+      else if (f === 1) r(x + 1, 6, 1, 3, '#ffd23a');
+      else { r(x, 6, 1, 1, '#ffd23a'); r(x + 2, 8, 1, 1, '#ffd23a'); }
+    }
+  };
+
+  const base = G.buildArt;
+  G.buildArt = () => {
+    base();
+    const A = G.art;
+    A.bots = {
+      drone: look(18, 12, drone(true)), droneEmpty: look(18, 12, drone(false)),
+      robodog: look(16, 12, dog),
+      mopbot: look(16, 14, mop(false)), mopbotAngry: look(16, 14, mop(true)),
+    };
+    for (const k of ['drone', 'robodog', 'mopbot']) A.people[k] = A.bots[k]; // so a look name finds them like a person's
+  };
+
+  // Drawing a robot (Enemy.draw hands robots over to this). sx, sy: its feet on screen.
+  //   rise: it beams in, a scanline at a time from the top, with cyan sparkles; sink: it beams back out.
+  //   A drone flies: it hangs e.z px up (bobbing), its shadow on the ground; it comes down from the sky when it
+  //   arrives and goes back up when it leaves.
+  const SINK = 36;
+  G.drawBot = (e, ctx, sx, sy) => {
+    const A = G.art.bots, f = e.moving || e.flying ? [1, 0, 2, 0][(e.anim >> e.animShift) & 3] : 0;
+    const set = e.type === 'drone' ? (e.hasPkg ? A.drone : A.droneEmpty) : e.type === 'mopbot' ? (e.angry ? A.mopbotAngry : A.mopbot) : A[e.look] || A.robodog;
+    const spr = (set[e.dir] || set.down)[f], img = e.flash ? G.tinted(spr, '#ffffff') : spr;
+    const w = spr.width, h = spr.height;
+    if (e.flying) {
+      const arrive = e.rise > 0 ? e.rise / e.riseMax : e.sink > 0 ? 1 - e.sink / SINK : 0; // 1 = up in the sky
+      const z = Math.round((e.z || 0) + arrive * 80);
+      G.drawShadow(ctx, sx, sy, z > 40 ? 3 : 5);
+      ctx.drawImage(img, sx - (w >> 1), sy - h - z);
+      if (e.drawDrop) e.drawDrop(ctx, sx, sy - z); // (the drop behavior's wind-up)
+      return;
+    }
+    const k = e.rise > 0 ? 1 - e.rise / e.riseMax : e.sink > 0 ? e.sink / SINK : 1; // how much of it is here
+    G.drawShadow(ctx, sx, sy, 6);
+    const shake = e.windT > 0 ? ((G.tick >> 1) & 1) * 2 - 1 : 0, lean = e.lungeT > 0 ? -2 : 0; // trembling before a pounce, low during it
+    if (k >= 1) { ctx.drawImage(img, sx - (w >> 1) + shake, sy - h + 1 + lean - Math.round(e.z || 0)); return; }
+    const shown = Math.round(h * k); // beaming in: the rows from the top that have arrived, a bright line at the edge
+    if (shown > 0) ctx.drawImage(img, 0, 0, w, shown, sx - (w >> 1), sy - h + 1, w, shown);
+    ctx.fillStyle = (G.tick >> 1) & 1 ? '#7ff0ff' : '#ffffff';
+    ctx.fillRect(sx - (w >> 1) + 1, sy - h + 1 + shown, w - 2, 1);
+    ctx.fillStyle = '#3ad0ff';
+    for (let i = 0; i < 3; i++) ctx.fillRect(sx - 8 + ((G.tick * 5 + i * 7) % 16), sy - 2 - ((G.tick * 3 + i * 11) % (h + 6)), 1, 1);
+  };
+
+  // Wet floor (a robot mop's trail): a shiny puddle on every wet cell, fading as it dries. st.wet: cell -> ticks left.
+  // Each cell's puddle is a few overlapping round blobs placed by its cell (so it's ragged, never a square, and the
+  // same every frame), spilling a little past the cell so a trail reads as one wet streak.
+  const BLOBS = new Map(); // cell -> [[x, y, w, h], ...] blob rects (built once per cell)
+  const blobsOf = (i) => {
+    let b = BLOBS.get(i);
+    if (b) return b;
+    b = [];
+    for (let k = 0; k < 4; k++) {
+      const cx = 3 + Math.floor(G.hash(i, k * 7 + 1) * 10), cy = 4 + Math.floor(G.hash(i, k * 7 + 2) * 9), rw = 3 + Math.floor(G.hash(i, k * 7 + 3) * 4), rh = 2 + Math.floor(G.hash(i, k * 7 + 4) * 2);
+      b.push([cx - rw, cy - rh + 1, rw * 2, rh * 2 - 2], [cx - rw + 1, cy - rh, rw * 2 - 2, rh * 2]); // a rounded blob: two rects
+    }
+    BLOBS.set(i, b);
+    return b;
+  };
+  G.drawWet = (ctx, st, cx, cy) => {
+    if (!st.wet || !st.wet.size) return;
+    const R = st.room;
+    for (const [i, t] of st.wet) {
+      const tx = i % R.w, ty = (i - tx) / R.w, x = tx * 16 - cx, y = ty * 16 - cy;
+      if (x < -16 || y < -16 || x > G.W || y > G.H) continue;
+      const k = Math.min(1, t / 90);
+      ctx.globalAlpha = k * 0.42; ctx.fillStyle = '#2a6ab0';
+      for (const [a, b, w, h] of blobsOf(i)) ctx.fillRect(x + a, y + b, w, h);
+      ctx.globalAlpha = k * 0.85; ctx.fillStyle = '#bfe8ff'; // glints
+      const [g0, g1] = blobsOf(i);
+      ctx.fillRect(x + g0[0] + 2, y + g0[1] + 1, 2, 1); ctx.fillRect(x + g1[0] + g1[2] - 3, y + g1[1] + g1[3] - 2, 1, 1);
+      if (((G.tick >> 3) + tx + ty) % 9 === 0) ctx.fillRect(x + 8, y + 7, 1, 1);
+    }
+    ctx.globalAlpha = 1;
   };
 })();
 </script>
@@ -3410,7 +3581,10 @@ body.mouseaim #screen { cursor: none; }
 
   // ===== Projectiles: update returns false when the shot is finished =====
   const hitTarget = (st, x, y, r = 6) => {
-    for (const t of st.targets()) if (Math.abs(x - t.x) < r && Math.abs(y - (t.y - 2)) < r) return t;
+    for (const t of st.targets()) {
+      const up = t.flying ? (t.z || 0) + 8 : 0; // a flying drone: hit anywhere from its shadow up to its body (aim at either)
+      if (Math.abs(x - t.x) < r && y > t.y - 2 - r - up && y < t.y - 2 + r) return t;
+    }
     return null;
   };
   const angDiff = (a, b) => ((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -3497,7 +3671,7 @@ body.mouseaim #screen { cursor: none; }
         if (t) {
           t.hit(st, s.dmg, s.x, s.y);
           if (t.isEnemy && !t.dead) {
-            t.kx += s.vx * W.push; t.ky += s.vy * W.push; // the shove
+            const k = t.flying ? 3 : 1; t.kx += s.vx * W.push * k; t.ky += s.vy * W.push * k; // the shove (a drone is light: it gets blown away)
             if (t.tj && t.z > 6) { // blown off a trampoline mid-jump: it comes down hard
               t.tj = null; t.z = 0; t.trampCd = 90;
               st.floater(t.x, t.y - 28, 'THUD!', '#ff8a2a'); st.shake(3, 1);
@@ -3883,7 +4057,22 @@ body.mouseaim #screen { cursor: none; }
  *   hurry   chance      chance per chase of chasing faster;  mul: how much faster
  *   phone   chance      chance per tick of stopping to scroll;  notice: px at which it looks up
  *   swipe   reach       px to swing;  windup: ticks of tell;  cooldown: ticks between swings;  dmg: half-hearts
- *   lunge   range       px at which it lunges;  speed: px per tick while lunging
+ *   lunge   range       px at which it lunges;  speed: px per tick while lunging;  windup: ticks of trembling first;
+ *           cooldown    ticks between lunges;  dmg: half-hearts a pounce bites for (leave out: it doesn't bite)
+ * Robots (PLAN.md):
+ *   hover   dist        px the delivery drone keeps from you (it circles at that distance);  height: px it flies at
+ *   drop    reach       px: drops a parcel when you're this close;  windup: ticks the parcel takes to fall (the red
+ *                       target);  cooldown: ticks to fetch another;  radius: px of the burst;  dmg: half-hearts;
+ *                       lead: 0..1 how far ahead of where you're walking it aims
+ *   bark    radius      px: the robot dog's bark calls every idle enemy this close;  cooldown: ticks between barks;
+ *           hunt        ticks the ones it called keep coming for you, however far away you are
+ *   circle  dist        px the robot dog circles you at while its pounce recharges
+ *   retreat time        ticks the robot dog backs off after a bite
+ *   fetch   range       px: the robot dog chases a ball this close (blower gusts and bats send balls flying)
+ *   roam    seek        chance the robot mop aims at you when it turns;  sight: px it has to be within to do that
+ *   bump    dmg         half-hearts the robot mop does running into you
+ *   trail   life        ticks the floor stays wet behind a robot mop;  slip: 0..1 how much you slide on it (0.95 = ice)
+ *   vacuum  radius      px: the robot mop sucks up loot this close (it all comes back out when it's destroyed)
  *
  * ENEMY_SPAWN, per level id (levels.js); anything left out comes from G.ENEMY_DEFAULTS in enemies.js:
  *   cap     most enemies alive at once          every   [min, max] ticks between spawns (60 ticks = 1 s)
@@ -3895,7 +4084,10 @@ body.mouseaim #screen { cursor: none; }
 (function () {
   window.G.ENEMY_TUNING = {
     shambler: { hp: 3, speed: 0.34, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { pace: 0.55, chance: 0.01 }, hurry: { chance: 0.25, mul: 1.6 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
-    rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2 } },
+    rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2, windup: 14, cooldown: 120 } },
+    flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 150, radius: 16, dmg: 2, lead: 0.4 } },
+    hound: { hp: 3, speed: 0.9, sight: { notice: 100, giveUp: 150, cone: 70, feel: 30, neighbors: 0 }, grip: { drag: 0.15 }, mosey: { pace: 0.5, chance: 0.012 }, lunge: { range: 64, speed: 2.6, windup: 18, cooldown: 110, dmg: 1 }, circle: { dist: 44 }, retreat: { time: 36 }, bark: { radius: 130, cooldown: 360, hunt: 240 }, fetch: { range: 120 } },
+    sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
   };
   window.G.ENEMY_SPAWN = {
     culdesac: { cap: 10, every: [80, 150], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
@@ -4166,7 +4358,14 @@ body.mouseaim #screen { cursor: none; }
         this.slowed = st.enemies ? G.gripOn(st, this) : 0; // enemies on you drag you down (a dash breaks free)
         const sp = this.speed * (this.buzz > 0 ? 1 + G.ITEMS.coffee.speed / 100 : 1) * (1 - this.slowed) * (this.swimming ? SWIM_SPEED : 1) * (this.mower ? G.MOWER.speed : 1);
         const bx = this.x, by = this.y;
-        moveEntity(st.room, this, mx * sp, my * sp);
+        let vx = mx * sp, vy = my * sp;
+        if (G.wetAt && G.wetAt(st, this.x, this.y) && !this.swimming) { // a mop bot's wet trail: you keep sliding the way you were going
+          const k = G.ENEMY_TUNING.sweeper.trail.slip;
+          vx = (this.slideX || 0) * k + vx * (1 - k); vy = (this.slideY || 0) * k + vy * (1 - k);
+          if (Math.hypot(vx, vy) > 0.6 && st.t % 8 === 0) st.burst(this.x, this.y, 1, ['#bfe8ff', '#6aaee0'], 0.5, 1, 10);
+        }
+        this.slideX = vx; this.slideY = vy;
+        moveEntity(st.room, this, vx, vy);
         if (this.mower) { // pushing a mower: it goes in front, and where it can't go, neither can you
           const f = Math.hypot(mx, my) > 0.15 ? [mx / Math.hypot(mx, my), my / Math.hypot(mx, my)] : [this.fx, this.fy];
           if (st.room.boxHits(this.x + f[0] * G.MOWER.ahead, this.y + f[1] * G.MOWER.ahead * 0.75, 5, 3)) { this.x = bx; this.y = by; }
@@ -5259,7 +5458,7 @@ body.mouseaim #screen { cursor: none; }
     update(e, st) {
       if (e.rise <= 0) return false;
       e.rise--;
-      if (e.rise % 4 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y, 1, ['#3a2a20', '#5a4a30', '#7ff0ff'], 0.6, 1, 14, true);
+      if (!e.bot && e.rise % 4 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y, 1, ['#3a2a20', '#5a4a30', '#7ff0ff'], 0.6, 1, 14, true); // (robots beam in: G.drawBot)
       return true;
     },
   };
@@ -5268,7 +5467,7 @@ body.mouseaim #screen { cursor: none; }
   B.knockback = {
     update(e, st) {
       if (!e.kx && !e.ky) return false;
-      G.moveEntity(st.room, e, e.kx, e.ky);
+      e.move(st, e.kx, e.ky);
       e.kx *= 0.6; e.ky *= 0.6;
       if (Math.abs(e.kx) + Math.abs(e.ky) < 0.1) e.kx = e.ky = 0;
       return false;
@@ -5307,7 +5506,7 @@ body.mouseaim #screen { cursor: none; }
       for (const n of st.neighbors || []) {
         if (n.gone) continue;
         const d = Math.hypot(n.x - e.x, n.y - e.y);
-        if (d < (o.neighbors || 90) && d < td) { td = d; tgt = n; }
+        if (d < (o.neighbors !== undefined ? o.neighbors : 90) && d < td) { td = d; tgt = n; } // (0: leaves neighbors alone, like the robots)
       }
       e.target = tgt;
       e.targetDist = td;
@@ -5368,6 +5567,7 @@ body.mouseaim #screen { cursor: none; }
     update(e, st, o) {
       const t = e.target;
       if (!t) { e.noPathT = 0; return false; }
+      if (e.circling) return false; // a robot dog circling you (B.circle) does its own steering
       let dx = t.x - e.x, dy = t.y - e.y;
       const F = flowFor(st, e);
       if (t.def && F) {
@@ -5443,7 +5643,13 @@ body.mouseaim #screen { cursor: none; }
         return true;
       }
       if (e.lungeT > 0) {
-        if (e.target && Math.hypot(e.target.x - e.x, e.target.y - e.y) < 13) { e.lungeT = 0; return false; } // arrived: stop in front
+        if (o.dmg) for (const p of st.players) { // a pounce that bites (the robot dog): the first player it hits, then it backs off
+          if (p.dead || Math.abs(p.x - e.x) >= 9 || Math.abs(p.y - e.y) >= 8) continue;
+          p.hurt(st, o.dmg, e.x, e.y, e);
+          e.lungeT = 0; e.retreatT = e.tune.retreat ? e.tune.retreat.time : 0;
+          return false;
+        }
+        if (!o.dmg && e.target && Math.hypot(e.target.x - e.x, e.target.y - e.y) < 13) { e.lungeT = 0; return false; } // arrived: stop in front
         e.lungeT--;
         G.moveEntity(st.room, e, e.lungeX * (o.speed || 2.2), e.lungeY * (o.speed || 2.2));
         e.moving = true;
@@ -5567,6 +5773,194 @@ body.mouseaim #screen { cursor: none; }
     },
   };
 
+  // ----- Robots (PLAN.md: delivery drones, robot dogs, robot mops). Their numbers live in tuning.js like everyone's. -----
+
+  // Fly (delivery drone): hangs o.height px up, bobbing, and keeps about o.dist px from its target, circling them
+  // (flips direction now and then). Flying things ignore walls and hedges (Enemy.move) and aren't solid.
+  B.hover = {
+    init(e, o) { e.z = o.height || 20; e.orbit = G.chance(0.5) ? 1 : -1; },
+    update(e, st, o) {
+      e.z = (o.height || 20) + Math.sin((st.t + e.anim * 8) / 12) * 2;
+      const t = e.target;
+      if (!t) return false;
+      const dx = t.x - e.x, dy = t.y - e.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, want = o.dist || 36;
+      const radial = d > want + 8 ? 1 : d < want - 8 ? -0.8 : 0; // closer, back off, or just circle
+      e.steerX += ux * radial - uy * e.orbit * 0.7; e.steerY += uy * radial + ux * e.orbit * 0.7;
+      if (G.chance(0.004)) e.orbit = -e.orbit;
+      return false;
+    },
+  };
+
+  // Drop a parcel (delivery drone): within o.reach px of a player it lets go of the parcel slung under it. A red
+  // target marks where it'll land (aimed o.lead of the way ahead of where you're walking) and it takes o.windup ticks
+  // to fall: step out of the circle. It bursts in o.radius px for o.dmg half-hearts, and hurts teens caught in it too.
+  // Then the drone needs o.cooldown ticks to pick up another one.
+  B.drop = {
+    init(e) { e.dropCd = G.randi(40, 100); e.hasPkg = true; },
+    update(e, st, o) {
+      if (e.dropCd > 0 && --e.dropCd === 0) e.hasPkg = true; // restocked
+      const t = e.target;
+      if (!e.hasPkg || !t || !t.def || t.dead || Math.hypot(t.x - e.x, t.y - e.y) > (o.reach || 70)) return false;
+      const T = o.windup || 48, ahead = (o.lead || 0) * T * (t.speed || 1);
+      const R = st.room, x = G.clamp(t.x + (t.pushX || 0) * ahead, 8, R.pw - 8), y = G.clamp(t.y + (t.pushY || 0) * ahead, 8, R.ph - 4);
+      st.shots.push({ kind: 'parcel', x, y, x0: e.x, y0: e.y, z0: (e.z || 0) + 6, t: 0, T, r: o.radius || 16, dmg: o.dmg || 2 });
+      e.hasPkg = false; e.dropCd = o.cooldown || 150;
+      G.sfx.play('whistle');
+      return false;
+    },
+  };
+  // The falling parcel: a shot (so online guests see it), drawn as a red target on the ground and the box dropping in
+  G.SHOTS.parcel = {
+    update(s, st) {
+      if (++s.t < s.T) return true;
+      for (const p of st.players) if (!p.dead && Math.hypot(p.x - s.x, (p.y - s.y) * 1.4) < s.r + 4) p.hurt(st, s.dmg, s.x, s.y);
+      st.explode(s.x, s.y, s.r, s.dmg); // a teen standing in it gets it too
+      return false;
+    },
+    draw(ctx, s, v) {
+      const k = s.t / s.T, x = s.x - v.x, y = s.y - v.y, n = 20, rad = s.r * (1.15 - 0.15 * k);
+      ctx.fillStyle = k > 0.7 && (s.t >> 1) & 1 ? '#ffffff' : '#ff3a5a'; // the target: blinks faster as it lands
+      for (let i = 0; i < n; i++) { if (i % 2 && k < 0.7) continue; const a = (i / n) * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * rad), Math.round(y + Math.sin(a) * rad * 0.6), 1, 1); }
+      ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 1); ctx.fillRect(Math.round(x), Math.round(y) - 1, 1, 3);
+      const bx = Math.round(s.x0 + (s.x - s.x0) * Math.min(1, k * 2) - v.x), by = Math.round(s.y0 + (s.y - s.y0) * Math.min(1, k * 2) - v.y - s.z0 * (1 - k * k));
+      ctx.fillStyle = '#140c1c'; ctx.fillRect(bx - 4, by - 6, 8, 7);
+      ctx.fillStyle = '#c8945a'; ctx.fillRect(bx - 3, by - 5, 6, 5); ctx.fillStyle = '#e8d8a8'; ctx.fillRect(bx - 1, by - 5, 2, 5);
+    },
+  };
+
+  // Fetch (robot dog): a ball in the air within o.range px (a blower gust or a bat sent it) beats any player. It
+  // chases the ball, and when the ball hits it, it pops on the dog. A trick for leading dogs around.
+  B.fetch = {
+    update(e, st, o) {
+      e.fetching = false;
+      let best = null, bd = o.range || 120;
+      for (const s of st.shots) if (s.kind === 'ball') { const d = Math.hypot(s.x - e.x, s.y - e.y); if (d < bd) { bd = d; best = s; } }
+      if (!best) { e.fetchSeen = false; return false; }
+      if (!e.fetchSeen) { e.fetchSeen = true; st.floater(e.x, e.y - 22, 'BALL!', '#ffd23a'); }
+      e.target = best; e.targetDist = bd; e.fetching = true;
+      return false;
+    },
+  };
+
+  // Bark (robot dog): the moment it's after a player, and every o.cooldown ticks while it still is, it barks: every
+  // enemy within o.radius px that isn't chasing anyone comes for you too, and keeps coming for o.hunt ticks however
+  // far away you are (like a fresh riser's hunt).
+  B.bark = {
+    init(e) { e.barkCd = 0; },
+    update(e, st, o) {
+      if (e.barkCd > 0) e.barkCd--;
+      const t = e.target;
+      if (!t || !t.def || e.fetching || e.barkCd > 0) return false;
+      e.barkCd = o.cooldown || 360;
+      st.floater(e.x, e.y - 22, 'WOOF!', '#ff8a2a'); G.sfx.play('bark');
+      for (const f of st.enemies) {
+        if (f === e || f.aggro || f.rise > 0 || f.sink || Math.hypot(f.x - e.x, f.y - e.y) > (o.radius || 130)) continue;
+        if (f.brain.some(([n]) => n === 'target')) { f.provoked = true; f.alert = 24; f.lost = 0; f.ignoreT = 0; f.huntT = Math.max(f.huntT || 0, o.hunt !== undefined ? o.hunt : 240); }
+      }
+      return false;
+    },
+  };
+
+  // Circle (robot dog): while its pounce is recharging and it's within o.dist px of you, it circles you at about
+  // that distance instead of closing in, waiting for the next pounce.
+  B.circle = {
+    init(e) { e.orbit = G.chance(0.5) ? 1 : -1; e.circling = false; },
+    update(e, st, o) {
+      e.circling = false;
+      const t = e.target, want = o.dist || 44;
+      if (!t || !t.def || e.fetching || !(e.lungeCd > 0) || e.targetDist > want + 16) return false;
+      const d = e.targetDist || 1, ux = (t.x - e.x) / d, uy = (t.y - e.y) / d, radial = d < want - 6 ? -1 : d > want + 6 ? 0.6 : 0;
+      e.steerX += -uy * e.orbit * 1.5 + ux * radial; e.steerY += ux * e.orbit * 1.5 + uy * radial;
+      if (G.chance(0.006)) e.orbit = -e.orbit;
+      e.circling = true;
+      return false;
+    },
+  };
+
+  // Retreat (robot dog): after a bite lands it backs off for o.time ticks (hit and run), then circles back in
+  B.retreat = {
+    init(e) { e.retreatT = 0; },
+    update(e, st) {
+      if (!(e.retreatT > 0)) return false;
+      e.retreatT--;
+      const t = e.target;
+      if (!t) return false;
+      const dx = e.x - t.x, dy = e.y - t.y, d = Math.hypot(dx, dy) || 1, sp = e.spd * 1.1;
+      e.turnToward(dx, dy);
+      e.move(st, (dx / d) * sp, (dy / d) * sp);
+      e.moving = true;
+      return true;
+    },
+  };
+
+  // Roam (robot mop): drives in straight lines and turns when it bumps into something. When it picks a new
+  // heading and a player is within o.sight px, it aims at them with o.seek chance (its light goes red: angry) and
+  // goes a bit faster. It never chases round corners: it's a floor cleaner.
+  const DIRS8 = [[1, 0], [0.71, 0.71], [0, 1], [-0.71, 0.71], [-1, 0], [-0.71, -0.71], [0, -1], [0.71, -0.71]];
+  function newHeading(e, st, o) {
+    const p = st.nearestPlayer(e.x, e.y);
+    if (p && !p.dead && !st.inSafeZone(p.x, p.y) && Math.hypot(p.x - e.x, p.y - e.y) < (o.sight || 140) && G.chance(o.seek || 0.35)) {
+      const d = Math.hypot(p.x - e.x, p.y - e.y) || 1;
+      e.hx = (p.x - e.x) / d; e.hy = (p.y - e.y) / d; e.angry = true; e.roamT = G.randi(90, 150);
+      return;
+    }
+    const open = DIRS8.filter(([dx, dy]) => !st.room.boxHits(e.x + dx * 10, e.y + dy * 10, e.hw, e.hh, e) && (dx !== -e.hx || dy !== -e.hy));
+    const [dx, dy] = open.length ? G.pick(open) : [-e.hx, -e.hy];
+    e.hx = dx; e.hy = dy; e.angry = false; e.roamT = G.randi(90, 240);
+  }
+  B.roam = {
+    init(e) { e.hx = 0; e.hy = 1; e.roamT = 0; e.angry = false; },
+    update(e, st, o) {
+      if (--e.roamT <= 0) newHeading(e, st, o);
+      const sp = e.spd * (e.angry ? 1.4 : 1), bx = e.x, by = e.y;
+      e.move(st, e.hx * sp, e.hy * sp);
+      e.fx = e.hx; e.fy = e.hy; e.moving = true;
+      if (Math.hypot(e.x - bx, e.y - by) < sp * 0.4) newHeading(e, st, o); // hit a wall: turn
+      return true;
+    },
+  };
+
+  // Bump (robot mop): running into a player hurts them (o.dmg half-hearts); then it reverses away
+  B.bump = {
+    update(e, st, o) {
+      for (const p of st.players) {
+        if (p.dead || Math.abs(p.x - e.x) >= 10 || Math.abs(p.y - e.y) >= 8) continue;
+        const hp = p.hp;
+        p.hurt(st, o.dmg || 1, e.x, e.y, e);
+        if (p.hp < hp) { e.hx = -e.hx; e.hy = -e.hy; e.roamT = 50; e.angry = false; }
+      }
+      return false;
+    },
+  };
+
+  // Trail (robot mop): the floor it passes over stays wet for o.life ticks (st.wet: cell -> ticks left). Wet floor
+  // is slippery: you keep sliding the way you were going (o.slip: 0 = no slide, 0.95 = ice). See Player.update.
+  B.trail = {
+    update(e, st, o) {
+      if (!st.wet) st.wet = new Map();
+      const R = st.room;
+      st.wet.set(Math.floor((e.y - 3) / 16) * R.w + Math.floor(e.x / 16), o.life || 480);
+      return false;
+    },
+  };
+  G.wetAt = (st, x, y) => !!st.wet && st.wet.size > 0 && st.wet.has(Math.floor((y - 3) / 16) * st.room.w + Math.floor(x / 16));
+
+  // Vacuum (robot mop): sucks up loot lying within o.radius px (weapons, items, food, quarters; never keys or the
+  // PDA) and keeps it. Everything it sucked up comes back out when it's destroyed (or leaves).
+  const SUCKS = (k) => /^(w:|i:|burger|ammo|up|quarter)/.test(k.kind);
+  B.vacuum = {
+    init(e) { e.bag = []; },
+    update(e, st, o) {
+      for (const k of st.pickups) {
+        if (k.taken || k.gone > 0 || k.z > 0 || k.age < 30 || !SUCKS(k) || Math.hypot(k.x - e.x, k.y - e.y) >= (o.radius || 10)) continue;
+        if (k.respawn) k.gone = 600; else k.taken = true;
+        e.bag.push(k.kind);
+        st.floater(e.x, e.y - 20, 'SLURP!', '#6aaee0'); G.sfx.play('slurp');
+      }
+      return false;
+    },
+  };
+
   // ===== Archetypes and enemy types =====
   // A brain is an ordered list of [behaviorName, options]. Order matters: holds (rise, phone, swipe, lunge) go first.
   // Sight ranges (the target behavior's options) live in tuning.js, so the debug panel can save them.
@@ -5586,11 +5980,33 @@ body.mouseaim #screen { cursor: none; }
       brain: [['rise', { time: 28 }], ['trampoline', {}], ['knockback', {}], ['target', TU.rusher.sight], ['swipe', TU.rusher.swipe],
         ['lunge', TU.rusher.lunge], ['chase', {}], ['wander', TU.rusher.mosey], ['separate', {}], ['grabNeighbor', {}]],
     },
+    // Robots (bot: they beam in and out instead of climbing out of the ground, and leave neighbors alone)
+    // Flies over everything, keeps its distance and drops parcels on you: the delivery drone
+    flyer: {
+      stats: { score: 100, anim: 1, bot: true, flying: true },
+      brain: [['rise', { time: 50 }], ['knockback', {}], ['target', TU.flyer.sight], ['drop', TU.flyer.drop], ['hover', TU.flyer.hover],
+        ['wander', TU.flyer.mosey], ['separate', { radius: 20 }]],
+    },
+    // Barks for backup, circles, pounces and bites, backs off; can't resist a ball: the robot dog
+    hound: {
+      stats: { score: 120, anim: 2, bot: true },
+      brain: [['rise', { time: 30 }], ['knockback', {}], ['target', TU.hound.sight], ['fetch', TU.hound.fetch], ['bark', TU.hound.bark],
+        ['retreat', TU.hound.retreat], ['lunge', TU.hound.lunge], ['circle', TU.hound.circle], ['chase', {}], ['wander', TU.hound.mosey], ['separate', {}]],
+    },
+    // Tough and slow, minds its own business: roams in straight lines, leaves the floor slippery, sucks up loot and
+    // bumps you if you're in its way: the robot mop. (noLinger: it never sinks away for not chasing anyone.)
+    sweeper: {
+      stats: { score: 150, anim: 2, bot: true, noLinger: true },
+      brain: [['rise', { time: 30 }], ['knockback', {}], ['trail', TU.sweeper.trail], ['vacuum', TU.sweeper.vacuum], ['bump', TU.sweeper.bump], ['roam', TU.sweeper.roam]],
+    },
   };
   // name: shown in the debug panel. looks: sprite looks from G.LOOKS (one is picked per enemy). stats override the archetype's.
   G.ENEMY_TYPES = {
     phoneTeen: { name: 'PHONE TEEN', archetype: 'shambler', looks: ['teen1', 'teen2', 'teen3'] },
     sprinter: { name: 'SPRINTER', archetype: 'rusher', looks: ['sprinter'] },
+    drone: { name: 'DELIVERY DRONE', archetype: 'flyer', looks: ['drone'] },
+    robodog: { name: 'ROBO DOG', archetype: 'hound', looks: ['robodog'] },
+    mopbot: { name: 'MOP BOT', archetype: 'sweeper', looks: ['mopbot'] },
   };
 
   // ===== The enemy =====
@@ -5600,7 +6016,7 @@ body.mouseaim #screen { cursor: none; }
       const T = G.ENEMY_TYPES[type], A = G.ARCHETYPES[T.archetype], S = { ...A.stats, ...T.stats };
       this.tune = TU[T.archetype]; // hp, speed, grip... (live: the debug panel can change them mid-game)
       Object.assign(this, {
-        type, x, y, hw: 4, hh: 4, hp: this.tune.hp, isEnemy: true, canTramp: !!S.canTramp, z: 0, jitter: G.rand(0.9, 1.15), score: S.score, animShift: S.anim,
+        type, x, y, hw: 4, hh: 4, hp: this.tune.hp, isEnemy: true, canTramp: !!S.canTramp, bot: !!S.bot, flying: !!S.flying, noLinger: !!S.noLinger, z: 0, jitter: G.rand(0.9, 1.15), score: S.score, animShift: S.anim,
         flash: 0, kx: 0, ky: 0, anim: G.randi(0, 31), dir: 'down', fx: 0, fy: 1, moving: false, dead: false,
         rise: 0, riseMax: 1, sink: 0, calmT: 0, target: null, targetDist: Infinity, steerX: 0, steerY: 0, speedMul: 1, stuck: 0, alert: 0, farT: 0,
       });
@@ -5616,13 +6032,18 @@ body.mouseaim #screen { cursor: none; }
     get spd() { return this.tune.speed * this.jitter * G.diff().speed; }
     // Turn speed mirrors walk speed: the same fraction of the player's turn rate as of the player's speed
     get turnRate() { return G.PLAYER_TURN * (this.spd / G.PLAYER_SPEED); }
+    // Move by (dx, dy): walkers slide along walls; flying things go straight over everything (kept on the map)
+    move(st, dx, dy) {
+      if (!this.flying) { G.moveEntity(st.room, this, dx, dy); return; }
+      this.x = G.clamp(this.x + dx, 8, st.room.pw - 8); this.y = G.clamp(this.y + dy, 12, st.room.ph - 4);
+    }
     hittable() { return !this.dead && this.rise < this.riseMax * 0.5 && (this.sink === 0 || this.sink > SINK / 2); }
     update(st) {
       if (this.flash > 0) this.flash--;
       if (this.alert > 0) this.alert--;
       if (this.sink > 0) { // going back underground (lost interest for too long): no brain, just sink and vanish
         if (--this.sink === 0) this.dead = true;
-        if (this.sink % 4 === 0) st.burst(this.x + G.fx.rand(-5, 5), this.y, 1, ['#3a2a20', '#5a4a30'], 0.6, 1, 14, true);
+        if (!this.bot && this.sink % 4 === 0) st.burst(this.x + G.fx.rand(-5, 5), this.y, 1, ['#3a2a20', '#5a4a30'], 0.6, 1, 14, true);
         return;
       }
       if (this.stunT > 0 && !this.tj) { // asleep (tranq darts) or fried (EMP): no brain, it just gets shoved about
@@ -5658,7 +6079,7 @@ body.mouseaim #screen { cursor: none; }
       this.turnToward(this.steerX, this.steerY);
       const along = (this.fx * this.steerX + this.fy * this.steerY) / m; // 1 = facing where it wants to go
       const bx = this.x, by = this.y, sp = this.spd * this.speedMul * Math.max(0.25, along);
-      G.moveEntity(st.room, this, this.fx * sp, this.fy * sp);
+      this.move(st, this.fx * sp, this.fy * sp);
       this.moving = true;
       if (Math.hypot(this.x - bx, this.y - by) < sp * 0.3) {
         if (++this.stuck > 25) { // stuck: set off in a random direction for a bit (the wander behavior follows wanderT)
@@ -5703,6 +6124,7 @@ body.mouseaim #screen { cursor: none; }
     stun(st, ticks, kind = 'sleep') {
       if (!this.hittable()) return;
       if (!(this.stunT > 0) && kind !== 'dizzy') st.floater(this.x, this.y - 30, kind === 'zap' ? 'FRIED!' : 'OUT COLD!', kind === 'zap' ? '#7ff0ff' : '#c8a8ff');
+      if (this.bot && kind === 'zap') ticks *= 1.5; // robots: an EMP fries them for longer
       this.stunT = Math.max(this.stunT || 0, Math.round(ticks)); this.stunKind = kind;
     }
     hit(st, dmg, x, y) {
@@ -5719,14 +6141,21 @@ body.mouseaim #screen { cursor: none; }
       this.dead = true;
       st.addScore(this.score);
       st.floater(this.x, this.y - 26, '+' + this.score, '#ffd23a');
-      st.burst(this.x, this.y - 6, 14, ['#7ff0ff', '#1a1a28', '#a8c49a', '#ffffff'], 1.8, 10, 30, true);
-      if (G.LOOKS[this.look].holdPhone) st.tossPhone(this.x, this.y, Math.sign(this.kx) || 1); // it flies out of their hands
-      G.sfx.play('logoff');
+      if (this.bot) { // robots go out in a shower of sparks and bits
+        st.burst(this.x, this.y - 6 - (this.z || 0), 16, ['#ffd23a', '#ff8a2a', '#b8bcc8', '#3a3a48', '#ffffff'], 2, 10, 30, true);
+        G.sfx.play('zap');
+      } else {
+        st.burst(this.x, this.y - 6, 14, ['#7ff0ff', '#1a1a28', '#a8c49a', '#ffffff'], 1.8, 10, 30, true);
+        if (G.LOOKS[this.look] && G.LOOKS[this.look].holdPhone) st.tossPhone(this.x, this.y, Math.sign(this.kx) || 1); // it flies out of their hands
+        G.sfx.play('logoff');
+      }
+      if (this.bag && this.bag.length) st.floater(this.x, this.y - 36, 'ALL YOUR STUFF!', '#6aaee0');
       const p = st.nearestPlayer(this.x, this.y), mercy = G.desperate(p) ? G.LOOT_MERCY.desperateDrops : 1; // out of everything: drops come more often
       if (G.chance((G.LOOT_CHANCE.zombie * mercy) / 100)) st.dropLoot(this.x, this.y, p);
     }
     draw(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
+      if (this.bot) { G.drawBot(this, ctx, sx, sy); return; } // robots: art-bots.js
       const f = this.moving ? [1, 0, 2, 0][(this.anim >> this.animShift) & 3] : 0;
       const spr = this.sprites[this.dir][f];
       if (this.rise > 0 || this.sink > 0) { // rising out of (or sinking back into) the ground: shown from the head down
@@ -5746,7 +6175,7 @@ body.mouseaim #screen { cursor: none; }
     // a tree, a roof or the player standing in front
     drawTop(ctx, v) {
       if (this.rise > 0) return;
-      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
+      const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y - (this.flying ? Math.max(0, (this.z || 0) - 14) : 0)); // over a drone, not its shadow
       for (const [name] of this.brain) if (B[name].drawTop) B[name].drawTop(this, ctx, sx, sy);
       if (this.stunT > 0) { // asleep: z's drifting up; fried: a flicker of sparks round the head
         if (this.stunKind === 'zap') { if ((G.tick >> 2) & 1) { ctx.fillStyle = '#7ff0ff'; ctx.fillRect(sx - 5, sy - 26, 1, 2); ctx.fillRect(sx + 4, sy - 25, 2, 1); } }
@@ -5766,7 +6195,7 @@ body.mouseaim #screen { cursor: none; }
   // ===== Flow field: distance (in steps) from every open cell to the nearest living player =====
   // Diagonal steps are allowed only when both sides are open, so enemies don't cut corners through walls.
   // The field an enemy follows: jumpers (canTramp) route through trampolines, everyone else walks round them
-  const flowFor = (st, e) => (e.canTramp ? st.flowJump : st.flow) || st.flow;
+  const flowFor = (st, e) => (e.flying ? null : (e.canTramp ? st.flowJump : st.flow) || st.flow); // (flying: no paths needed)
   class FlowField {
     // jumper: trampolines are walkable and each one leads to its four landing spots (the sprinter's field)
     constructor(room, jumper = false) {
@@ -5898,11 +6327,12 @@ body.mouseaim #screen { cursor: none; }
     if (!ok.length) return;
     const s = G.pick(ok);
     const e = new Enemy(G.weightedPick(cfg.types), s.x + G.rand(-4, 4), s.y + G.rand(-2, 2));
+    if (!e.flying && st.room.boxHits(e.x, e.y, e.hw, e.hh, e)) { e.x = s.x; e.y = s.y; }
     e.aggro = D.aggro; // it rose because you're near: it comes for you (and gives up if you get far enough away); on EASY it looks around first
     const hunt = cfg.hunt === true ? 600 : cfg.hunt || 0, h = D.hunt === null ? hunt : Math.min(hunt, D.hunt);
     if (h && D.aggro) e.huntT = h; // hunt: for this long it keeps coming whatever its give-up range
     st.enemies.push(e);
-    G.sfx.play('rise');
+    G.sfx.play(e.bot ? 'beep' : 'rise');
     s.rest = cfg.rest;
     st.spawnT = Math.round(G.randi(cfg.every[0], cfg.every[1]) * D.every);
   }
@@ -5929,7 +6359,7 @@ body.mouseaim #screen { cursor: none; }
   //  - A dashing player passes straight through. Enemies rising or sinking aren't solid yet.
   //  - Enemies block each other (split evenly), so they queue in narrow corridors instead of stacking.
   const BODY_R = 7, ENEMY_GAP = 8, SQUASH = 1.6, PLAYER_SHOVE = 0.2;
-  const solidBody = (e) => !e.dead && e.rise <= 0 && !e.sink;
+  const solidBody = (e) => !e.dead && e.rise <= 0 && !e.sink && !e.flying; // (drones fly over everyone)
   // How far a and b overlap along their separating direction: { nx, ny, d } (unit normal from b to a), or null
   const overlap = (a, b, r) => {
     const dx = a.x - b.x, dy = (a.y - b.y) * SQUASH, d = Math.hypot(dx, dy);
@@ -5977,11 +6407,36 @@ body.mouseaim #screen { cursor: none; }
       e.farT = near > 420 ? e.farT + 1 : 0;
       if (e.farT > 300) e.dead = true;
       // not chasing anyone for cfg.linger ticks: sink back into the ground, so fresh ones can rise near the players
-      e.calmT = e.aggro || e.rise > 0 || e.sink > 0 ? 0 : e.calmT + 1;
+      e.calmT = e.aggro || e.noLinger || e.rise > 0 || e.sink > 0 ? 0 : e.calmT + 1;
       if (e.calmT > cfg.linger && !e.sink) { e.sink = SINK; if (st.onScreen(e.x, e.y)) G.sfx.play('rise'); }
+    }
+    for (const e of st.enemies) if (e.dead && e.bag && e.bag.length) { // a mop bot's loot comes back out, whether it was destroyed or left
+      for (const kind of e.bag) st.pickups.push(new G.Pickup(kind, e.x + G.rand(-6, 6), e.y + G.rand(-3, 3), { pop: true }));
+      e.bag.length = 0;
     }
     G.compact(st.enemies, (e) => !e.dead);
     resolveBodies(st);
+    if (st.wet) for (const [i, t] of st.wet) if (t <= 1) st.wet.delete(i); else st.wet.set(i, t - 1); // wet floor dries
+  };
+
+  // Put one enemy of `type` near player p (debug panel and test room): a free spot 48-80 px away it can walk to,
+  // aware of you from the start. Ignores the cap. Returns it, or null if there was no room.
+  G.spawnEnemyNear = (st, type, p = st.players.find((q) => !q.dead)) => {
+    if (!p || !G.ENEMY_TYPES[type]) return null;
+    const flying = !!G.ARCHETYPES[G.ENEMY_TYPES[type].archetype].stats.flying, R = st.room;
+    if (!st.flow) { st.flow = new FlowField(R); st.flowJump = new FlowField(R, true); }
+    st.flow.rebuild(st.players); // (fresh, so "can it walk to you" is right even on a level's first ticks)
+    for (let k = 0; k < 60; k++) {
+      const a = G.rand(0, Math.PI * 2), d = G.rand(48, 80), x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.8;
+      if (x < 16 || y < 16 || x > R.pw - 16 || y > R.ph - 16) continue;
+      if (!flying && (R.boxHits(x, y, 4, 4) || (st.flow && !st.flow.reachable(x, y - 3)))) continue;
+      const e = new Enemy(type, x, y);
+      e.provoked = true;
+      st.enemies.push(e);
+      G.sfx.play(e.bot ? 'beep' : 'rise');
+      return e;
+    }
+    return null;
   };
 })();
 </script>
@@ -6006,8 +6461,8 @@ body.mouseaim #screen { cursor: none; }
  *   mouse wheel            vision cone wider / narrower (for enemies that have one)
  *   click empty ground     deselect
  *
- * Side panel (while debug is on), in tabs: SPAWN (this level's spawning), SIGHT, MOVE and FIGHT (every enemy kind's
- * numbers), each with - / + buttons. Save writes them all to src/tuning.js through the dev server (refused if
+ * Side panel (while debug is on), in tabs: SPAWN (this level's spawning and mix, plus buttons that put any enemy near
+ * you), SIGHT, MOVE, FIGHT and TRICKS (every enemy kind's numbers), each with - / + buttons. Save writes them all to src/tuning.js through the dev server (refused if
  * tuning.js changed since this page loaded, like map saves). Rows come from the TABS table below: to make another
  * number tunable, put it in tuning.js and add a row.
  *
@@ -6015,7 +6470,8 @@ body.mouseaim #screen { cursor: none; }
  *   - / =    notice range -/+ 10 px
  *   9 / 0    give-up range -/+ 10 px
  *   7 / 8    vision cone narrower / wider (10 degrees per press; 360 = full circle)
- *   1, 2...  which enemy kind the keys change (in archetype order: 1 shambler = phone teen, 2 rusher = sprinter)
+ *   1, 2...  which enemy kind the keys change (in archetype order: 1 shambler = phone teen, 2 rusher = sprinter,
+ *            3 flyer = delivery drone, 4 hound = robo dog, 5 sweeper = mop bot)
  */
 (function () {
   'use strict';
@@ -6044,6 +6500,12 @@ body.mouseaim #screen { cursor: none; }
       { g: 'hurry', k: 'chance', label: 'HURRY CHANCE', step: 0.05, min: 0, max: 1, show: pct },
       { g: 'hurry', k: 'mul', label: 'HURRY SPEED', step: 0.1, min: 1, max: 3, show: (v) => '\u00d7' + v.toFixed(1) },
       { g: 'grip', k: 'drag', label: 'SLOWS YOU', step: 0.05, min: 0, max: 1, show: (v) => (v >= 1 ? 'holds you' : pct(v) + ' each') }, // within swipe reach
+      { g: 'hover', k: 'dist', label: 'KEEPS AWAY', step: 4, min: 8, max: 120, show: px },
+      { g: 'hover', k: 'height', label: 'FLIES AT', step: 2, min: 8, max: 48, show: (v) => v + ' px up' },
+      { g: 'circle', k: 'dist', label: 'CIRCLES AT', step: 4, min: 16, max: 120, show: px },
+      { g: 'retreat', k: 'time', label: 'BACKS OFF FOR', step: 6, min: 0, max: 180, show: secs },
+      { g: 'roam', k: 'seek', label: 'AIMS AT YOU', step: 0.05, min: 0, max: 1, show: pct },
+      { g: 'roam', k: 'sight', label: 'AIMS WITHIN', step: 10, min: 40, max: 300, show: px },
     ],
     FIGHT: [
       { k: 'hp', label: 'HEALTH', step: 1, min: 1, max: 30, show: (v) => v + ' hp (new ones)' },
@@ -6053,7 +6515,28 @@ body.mouseaim #screen { cursor: none; }
       { g: 'swipe', k: 'dmg', label: 'DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'lunge', k: 'range', label: 'LUNGE RANGE', step: 4, min: 16, max: 160, show: px },
       { g: 'lunge', k: 'speed', label: 'LUNGE SPEED', step: 0.2, min: 0.5, max: 6, show: (v) => v.toFixed(1) },
+      { g: 'lunge', k: 'windup', label: 'LUNGE WIND-UP', step: 2, min: 2, max: 60, show: secs },
+      { g: 'lunge', k: 'cooldown', label: 'BETWEEN LUNGES', step: 10, min: 20, max: 400, show: secs },
+      { g: 'lunge', k: 'dmg', label: 'BITE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts', optional: true },
+      { g: 'drop', k: 'reach', label: 'DROPS WITHIN', step: 5, min: 20, max: 200, show: px },
+      { g: 'drop', k: 'windup', label: 'PARCEL FALL', step: 4, min: 12, max: 120, show: secs },
+      { g: 'drop', k: 'cooldown', label: 'BETWEEN DROPS', step: 10, min: 30, max: 600, show: secs },
+      { g: 'drop', k: 'radius', label: 'PARCEL BLAST', step: 2, min: 6, max: 48, show: px },
+      { g: 'drop', k: 'dmg', label: 'PARCEL DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
+      { g: 'drop', k: 'lead', label: 'AIMS AHEAD', step: 0.1, min: 0, max: 1, show: pct },
+      { g: 'bump', k: 'dmg', label: 'BUMP DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'phone', k: 'chance', label: 'PHONE CHECKS', step: 0.001, min: 0, max: 0.05, show: (v) => (v ? 'every ~' + (1 / v / 60).toFixed(1) + 's' : 'never') },
+    ],
+    // What a kind does besides walking and hitting (the robots' tricks)
+    TRICKS: [
+      { g: 'bark', k: 'radius', label: 'BARK CALLS', step: 10, min: 0, max: 300, show: (v) => (v ? px(v) : 'nobody') },
+      { g: 'bark', k: 'cooldown', label: 'BETWEEN BARKS', step: 30, min: 60, max: 1200, show: secs },
+      { g: 'bark', k: 'hunt', label: 'CALLED HUNT', step: 30, min: 0, max: 1200, show: (v) => (v ? secs(v) : 'off') },
+      { g: 'fetch', k: 'range', label: 'CHASES BALLS', step: 10, min: 0, max: 300, show: (v) => (v ? px(v) : 'never') },
+      { g: 'trail', k: 'life', label: 'PUDDLES LAST', step: 30, min: 0, max: 1800, show: secs },
+      { g: 'trail', k: 'slip', label: 'SLIPPERY', step: 0.05, min: 0, max: 0.98, show: (v) => (v ? pct(v) : 'not at all') },
+      { g: 'vacuum', k: 'radius', label: 'SUCKS UP LOOT', step: 2, min: 0, max: 40, show: (v) => (v ? px(v) : 'never') },
+      { g: 'phone', k: 'notice', label: 'LOOKS UP AT', step: 2, min: 0, max: 80, show: px },
     ],
   };
   const rowId = (r) => (r.g ? r.g + '.' : '') + r.k;
@@ -6075,8 +6558,9 @@ body.mouseaim #screen { cursor: none; }
     if (!D.on) { D.sel = null; return; }
     if (I.hits.KeyH) { D.heights = !D.heights; G.toast(D.heights ? 'HEIGHTS ON' : 'HEIGHTS OFF', 60); } // the height view
     if (D.sel && (D.sel.dead || !st.enemies.includes(D.sel))) D.sel = null; // selected enemy is gone
-    kinds().forEach((k, i) => { if (I.hits['Digit' + (i + 1)]) { D.kind = i; D.sel = null; } });
+    kinds().forEach((k, i) => { if (i < 6 && I.hits['Digit' + (i + 1)]) { D.kind = i; D.sel = null; } }); // (7-0 tune sight)
     const k = kinds()[D.kind];
+    if (!targetOpts(k)) return; // (a kind without sight ranges: nothing for these keys)
     if (I.hits.Equal || I.hits.Minus) adjust(k, 'sight.notice', I.hits.Equal ? 1 : -1);
     if (I.hits.Digit0 || I.hits.Digit9) adjust(k, 'sight.giveUp', I.hits.Digit0 ? 1 : -1);
     if (I.hits.Digit8 || I.hits.Digit7) adjust(k, 'sight.cone', I.hits.Digit8 ? 1 : -1);
@@ -6103,7 +6587,17 @@ body.mouseaim #screen { cursor: none; }
     for (let i = 0; i <= n; i++) { const a = a0 - h + (2 * h * i) / n; ctx.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r), 1, 1); }
     for (const a of [a0 - h, a0 + h]) line(ctx, x, y, x + Math.cos(a) * r, y + Math.sin(a) * r, col);
   };
-  const stateOf = (e) => e.sink > 0 ? 'SINK' : e.rise > 0 ? 'RISE' : e.idle > 0 ? 'PHONE' : e.swipeT > 0 ? 'SWIPE' : e.windT > 0 || e.lungeT > 0 ? 'LUNGE' : e.target ? (e.hurrying ? 'HURRY' : 'CHASE') : 'MOSEY ' + Math.max(0, Math.ceil((G.state.enemyCfg.linger - e.calmT) / 60)) + 'S';
+  const stateOf = (e) => {
+    if (e.sink > 0) return e.bot ? 'BEAM OUT' : 'SINK';
+    if (e.rise > 0) return e.bot ? 'BEAM IN' : 'RISE';
+    if (e.stunT > 0) return e.stunKind === 'zap' ? 'FRIED' : e.stunKind === 'dizzy' ? 'DIZZY' : 'ASLEEP';
+    if (e.type === 'mopbot') return (e.angry ? 'BUMP' : 'SWEEP') + (e.bag && e.bag.length ? ' BAG ' + e.bag.length : '');
+    if (e.fetching) return 'FETCH';
+    if (e.retreatT > 0) return 'BACK OFF';
+    if (e.flying && e.target) return e.hasPkg ? 'HOVER' : 'RELOAD ' + Math.ceil(e.dropCd / 60) + 'S';
+    if (e.circling) return 'CIRCLE';
+    return e.idle > 0 ? 'PHONE' : e.swipeT > 0 ? 'SWIPE' : e.windT > 0 || e.lungeT > 0 ? 'LUNGE' : e.target ? (e.hurrying ? 'HURRY' : 'CHASE') : 'MOSEY ' + Math.max(0, Math.ceil((G.state.enemyCfg.linger - e.calmT) / 60)) + 'S';
+  };
 
   // The height view: a column of purple diamonds per solid tile (one per 8 px of height) over a jump-rule bar
   const DIAMOND = [[2, 0, 1], [1, 1, 3], [0, 2, 5], [1, 3, 3], [2, 4, 1]]; // rows of a 5x5 diamond: [x, y, width]
@@ -6165,7 +6659,7 @@ body.mouseaim #screen { cursor: none; }
     const k = kinds()[D.kind], o = targetOpts(k);
     ctx.fillStyle = 'rgba(11,6,20,.8)'; ctx.fillRect(0, 22, G.W, 29);
     G.text('ENEMIES ' + st.enemies.length + ' OF ' + cfg.cap + '   NEXT SPAWN ' + Math.max(0, Math.ceil(st.spawnT / 60)) + 'S', 4, 24, '#9a8ec0');
-    G.text((D.kind + 1) + ' ' + labelOf(k) + ' NOTICE ' + (o.notice || 120) + ' GIVEUP ' + (o.giveUp || 190) + ' CONE ' + (o.cone ? o.cone * 2 : 360), 4, 33, '#ffd23a');
+    G.text((D.kind + 1) + ' ' + labelOf(k) + (o ? ' NOTICE ' + (o.notice || 120) + ' GIVEUP ' + (o.giveUp || 190) + ' CONE ' + (o.cone ? o.cone * 2 : 360) : ' (NO SIGHT: IT ROAMS)'), 4, 33, '#ffd23a');
     G.text(D.sel ? 'DRAG RINGS  WHEEL CONE  CLICK GROUND = DONE' : 'CLICK AN ENEMY  OR KEYS -= 90 78 12', 4, 42, '#6a6080');
   };
 
@@ -6184,8 +6678,12 @@ body.mouseaim #screen { cursor: none; }
     ['hunt', 'FRESH ONES HUNT', 60, (c) => (c.hunt ? secs(c.hunt === true ? 600 : c.hunt) : 'off')],
     ['linger', 'DESPAWN AFTER', 60, (c) => secs(c.linger) + ' idle'],
     ['neighborBuffer', 'NO SPAWNS NEAR NEIGHBORS', 10, (c) => px(c.neighborBuffer)],
-    ['sprinter', 'SPRINTERS', 1, (c) => { const t = c.types || {}, all = Object.values(t).reduce((a, b) => a + b, 0); return (t.sprinter || 0) + ' in ' + all; }],
   ];
+  // The mix: one row per enemy type, its weight among this level's spawns
+  const mixRows = () => Object.entries(G.ENEMY_TYPES).map(([id, T]) => ['type:' + id, T.name, 1, (c) => {
+    const t = c.types || {}, all = Object.values(t).reduce((a, b) => a + b, 0), w = t[id] || 0;
+    return w ? w + ' in ' + all + ' (' + Math.round((w / all) * 100) + '%)' : 'none';
+  }]);
   // Change one spawning setting of the current level (its tuning.js object), then refresh the stage's merged copy
   const adjustSpawn = (st, field, step) => {
     const c = st.def.enemies, full = { ...G.ENEMY_DEFAULTS, ...c };
@@ -6196,10 +6694,14 @@ body.mouseaim #screen { cursor: none; }
     else if (field === 'hunt') c.hunt = G.clamp((full.hunt === true ? 600 : full.hunt || 0) + step, 0, 1800);
     else if (field === 'neighborBuffer') c.neighborBuffer = G.clamp(full.neighborBuffer + step, 0, 300);
     else if (field === 'every') { const [a, b] = full.every; c.every = [G.clamp(a + step, 15, 1200), G.clamp(b + step, 30, 1800)]; }
-    else if (field === 'sprinter') { c.types = { ...(full.types || {}) }; c.types.sprinter = G.clamp((c.types.sprinter || 0) + step, 0, 20); }
+    else if (field.startsWith('type:')) { // the mix: never all zero (something has to rise)
+      const id = field.slice(5), t = { ...(full.types || {}) }, w = G.clamp((t[id] || 0) + step, 0, 20);
+      if (w) t[id] = w; else delete t[id];
+      if (Object.keys(t).length) c.types = t;
+    }
     st.enemyCfg = { ...G.ENEMY_DEFAULTS, ...c };
   };
-  const TAB_NAMES = ['SPAWN', 'SIGHT', 'MOVE', 'FIGHT'];
+  const TAB_NAMES = ['SPAWN', 'SIGHT', 'MOVE', 'FIGHT', 'TRICKS'];
   function buildPanel() {
     panel = document.createElement('div');
     panel.id = 'debugpanel';
@@ -6216,6 +6718,10 @@ body.mouseaim #screen { cursor: none; }
       if (b.dataset.tab) { D.tab = b.dataset.tab; shownSig = null; try { localStorage.setItem('afk-apocalypse/debug-tab', D.tab); } catch (e) { /* fine */ } }
       if (b.dataset.kind) { D.kind = kinds().indexOf(b.dataset.kind); D.sel = null; adjust(b.dataset.kind, b.dataset.row, +b.dataset.dir); }
       if (b.dataset.spawn && G.state.def && G.state.def.enemies) adjustSpawn(G.state, b.dataset.spawn, +b.dataset.dir * +b.dataset.step);
+      if (b.dataset.spawnnow && G.state instanceof G.Stage && !G.state.remote) { // put one near you (ignores the cap)
+        const e = G.spawnEnemyNear(G.state, b.dataset.spawnnow);
+        if (e) select(e); else G.toast('NO ROOM NEAR YOU', 60);
+      }
     });
     savedSig = sig();
   }
@@ -6233,8 +6739,11 @@ body.mouseaim #screen { cursor: none; }
     let html = '';
     if (D.tab === 'SPAWN') {
       const c = st && st.def.enemies ? { ...G.ENEMY_DEFAULTS, ...st.def.enemies } : null;
-      html = !c ? '<div class="help">This map has no enemy spawning.</div>' : '<div class="dp-kind"><h2>' + (st.def.name || 'THIS LEVEL') + '</h2>' +
-        SPAWN_FIELDS.map(([f, name, step, fmt]) => row('data-spawn="' + f + '" data-step="' + step + '"', name, fmt(c, st))).join('') + '</div>';
+      html = (!c ? '<div class="help">This map has no enemy spawning.</div>' : '<div class="dp-kind"><h2>' + (st.def.name || 'THIS LEVEL') + '</h2>' +
+        SPAWN_FIELDS.map(([f, name, step, fmt]) => row('data-spawn="' + f + '" data-step="' + step + '"', name, fmt(c, st))).join('') +
+        '<h2>THE MIX</h2>' + mixRows().map(([f, name, step, fmt]) => row('data-spawn="' + f + '" data-step="' + step + '"', name, fmt(c, st))).join('') + '</div>') +
+        '<div class="dp-kind"><h2>PUT ONE NEAR YOU</h2><div class="dp-spawn">' +
+        Object.entries(G.ENEMY_TYPES).map(([id, T]) => '<button data-spawnnow="' + id + '">' + T.name + '</button>').join('') + '</div></div>';
     } else {
       html = kinds().map((k, i) => {
         const t = tuneOf(k), rows = TABS[D.tab].filter((r) => holder(t, r) && (r.cone || !r.optional || holder(t, r)[r.k] !== undefined));
@@ -6305,7 +6814,7 @@ body.mouseaim #screen { cursor: none; }
     const st = stage();
     if (!st || !D.sel) return;
     ev.preventDefault();
-    if (!targetOpts(kinds()[D.kind]).cone) return; // full-circle enemies have no cone to widen
+    if (!targetOpts(kinds()[D.kind]) || !targetOpts(kinds()[D.kind]).cone) return; // full-circle enemies have no cone to widen
     adjust(kinds()[D.kind], 'sight.cone', ev.deltaY < 0 ? 1 : -1);
   }, { passive: false });
 })();
@@ -8094,6 +8603,7 @@ body.mouseaim #screen { cursor: none; }
       ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, G.H);
       ctx.drawImage(this.room.canvas, -cx, -cy);
 
+      G.drawWet(ctx, this, cx, cy); // a mop bot's trail
       for (const r of this.rings) { // blast rings on the ground (flattened circles)
         const rad = r.max * (1 - r.life / 14) + 2, n = Math.max(16, Math.round(rad * 2));
         ctx.fillStyle = r.col;
@@ -8592,12 +9102,17 @@ body.mouseaim #screen { cursor: none; }
   }
 
   // ===== Pause / options =====
+  const labEnemy = () => (G.ENEMY_TYPES[G.labEnemy] ? G.labEnemy : 'drone'); // the test room's pick (pause menu)
   class Pause {
     constructor(game) {
       this.game = game; this.menu = true; this.sel = 0; this.t = 0;
       const o = G.opts();
       this.items = [
         { label: 'RESUME', act: () => this.resume() },
+        ...(game.test && !game.remote ? [ // the test room: try any enemy (pick one, then spawn it near you)
+          { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
+          { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
+        ] : []),
         { label: 'SCANLINES', val: () => (o.scanlines ? 'ON' : 'OFF'), act: () => { o.scanlines = !o.scanlines; G.applyOpts(); } },
         { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; } },
         { label: 'SOUND', val: () => (o.sound ? 'ON' : 'OFF'), act: () => { o.sound = !o.sound; G.sfx.unlock(); G.sfx.play('pickup'); }, // a test beep
@@ -9462,7 +9977,8 @@ body.mouseaim #screen { cursor: none; }
   // Never sent: links to other objects, art, brains, and AI bookkeeping the guest never draws
   const SKIP = new Set(['def', 'ctrl', 'sprites', 'kd', 'brain', 'tune', 'target', 'bumpedDoor', 'grip', 'hits', 'spr', 'tile', 'nid', 'goal',
     'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
-    'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT']);
+    'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
+    'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY']); // (the robots' bookkeeping)
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(o) {
@@ -9488,7 +10004,8 @@ body.mouseaim #screen { cursor: none; }
     if (R.wallHit) for (const [i, h] of R.wallHit) x['w' + i] = h;
     (R.hdoors || []).forEach((d, i) => { const v = (d.open ? 1 : 0) | (d.locked ? 2 : 0); if (v) x['d' + i] = v; });
     return {
-      g: { t: st.t, score: st.score, saved: st.saved, lost: st.lost, tally: st.tallyFlash, pda: st.pda, exit: st.exit ? st.exit.open : false, over: st.overT },
+      g: { t: st.t, score: st.score, saved: st.saved, lost: st.lost, tally: st.tallyFlash, pda: st.pda, exit: st.exit ? st.exit.open : false, over: st.overT,
+        wet: st.wet && st.wet.size ? [...st.wet].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0 }, // a mop bot's wet floor: cell, half-seconds left
       p: Object.fromEntries(st.players.map((p) => { const q = pack(p); q.crew = p.def.id; return [p.num, q]; })),
       e: packList(st, st.enemies.filter((e) => !e.dead)),
       n: packList(st, st.neighbors.filter((n) => !n.gone)),
@@ -9603,6 +10120,7 @@ body.mouseaim #screen { cursor: none; }
     Object.assign(st, { score: g.score, saved: g.saved, lost: g.lost, pda: g.pda, overT: g.over });
     if (g.tally > st.tallyFlash) st.tallyFlash = g.tally;
     if (st.exit) st.exit.open = g.exit;
+    st.wet = new Map(); for (let i = 0; g.wet && i < g.wet.length; i += 2) st.wet.set(g.wet[i], g.wet[i + 1] * 30);
     // map cells that changed since the guest last looked
     const R = st.room, had = st.cellsSeen || (st.cellsSeen = {});
     for (const key in snap.x) {

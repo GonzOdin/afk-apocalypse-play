@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 03:03';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 03:07';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1730,7 +1730,36 @@ body.mouseaim #screen { cursor: none; }
       ctx.drawImage(spr, 0, sy0, 16, 3, x + dx, y + sy0, 16, 3);
     }
     ctx.fillStyle = 'rgba(20,12,40,.35)'; ctx.fillRect(x + 1, y + ((t >> 2) % 22), 14, 1); // a scanline running down it
+    cloneEyes(e, ctx, sx, sy, k);
   };
+  // Bright red eyes (where the sprite's eyes are: two from the front, one from the side, none from behind) that leave
+  // a fading red trail as it moves. The trail is looks only, kept on the enemy as world points (e._eyes, not sent
+  // online: each screen draws its own), and breaks where it glitched across the floor.
+  const EYES = { down: [[-2, -14], [1, -14]], right: [[2, -14]], left: [[-3, -14]], up: [] }, TRAIL = 14;
+  function cloneEyes(e, ctx, sx, sy, k) {
+    const now = G.tick, tr = e._eyes || (e._eyes = []), dx = sx - e.x, dy = sy - e.y; // world -> screen
+    const pts = k > 0.3 ? EYES[e.dir] || [] : [];
+    const last = tr[tr.length - 1];
+    if (pts.length && (!last || last.dir !== e.dir || Math.abs(last.x - e.x) + Math.abs(last.y - e.y) >= 1)) tr.push({ x: e.x, y: e.y, dir: e.dir, t: now });
+    while (tr.length && now - tr[0].t > TRAIL) tr.shift();
+    for (let i = 1; i < tr.length; i++) { // the trail: each eye's path, fading with age
+      const a = tr[i - 1], b = tr[i];
+      if (a.dir !== b.dir || Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 12) continue; // turned, or glitched across
+      const fade = 1 - (now - b.t) / TRAIL, n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y)));
+      ctx.globalAlpha = Math.max(0, fade) * 0.75;
+      ctx.fillStyle = '#ff2020';
+      for (const [ox, oy] of EYES[b.dir] || []) for (let j = 0; j < n; j++) {
+        const q = j / n;
+        ctx.fillRect(Math.round(a.x + (b.x - a.x) * q + ox + dx), Math.round(a.y + (b.y - a.y) * q + oy + dy), 1, 1);
+      }
+    }
+    ctx.globalAlpha = 1;
+    for (const [ox, oy] of pts) { // the eyes: a red glow, a bright core
+      const ex = sx + ox, ey = sy + oy;
+      ctx.fillStyle = 'rgba(255,40,40,.45)'; ctx.fillRect(ex - 1, ey - 1, 3, 3);
+      ctx.fillStyle = '#ff2a2a'; ctx.fillRect(ex, ey, 1, 1);
+    }
+  }
 
   // Wet floor (a robot mop's trail): a shiny puddle on every wet cell, fading as it dries. st.wet: cell -> ticks left.
   // Each cell's puddle is a few overlapping round blobs placed by its cell (so it's ragged, never a square, and the

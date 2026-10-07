@@ -50,6 +50,16 @@ body.touch #touch { display: block; }
 #btnItm { border-color: #38f0a0; color: #c8ffe4; }
 #btnItm.on { background: rgba(56, 240, 160, .45); }
 #btnPause { border-radius: 10px; font-size: 12px; border-width: 2px; opacity: .8; }
+/* the menus' D-pad (touch): where the joystick rests, in its place while a menu is up */
+#dpad { position: absolute; display: none; pointer-events: none; }
+body.menumode #dpad { display: block; }
+body.menumode #stickBase, body.menumode #btnItem, body.menumode #btnWpn, body.menumode #btnItm { display: none; }
+.dbtn, #dMid { position: absolute; width: 34%; height: 34%; box-sizing: border-box; background: rgba(20, 10, 40, .55); }
+.dbtn { pointer-events: auto; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255,255,255,.4);
+  border-radius: 8px; color: rgba(255,255,255,.85); font: bold 15px/1 ui-monospace, Menlo, Consolas, monospace; }
+.dbtn.on { background: rgba(255, 255, 255, .35); transform: scale(.94); }
+#dUp { left: 33%; top: 0; } #dDown { left: 33%; bottom: 0; } #dLeft { left: 0; top: 33%; } #dRight { right: 0; top: 33%; }
+#dMid { left: 33%; top: 33%; border-radius: 4px; }
 #stickBase {
   position: absolute; border-radius: 50%; box-sizing: border-box;
   border: 3px solid rgba(255,255,255,.3); background: rgba(255,255,255,.05);
@@ -126,6 +136,7 @@ body.mouseaim #screen { cursor: none; }
 </div>
 <div id="touch">
   <div id="stickBase"><div id="stickKnob"></div></div>
+  <div id="dpad"><div class="dbtn" id="dUp" data-b="dup">&#9650;</div><div class="dbtn" id="dDown" data-b="ddown">&#9660;</div><div class="dbtn" id="dLeft" data-b="dleft">&#9664;</div><div class="dbtn" id="dRight" data-b="dright">&#9654;</div><div id="dMid"></div></div>
   <div class="tbtn" id="btnFire" data-b="fire">FIRE</div>
   <div class="tbtn" id="btnSkill" data-b="skill">SKILL</div>
   <div class="tbtn" id="btnItem" data-b="item">ITEM</div>
@@ -678,7 +689,10 @@ body.mouseaim #screen { cursor: none; }
   addEventListener('gamepaddisconnected', (e) => G.toast('GAMEPAD ' + (e.gamepad.index + 1) + ' UNPLUGGED'));
 
   // ---- Touch: floating joystick on the left, Fire/Skill/Item buttons on the right ----
-  const T = (I.touch = { stick: { id: null, bx: 0, by: 0, mx: 0, my: 0 }, btn: { fire: 0, skill: 0, item: 0, pause: 0, wpn: 0, itm: 0 }, hit: {}, ptr: new Map() });
+  // In menus (any state with `menu` set: title, pause, recruit, lobby...) the joystick makes way for a D-pad, FIRE
+  // reads OK and SKILL reads BACK; the item and swap buttons hide (I.menuMode, body.menumode). Back in the game, the
+  // joystick returns.
+  const T = (I.touch = { stick: { id: null, bx: 0, by: 0, mx: 0, my: 0 }, btn: { fire: 0, skill: 0, item: 0, pause: 0, wpn: 0, itm: 0, dup: 0, ddown: 0, dleft: 0, dright: 0 }, hit: {}, ptr: new Map() });
   const els = {};
   let stickR = 54, idle = [80, 300];
   function touchRaw() {
@@ -717,6 +731,7 @@ body.mouseaim #screen { cursor: none; }
     if (bt) { T.ptr.set(e.pointerId, { kind: 'btn', b: bt.dataset.b }); press(bt.dataset.b); return; }
     const g = G.screenToGame(e.clientX, e.clientY);
     if (g && G.wantsTaps()) { I.taps.push(g); T.ptr.set(e.pointerId, { kind: 'tap' }); return; }
+    if (I.menuMode) return; // menus: only the D-pad, the buttons and taps on the screen do anything
     if (e.clientX < window.innerWidth * 0.5 && T.stick.id === null) {
       T.stick.id = e.pointerId; T.stick.bx = e.clientX; T.stick.by = e.clientY; T.stick.mx = T.stick.my = 0;
       T.ptr.set(e.pointerId, { kind: 'stick' });
@@ -774,6 +789,7 @@ body.mouseaim #screen { cursor: none; }
     }
     place(els.fire, ...fire); place(els.skill, ...skill); place(els.item, ...item); place(els.pause, ...pause);
     place(els.wpn, ...wpn); place(els.itm, ...itm);
+    place(els.dpad, idle[0], idle[1], Math.round(stickR * 2.3)); // the menus' D-pad sits where the joystick rests
     els.base.style.width = els.base.style.height = stickR * 2 + 'px';
     if (T.stick.id === null) setStickEl(idle[0], idle[1], false);
   };
@@ -783,6 +799,8 @@ body.mouseaim #screen { cursor: none; }
     els.fire = document.getElementById('btnFire'); els.skill = document.getElementById('btnSkill');
     els.item = document.getElementById('btnItem'); els.pause = document.getElementById('btnPause');
     els.wpn = document.getElementById('btnWpn'); els.itm = document.getElementById('btnItm');
+    els.dpad = document.getElementById('dpad');
+    els.dup = document.getElementById('dUp'); els.ddown = document.getElementById('dDown'); els.dleft = document.getElementById('dLeft'); els.dright = document.getElementById('dRight');
     els.layer.addEventListener('pointerdown', onDown, { passive: false });
     els.layer.addEventListener('pointermove', onMove, { passive: false });
     els.layer.addEventListener('pointerup', onUp);
@@ -850,13 +868,27 @@ body.mouseaim #screen { cursor: none; }
   I.solo = new Controller({ keys: 'solo', pad: 'any', touch: true, mouse: true });
 
   // ---- Menu navigation: merged from every source, edge-triggered ----
+  // Switch the touch controls between menu mode (D-pad, OK, BACK) and play mode (joystick, FIRE, SKILL...)
+  I.menuMode = false;
+  function setMenuMode(on) {
+    if (I.menuMode === on) return;
+    I.menuMode = on;
+    document.body.classList.toggle('menumode', on);
+    if (els.fire) { els.fire.textContent = on ? 'OK' : 'FIRE'; els.skill.textContent = on ? 'BACK' : 'SKILL'; }
+    for (const [id, p] of T.ptr) if (p.kind === 'stick') T.ptr.delete(id); // let go of the joystick
+    T.stick.id = null; T.stick.mx = T.stick.my = 0;
+    if (els.base) setStickEl(idle[0], idle[1], false);
+  }
   let menuPrev = {};
+  const held = { up: 0, down: 0, left: 0, right: 0 }; // ticks a D-pad arrow has been held (it repeats, for long lists)
   function pollMenu() {
+    setMenuMode(!!(G.state && G.state.menu));
+    const D = (k) => !!(T.btn[k] || T.hit[k]);
     const r = {
-      up: anyDown(['ArrowUp', 'KeyW']), down: anyDown(['ArrowDown', 'KeyS']),
-      left: anyDown(['ArrowLeft', 'KeyA']), right: anyDown(['ArrowRight', 'KeyD']),
+      up: anyDown(['ArrowUp', 'KeyW']) || D('dup'), down: anyDown(['ArrowDown', 'KeyS']) || D('ddown'),
+      left: anyDown(['ArrowLeft', 'KeyA']) || D('dleft'), right: anyDown(['ArrowRight', 'KeyD']) || D('dright'),
       confirm: anyDown(['Enter', 'Space', 'KeyZ', 'KeyJ']) || !!T.hit.fire,
-      back: anyDown(['Escape', 'Backspace']),
+      back: anyDown(['Escape', 'Backspace']) || (I.menuMode && !!T.hit.skill),
       start: anyDown(['Escape', 'KeyP']) || !!(T.btn.pause || T.hit.pause),
     };
     for (const p of I.pads) {
@@ -867,6 +899,10 @@ body.mouseaim #screen { cursor: none; }
     }
     const m = {};
     for (const k in r) { m[k] = r[k]; m[k + 'P'] = r[k] && !menuPrev[k]; }
+    for (const k in held) { // holding a D-pad arrow: after 0.4 s it repeats 10 times a second
+      held[k] = T.btn['d' + k] ? held[k] + 1 : 0;
+      if (held[k] >= 24 && (held[k] - 24) % 6 === 0) m[k + 'P'] = true;
+    }
     menuPrev = r;
     I.menu = m;
   }

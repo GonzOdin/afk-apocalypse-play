@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 04:30';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 04:35';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -9886,7 +9886,7 @@ body.mouseaim #screen { cursor: none; }
     help: () => (G.fs.can() || G.fs.standalone() ? 'HIDES THE BROWSER BARS' : 'IPHONE: SHARE > ADD TO HOME SCREEN'),
   });
   const labEnemy = () => (G.ENEMY_TYPES[G.labEnemy] ? G.labEnemy : 'drone'); // the test room's pick (pause menu)
-  // ===== TOUCH LAYOUT (pause menu, touch screens): move, resize or hide the touch buttons (input.js does the work) =====
+  // ===== TOUCH LAYOUT (settings > controls, touch screens): move, resize or hide the touch buttons (input.js) =====
   class TouchLayout {
     constructor(back) {
       Object.assign(this, { back, menu: false, noToast: false, t: 0 });
@@ -9898,7 +9898,7 @@ body.mouseaim #screen { cursor: none; }
       if (I.hits.Escape && I.layoutEdit) { I.editLayout(false); I.onLayoutDone(); }
     }
     draw(ctx) {
-      this.back.game.draw(ctx);
+      this.back.drawBack(ctx);
       ctx.fillStyle = 'rgba(8,4,20,.55)'; ctx.fillRect(0, 0, G.W, G.H);
       G.text('TOUCH LAYOUT', G.W / 2, 70, '#ffd23a', { align: 'center', shadow: '#0e124a' });
       G.text('DRAG ANY BUTTON WHERE YOU LIKE IT', G.W / 2, 90, '#ffffff', { align: 'center', shadow: '#0e124a' });
@@ -9907,10 +9907,80 @@ body.mouseaim #screen { cursor: none; }
       G.text('TAP YOUR WEAPON OR ITEM UP TOP TO SWAP IT', G.W / 2, 134, '#8ae8ff', { align: 'center', shadow: '#0e124a' });
     }
   }
+
+  // ===== Menus =====
+  // A menu box: a title, rows (label, optional val() shown on the right: left / right change it; sub: opens another
+  // menu, shown with >), and the selected row's help() line at the bottom (else `foot`). Pause and every submenu use it.
+  function drawMenuBox(ctx, m, title, items, foot) {
+    const bh = 26 + items.length * 13 + 16, bx = 34, bw = 188, by = Math.round((G.H - bh) / 2);
+    m.rowY = by + 26; m.bx = bx; m.bw = bw;
+    G.box(bx, by, bw, bh);
+    G.text(title, G.W / 2, by + 8, '#ffd23a', { align: 'center', shadow: '#0e124a' });
+    items.forEach((it, i) => {
+      const y = by + 26 + i * 13, on = i === m.sel;
+      if (on) { ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fillRect(bx + 4, y - 3, bw - 8, 12); }
+      if (on && (m.t >> 4) % 2 === 0) G.text('>', bx + 8, y, '#ffd23a');
+      G.text(it.label, bx + 16, y, on ? '#ffd23a' : it.back ? '#8a7aa8' : '#ffffff', { shadow: '#0e124a' });
+      if (it.val) G.text(it.val(), bx + bw - 10, y, on ? '#ffd23a' : '#8ae8ff', { align: 'right', shadow: '#0e124a' });
+      else if (it.sub) G.text('>', bx + bw - 10, y, on ? '#ffd23a' : '#8ae8ff', { align: 'right', shadow: '#0e124a' });
+    });
+    const help = items[m.sel] && items[m.sel].help; // a line about the selected row, if it has one
+    const line = help ? help() : foot || '';
+    if (line) G.text(line, G.W / 2, by + bh - 12, help ? '#ffd23a' : '#8a7aa8', { align: 'center' });
+  }
+  // A submenu: its rows plus BACK; back (or the back button) returns to `parent`, drawn over parent.drawBack
+  class SubMenu {
+    constructor(title, items, parent) {
+      Object.assign(this, { title, parent, menu: true, sel: 0, t: 0, noToast: true });
+      this.game = parent.game; // (in a game: the stage underneath)
+      this.items = [...items, { label: 'BACK', back: true, act: () => this.close() }];
+    }
+    close() { G.save.write(); G.setState(this.parent); }
+    drawBack(ctx) { this.parent.drawBack(ctx); }
+    update() {
+      this.t++;
+      if (I.menu.backP) { G.sfx.play('pause'); this.close(); return; }
+      if (I.menu.startP && this.game) { G.sfx.play('pause'); G.save.write(); G.setState(this.game); return; } // START: straight back to the game
+      runMenu(this, this.items, this.rowY || 0, 13, this.bx || 34, (this.bx || 34) + (this.bw || 188));
+    }
+    draw(ctx) {
+      this.drawBack(ctx);
+      ctx.fillStyle = 'rgba(8,4,20,.6)'; ctx.fillRect(0, 0, G.W, G.H);
+      drawMenuBox(ctx, this, this.title, this.items);
+    }
+  }
+  const sub = (label, help, rows) => ({ label, sub: true, help: () => help, act() { G.setState(new SubMenu(label, rows(), G.state)); } });
+  // SETTINGS (title and pause): GAME, SOUND & SCREEN, CONTROLS. game: the stage, if there is one (online guests
+  // don't set the difficulty: the host's counts)
+  const settingsItem = (game) => {
+    const o = G.opts(), remote = game && game.remote;
+    return sub('SETTINGS', 'GAME, SOUND & SCREEN, CONTROLS', () => [
+      sub('GAME', 'DIFFICULTY, PERKS', () => [
+        ...(remote ? [] : [{ label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; }, help: () => G.diff().desc }]),
+        { label: 'FULL HP PERK', val: () => (G.PERKS[o.perk] || G.PERKS.off).name, act: (d = 1) => { // a prototype: try each
+          const L = G.PERK_ORDER, i = L.indexOf(o.perk);
+          o.perk = L[((i < 0 ? L.length - 1 : i) + d + L.length) % L.length];
+        }, help: () => (G.PERKS[o.perk] || G.PERKS.off).desc || 'NO PERK' },
+      ]),
+      sub('SOUND & SCREEN', 'SOUND, SCANLINES, FULL SCREEN', () => [
+        { label: 'SOUND', val: () => (o.sound ? 'ON' : 'OFF'), act: () => { o.sound = !o.sound; G.sfx.unlock(); G.sfx.play('pickup'); }, // a test beep
+          help: () => 'AUDIO ' + (G.sfx.ctx ? G.sfx.ctx.state.toUpperCase() : 'NOT STARTED') + (G.sfx.mediaOn() ? ' + MEDIA' : '') }, // what's going on, when it's quiet
+        { label: 'SCANLINES', val: () => (o.scanlines ? 'ON' : 'OFF'), act: () => { o.scanlines = !o.scanlines; G.applyOpts(); } },
+        fullItem(),
+      ]),
+      sub('CONTROLS', I.touchUI ? 'AIM ASSIST, TOUCH LAYOUT, CASE' : 'AIM ASSIST', () => [
+        { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; }, help: () => 'BENDS SHOTS TOWARD WHAT YOU AIM AT' },
+        ...(I.touchUI ? [{ label: 'TOUCH LAYOUT', act: () => G.setState(new TouchLayout(G.state)), help: () => 'MOVE, RESIZE OR HIDE THE BUTTONS' }] : []),
+        ...(I.touchUI ? [{ label: 'CASE', val: () => (G.CASES[o.case] || G.CASES.grape).name, act: (d = 1) => { // the console's color
+          const L = G.CASE_ORDER; o.case = L[(Math.max(0, L.indexOf(o.case)) + d + L.length) % L.length]; G.applyCase();
+        }, help: () => ((G.CASES[o.case] || G.CASES.grape).clear ? 'SEE-THROUGH: YOU CAN SEE INSIDE' : 'THE COLOR OF THE CONSOLE') }] : []),
+      ]),
+    ]);
+  };
+  // ===== Pause: resume, what this place offers (test room: spawn any enemy; practice: change crew), SETTINGS, restart, quit =====
   class Pause {
     constructor(game) {
       this.game = game; this.menu = true; this.sel = 0; this.t = 0;
-      const o = G.opts();
       this.items = [
         { label: 'RESUME', act: () => this.resume() },
         ...(game.practice ? [{ label: 'CHANGE CREW', act: () => practiceRecruit(() => G.setState(this)), help: () => 'TRY ANOTHER CREW MEMBER' }] : []),
@@ -9918,46 +9988,22 @@ body.mouseaim #screen { cursor: none; }
           { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
-        ...(I.touchUI ? [fullItem()] : []),
-        ...(I.touchUI ? [{ label: 'CASE', val: () => (G.CASES[o.case] || G.CASES.grape).name, act: (d = 1) => { // the console's color
-          const L = G.CASE_ORDER; o.case = L[(Math.max(0, L.indexOf(o.case)) + d + L.length) % L.length]; G.applyCase();
-        }, help: () => ((G.CASES[o.case] || G.CASES.grape).clear ? 'SEE-THROUGH: YOU CAN SEE INSIDE' : 'THE COLOR OF THE CONSOLE') }] : []),
-        ...(I.touchUI ? [{ label: 'TOUCH LAYOUT', act: () => G.setState(new TouchLayout(this)), help: () => 'MOVE, RESIZE OR HIDE THE BUTTONS' }] : []),
-        { label: 'SCANLINES', val: () => (o.scanlines ? 'ON' : 'OFF'), act: () => { o.scanlines = !o.scanlines; G.applyOpts(); } },
-        { label: 'AIM ASSIST', val: () => G.AIM_LABELS[o.aimAssist], act: (d = 1) => { o.aimAssist = (o.aimAssist + d + 3) % 3; } },
-        { label: 'SOUND', val: () => (o.sound ? 'ON' : 'OFF'), act: () => { o.sound = !o.sound; G.sfx.unlock(); G.sfx.play('pickup'); }, // a test beep
-          help: () => 'AUDIO ' + (G.sfx.ctx ? G.sfx.ctx.state.toUpperCase() : 'NOT STARTED') + (G.sfx.mediaOn() ? ' + MEDIA' : '') }, // what's going on, when it's quiet
-        ...(game.remote ? [] : [{ label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; }, help: () => G.diff().desc }]), // online: the host's counts
-        { label: 'FULL HP PERK', val: () => (G.PERKS[o.perk] || G.PERKS.off).name, act: (d = 1) => { // a prototype: try each
-          const L = G.PERK_ORDER, i = L.indexOf(o.perk);
-          o.perk = L[((i < 0 ? L.length - 1 : i) + d + L.length) % L.length];
-        }, help: () => (G.PERKS[o.perk] || G.PERKS.off).desc || 'NO PERK' },
+        settingsItem(game),
         ...(game.remote ? [] : [{ label: game.test ? 'RESTART ROOM' : 'RESTART LEVEL', act: () => { G.save.write(); G.setState(new Stage(game.def, game.crewId)); } }]), // online, only the host restarts
         { label: game.remote ? 'LEAVE THE GAME' : game.online ? 'END THE GAME' : 'QUIT TO TITLE', act: () => { G.save.write(); if (game.remote) G.net.leave(); G.setState(new Boot()); } },
       ];
-      this.bx = 34; this.bw = 188; this.bh = 26 + this.items.length * 13 + 16; this.by = Math.round((G.H - this.bh) / 2);
     }
     resume() { G.save.write(); G.setState(this.game); }
+    drawBack(ctx) { this.game.draw(ctx); }
     update() {
       this.t++;
       if (I.menu.startP || I.menu.backP) { G.sfx.play('pause'); this.resume(); return; }
-      runMenu(this, this.items, this.by + 26, 13, this.bx, this.bx + this.bw);
+      runMenu(this, this.items, this.rowY || 0, 13, this.bx || 34, (this.bx || 34) + (this.bw || 188));
     }
     draw(ctx) {
-      this.game.draw(ctx);
+      this.drawBack(ctx);
       ctx.fillStyle = 'rgba(8,4,20,.6)'; ctx.fillRect(0, 0, G.W, G.H);
-      const { bx, by, bw, bh } = this;
-      G.box(bx, by, bw, bh);
-      G.text('PAUSED', G.W / 2, by + 8, '#ffd23a', { align: 'center', shadow: '#0e124a' });
-      this.items.forEach((it, i) => {
-        const y = by + 26 + i * 13, on = i === this.sel;
-        if (on) { ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fillRect(bx + 4, y - 3, bw - 8, 12); }
-        if (on && (this.t >> 4) % 2 === 0) G.text('>', bx + 8, y, '#ffd23a');
-        G.text(it.label, bx + 16, y, on ? '#ffd23a' : '#ffffff', { shadow: '#0e124a' });
-        if (it.val) G.text(it.val(), bx + bw - 10, y, on ? '#ffd23a' : '#8ae8ff', { align: 'right', shadow: '#0e124a' });
-      });
-      const help = this.items[this.sel].help; // a line about the selected option, if it has one (else the best score)
-      G.text(help ? help() : 'BEST ' + G.save.data.best, G.W / 2, by + bh - 12, help ? '#ffd23a' : '#8a7aa8', { align: 'center' });
+      drawMenuBox(ctx, this, 'PAUSED', this.items, 'BEST ' + G.save.data.best);
     }
   }
 
@@ -9984,20 +10030,34 @@ body.mouseaim #screen { cursor: none; }
       return [
         { label: '1 PLAYER', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.Recruit()); } },
         { label: '2 PLAYERS (ONE SCREEN)', act: () => G.setState(new G.states.Join()) },
-        { label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const o = G.opts(), L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; G.save.write(); } },
         { label: 'ONLINE (UP TO 4)', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.states.OnlineMenu()); } },
-        { label: 'WEAPON PRACTICE', act: () => practiceRecruit(() => G.setState(new Boot())) },
-        { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)) },
-        // on a phone or tablet: full screen instead of the map editor (which wants a mouse and keyboard)
-        I.touchUI ? fullItem() : { label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); } },
+        sub('PRACTICE', 'TRY WEAPONS AND ENEMIES', () => [
+          { label: 'WEAPON PRACTICE', act: () => { const back = G.state; practiceRecruit(() => G.setState(back)); }, help: () => 'EVERY WEAPON, TARGETS, SPAWN BUTTONS' },
+          { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)), help: () => 'THE DINER KITCHEN: TRY ANY ENEMY' },
+          // (the map editor wants a mouse and keyboard)
+          ...(I.touchUI ? [] : [{ label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); }, help: () => 'EDIT LEVEL 1 (OR PRESS ` IN GAME)' }]),
+        ]),
+        settingsItem(null),
       ];
     }
+    drawBack(ctx) { this.t++; this.drawBg(ctx); } // (behind a submenu: the title, still moving)
     update() {
       this.t++;
       if (this.secret()) { G.sfx.play('secret'); G.setState(new G.states.TuningLab()); return; }
-      runMenu(this, this.items(), 116, 13, 40, 216);
+      runMenu(this, this.items(), 128, 13, 40, 216);
     }
     draw(ctx) {
+      this.drawBg(ctx);
+      const t = this.t, items = this.items();
+      ctx.fillStyle = 'rgba(11,6,20,.75)'; ctx.fillRect(40, 122, 176, items.length * 13 + 6);
+      items.forEach((it, i) => {
+        const y = 128 + i * 13, on = i === this.sel, label = it.val ? it.label + ': ' + it.val() : it.label;
+        if (on && (t >> 4) % 2 === 0) G.text(it.val ? '<' : '>', 46, y, '#ffd23a');
+        if (on && (it.val || it.sub) && (t >> 4) % 2 === 0) G.text('>', 210, y, '#ffd23a', { align: 'right' });
+        G.text(label, 128, y, on ? '#ffd23a' : '#ffffff', { align: 'center', shadow: '#140c1c' });
+      });
+    }
+    drawBg(ctx) { // the sky, the sun, the grid, the logo, the attempt counter
       const t = this.t, HZ = 128;
       const sky = ['#0b0614', '#100822', '#160b30', '#1e0e3c', '#281246', '#34164e', '#421a54'];
       sky.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, i * 19, G.W, 19); });
@@ -10028,19 +10088,11 @@ body.mouseaim #screen { cursor: none; }
       G.text('AFK', 128, 22, '#ff5ab0', { align: 'center', scale: 4, shadow: '#5a0a3a' });
       G.text('APOCALYPSE', 128, 58, '#3ad0ff', { align: 'center', scale: 2, shadow: '#0a2a5a' });
       G.text('ATTEMPT #' + G.save.data.attempt, 128, 82, '#ffd23a', { align: 'center', shadow: '#140c1c' });
-      const items = this.items();
-      ctx.fillStyle = 'rgba(11,6,20,.75)'; ctx.fillRect(40, 110, 176, items.length * 13 + 6);
-      items.forEach((it, i) => {
-        const y = 116 + i * 13, on = i === this.sel, label = it.val ? it.label + ': ' + it.val() : it.label;
-        if (on && (t >> 4) % 2 === 0) G.text(it.val ? '<' : '>', 46, y, '#ffd23a');
-        if (on && it.val && (t >> 4) % 2 === 0) G.text('>', 210, y, '#ffd23a', { align: 'right' });
-        G.text(label, 128, y, on ? '#ffd23a' : '#ffffff', { align: 'center', shadow: '#140c1c' });
-      });
       G.text('BUILD STEP 4 - CO-OP, ONLINE', 128, 214, '#6a5a9a', { align: 'center' });
       G.text(window.AFK_BUILD || 'DEV', 254, 2, '#4a3e6a', { align: 'right' }); // which copy this is (tools/build.js)
     }
   }
-  G.states = { Boot, Stage, Pause, MapView, LevelClear, TouchLayout };
+  G.states = { Boot, Stage, Pause, SubMenu, MapView, LevelClear, TouchLayout };
 
   // Auto-pause when the tab is hidden
   document.addEventListener('visibilitychange', () => {

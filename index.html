@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-06 22:20 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 00:46 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1456,6 +1456,14 @@ body.mouseaim #screen { cursor: none; }
       const star = (x, y) => { r(x + 1, y, 1, 4, '#c8c8d8'); r(x, y + 1, 4, 1, '#c8c8d8'); r(x, y, 1, 1, '#8a8aa0'); r(x + 3, y + 3, 1, 1, '#8a8aa0'); r(x + 3, y, 1, 1, '#ffffff'); r(x, y + 3, 1, 1, '#ffffff'); r(x + 1, y + 1, 2, 2, '#ffffff'); };
       star(1, 1); star(6, 6); r(8, 1, 1, 1, '#ffffff'); r(2, 9, 1, 1, '#c8c8d8');
     },
+    hockey(r) { // Ted's hockey stick: a taped wooden shaft, a black blade
+      for (let i = 0; i < 8; i++) r(9 - i, 1 + i, 2, 1, '#c89060');
+      r(8, 2, 2, 1, '#202028'); r(5, 5, 2, 1, '#ffffff'); r(0, 9, 5, 2, '#202028'); r(0, 10, 4, 1, '#3a3a48'); r(1, 9, 2, 1, '#5a5a6a');
+    },
+    wholepie(r) { // a whole cherry pie, lattice top
+      r(1, 3, 10, 7, '#c88a40'); r(2, 2, 8, 9, '#c88a40'); r(2, 3, 8, 7, '#d0405a'); r(3, 2, 6, 9, '#d0405a');
+      r(2, 5, 8, 1, '#f0c890'); r(2, 8, 8, 1, '#f0c890'); r(5, 2, 1, 9, '#f0c890'); r(8, 3, 1, 7, '#f0c890'); r(3, 3, 1, 1, '#ff8aa0');
+    },
     splash(r) { // Dot's diner coffee pot: glass, brown coffee, orange handle
       r(3, 2, 6, 9, '#c8d8e8'); r(4, 1, 4, 1, '#202028'); r(3, 2, 6, 1, '#202028'); r(3, 6, 6, 5, '#5a3018'); r(4, 6, 1, 4, '#8a5030');
       r(9, 3, 2, 1, '#ff8a2a'); r(10, 4, 1, 4, '#ff8a2a'); r(9, 8, 2, 1, '#ff8a2a'); r(2, 3, 1, 1, '#c8d8e8'); r(1, 2, 1, 1, '#ffffff');
@@ -1788,7 +1796,31 @@ body.mouseaim #screen { cursor: none; }
     BLOBS.set(i, b);
     return b;
   };
+  // Coffee spills (Dot's coffee where it lands, st.spill): brown puddles with a creamy glint, fading as they dry
+  function drawSpill(ctx, st, cx, cy) {
+    if (!st.spill || !st.spill.size) return;
+    const R = st.room;
+    for (const [i, t] of st.spill) {
+      const tx = i % R.w, ty = (i - tx) / R.w, x = tx * 16 - cx, y = ty * 16 - cy;
+      if (x < -16 || y < -16 || x > G.W || y > G.H) continue;
+      const k = Math.min(1, t / 120), b = blobsOf(i + 7);
+      ctx.globalAlpha = k * 0.6; ctx.fillStyle = '#5a3018';
+      for (const [a, c, w, h] of b.slice(0, 4)) ctx.fillRect(x + a, y + c, w, h);
+      ctx.globalAlpha = k * 0.8; ctx.fillStyle = '#c89060'; ctx.fillRect(x + b[0][0] + 2, y + b[0][1] + 1, 2, 1);
+      if (((G.tick >> 4) + tx * 3 + ty) % 11 === 0) { ctx.fillStyle = '#e8e8f0'; ctx.fillRect(x + 7, y + 4 - ((G.tick >> 2) & 3), 1, 1); } // steam
+    }
+    ctx.globalAlpha = 1;
+  }
+  // A robot Root hacked (e.ally): a green signal blinking over it, and a green underline
+  G.drawHacked = (e, ctx, sx, sy) => {
+    const z = Math.round(e.z || 0), top = sy - 20 - z, on = (G.tick >> 3) & 1;
+    ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - 4, top - 6, 9, 6);
+    ctx.fillStyle = on ? '#38f0a0' : '#1e8a5a';
+    ctx.fillRect(sx, top - 2, 1, 1); ctx.fillRect(sx - 1, top - 3, 3, 1); ctx.fillRect(sx - 3, top - 5, 2, 1); ctx.fillRect(sx + 2, top - 5, 2, 1); ctx.fillRect(sx - 1, top - 6, 3, 1);
+    ctx.fillStyle = '#38f0a0'; ctx.globalAlpha = 0.6; ctx.fillRect(sx - 6, sy + 1, 12, 1); ctx.globalAlpha = 1;
+  };
   G.drawWet = (ctx, st, cx, cy) => {
+    drawSpill(ctx, st, cx, cy);
     if (!st.wet || !st.wet.size) return;
     const R = st.room;
     for (const [i, t] of st.wet) {
@@ -3530,6 +3562,10 @@ body.mouseaim #screen { cursor: none; }
   //   something held rather than aimed (a soda can).
   // fire(p, st, dx, dy, w, aimDist): dx/dy = unit aim (after aim assist); aimDist = distance to assisted target or null.
   // cd(w) = frames between shots. Fire delays and ranges are in frames (60 per second).
+  // The melee charge (Zelda-style): with a spin weapon (spin: true: Ted's hockey stick, the bat, the machete), hold
+  // fire after a swing; once it's held `time` ticks, letting go spins you round: every target within `reach` px takes
+  // the weapon's hit times `mul` (Player.spinAttack).
+  G.MELEE_SPIN = { time: 45, mul: 2, reach: 28 }; // tunable
   G.WEAPONS = {
     darts: {
       name: 'DARTS', icon: 'darts', signature: true,
@@ -3554,29 +3590,36 @@ body.mouseaim #screen { cursor: none; }
     },
     // ===== The rest of the crew's signature weapons (levels 1-3 like the darts; a hit costs a level) =====
     // Big Lou: a cast-iron skillet thrown like a boomerang. It flies out, turns (or bounces off a wall) and comes back
-    // to Lou, hitting everyone it passes, once on the way out and once on the way back. It never runs out; the level
-    // is how many can be out at once (fire with all of them out does nothing).
+    // to Lou, hitting everyone it passes, once on the way out and once on the way back. It never runs out. Leveling up
+    // brings out more of the kitchen: level 2 throws a chef's knife with every throw (straight, fast), level 3 a meat
+    // cleaver as well (heavier, slower) and lets two skillets be out at once. With every skillet out, the knives still fly.
     skillet: {
       name: 'SKILLET', icon: 'skillet', signature: true, returns: true,
       ammo: 1, max: 1, // never spent (it comes back)
       held: { len: 7, thick: 2, butt: '#6a4a2a', body: '#3a3a48', tip: '#5a5a6a', tipLen: 3 }, // wooden handle, iron pan
       dmg: 2, speed: 3.4, out: 24, rate: 14, // tunable: damage per pass, px/tick, ticks before it turns back, fire delay
+      knife: { dmg: 1.5, speed: 4.6, life: 24 }, cleaver: { dmg: 3, speed: 3.2, life: 22 }, // tunable: the kitchen (levels 2 and 3)
       cd() { return this.rate; },
       fire(p, st, dx, dy, w) {
-        if (st.shots.filter((s) => s.kind === 'skillet' && s.owner === p).length >= w.lv) return false; // all out: wait
-        st.shots.push({ kind: 'skillet', owner: p, x: p.x + dx * 6, y: p.y + dy * 4, vx: dx * this.speed, vy: dy * this.speed, t: 0, out: this.out, back: false, hits: new Set(), dmg: this.dmg });
+        const out = st.shots.filter((s) => s.kind === 'skillet' && s.owner === p).length, a0 = Math.atan2(dy, dx);
+        let threw = false;
+        if (out < (w.lv >= 3 ? 2 : 1)) { st.shots.push({ kind: 'skillet', owner: p, x: p.x + dx * 6, y: p.y + dy * 4, vx: dx * this.speed, vy: dy * this.speed, t: 0, out: this.out, back: false, hits: new Set(), dmg: this.dmg }); threw = true; }
+        const toss = (tool, T, da) => { const a = a0 + da; st.shots.push({ kind: 'utensil', tool, x: p.x + dx * 6, y: p.y + dy * 4, vx: Math.cos(a) * T.speed, vy: Math.sin(a) * T.speed, t: 0, life: T.life, dmg: T.dmg }); threw = true; };
+        if (w.lv >= 2) toss('knife', this.knife, w.lv >= 3 ? -0.12 : 0);
+        if (w.lv >= 3) toss('cleaver', this.cleaver, 0.12);
+        if (!threw) return false; // all out: wait
         G.sfx.play('throw');
       },
     },
     // June: tranquilizer darts. A teen hit goes to sleep where it stands (Zzz): it can't chase, swing or grab a
     // neighbor until it wakes, and while it sleeps every hit on it (anyone's) does double damage. Level 2 fires two,
-    // level 3 a spread of three.
+    // level 3 a spread of three. They bounce off robots (TINK): nothing to put to sleep.
     tranq: {
       name: 'TRANQ', icon: 'tranq', signature: true,
       ammo: 120, max: 240,
       melee: { dmg: 0.5, reach: 16, cd: 20 },
       held: { len: 7, thick: 1, butt: '#8a8aa0', body: '#e8e8f0', tip: '#c8a8ff', tipLen: 2 }, // a dart pistol
-      dmg: 1, sleep: 240, sleepMul: 2, cdBase: 16, tapCd: 8, speed: 4, range: 30, // tunable. sleep in ticks; sleepMul: damage a sleeping teen takes from anyone
+      dmg: 1, sleep: 300, sleepMul: 2, cdBase: 16, tapCd: 8, speed: 4, range: 30, // tunable. sleep in ticks; sleepMul: damage a sleeping teen takes from anyone. Robots shrug them off (no damage, no sleep)
       cd(w) { return Math.max(2, this.cdBase - (w.lv - 1)); },
       tap(w) { return Math.max(2, this.tapCd - (w.lv - 1)); },
       fire(p, st, dx, dy, w) {
@@ -3612,23 +3655,18 @@ body.mouseaim #screen { cursor: none; }
           dmg: this.dmg, organic: this.organic, robot: this.robot, phone: this.phone, zap: this.zap });
       },
     },
-    // Tinfoil Ted: foil stars, thrown in a fan: 3, then 5, then 7. Short range, spins as it flies.
-    foil: {
-      name: 'STARS', icon: 'foil', signature: true,
-      ammo: 120, max: 240,
-      melee: { dmg: 0.5, reach: 16, cd: 20 },
-      held: { len: 4, thick: 2, body: '#c8c8d8', tip: '#ffffff', tipLen: 2 }, // a wad of foil
-      dmg: 0.6, speed: 3.6, range: 20, fan: 0.22, cdBase: 20, tapCd: 11, // tunable. fan = radians between stars
-      cd() { return this.cdBase; },
-      tap() { return this.tapCd; },
-      fire(p, st, dx, dy, w) {
-        const n = 1 + w.lv * 2, base = Math.atan2(dy, dx);
-        for (let i = 0; i < n; i++) {
-          const a = base + (i - (n - 1) / 2) * this.fan;
-          st.shots.push({ kind: 'star', x: p.x + dx * 6, y: p.y + dy * 4, vx: Math.cos(a) * this.speed, vy: Math.sin(a) * this.speed, life: this.range, t: i, dmg: this.dmg });
-        }
-        G.sfx.play('throw');
-      },
+    // Tinfoil Ted: a hockey stick. A melee signature weapon that never breaks: swing to hit everyone in an arc in front
+    // of you (a big shove). Hold fire after a swing to charge it (G.MELEE_SPIN), let go when it's full: a spin attack
+    // all round you. Levels: harder hits, a little more reach.
+    hockey: {
+      name: 'HOCKEY STICK', icon: 'hockey', signature: true, melee: true, keeps: true,
+      ammo: 1, max: 1, // never spent (it never breaks)
+      held: { len: 9, thick: 1, butt: '#1a1a20', body: '#c89060', tip: '#202028', tipLen: 3 }, // taped stick, black blade
+      dmg: 1.5, dmgLv: 0.5, reach: 18, rate: 18, knock: 2, // tunable: damage at level 1 (+dmgLv a level), reach (+2 a level), swing delay, shove
+      cd() { return this.rate; },
+      hitFor(w) { return { dmg: this.dmg + (w.lv - 1) * this.dmgLv, reach: this.reach + (w.lv - 1) * 2, cd: this.rate, knock: this.knock, col: '#c89060' }; },
+      fire(p, st, dx, dy, w) { return p.swing(st, this.hitFor(w)); },
+      spin: true,
     },
     // Dot: hot coffee from the pot, splashed in a short arc. Hold to keep pouring. Higher levels pour more. Coffee
     // that lands on a teammate perks them up: they run faster for a while (support play; `perk` ticks a drop).
@@ -3638,6 +3676,7 @@ body.mouseaim #screen { cursor: none; }
       melee: { dmg: 0.5, reach: 16, cd: 20 },
       held: { can: { body: '#5a3018', band: '#ffffff', lid: '#202028' } }, // a diner coffee pot
       dmg: 0.4, rate: 5, range: 15, perk: 20, perkMax: 300, // tunable: damage per drop, fire delay, ticks a drop flies; speed-up ticks a drop gives a teammate, most it builds to
+      spillLife: 600, spillSlow: 0.55, // tunable: a spill where coffee lands lasts this many ticks; the living wade through it at this speed (mop bots come to clean it)
       cd() { return this.rate; },
       fire(p, st, dx, dy, w) {
         const base = Math.atan2(dy, dx);
@@ -3652,10 +3691,14 @@ body.mouseaim #screen { cursor: none; }
     soda: {
       name: 'SODA', icon: 'soda',
       held: { can: { body: '#e83040', band: '#ffffff', lid: '#c8c8d0' } }, // a shaken can, ready to lob
-      ammo: 6, max: 12, dmg: 6, radius: 23, rate: 24, // tunable: a six-pack per pickup, two six-packs max
+      ammo: 6, max: 12, dmg: 6, radius: 28, rate: 24, // tunable: a six-pack per pickup, two six-packs max
+      // Charged: hold fire and a landing marker slides out from near to far (over aimTime ticks), let go to lob it there
+      charge: true, near: 30, far: 110, aimTime: 50, // tunable: px, px, ticks
+      power(p) { return Math.min(1, (p.charge || 0) / this.aimTime); },
+      reach(p) { return this.near + (this.far - this.near) * this.power(p); }, // where it'll land, px ahead
       cd() { return this.rate; },
-      fire(p, st, dx, dy, w, aimDist) {
-        const sp = aimDist ? G.clamp(aimDist / 29, 1.2, 3.2) : 2.6; // lob lands on the assisted target
+      fire(p, st, dx, dy) {
+        const sp = this.reach(p) / 29; // (a lob at sp px/tick lands about 29 sp px away)
         st.shots.push({ kind: 'can', x: p.x + dx * 5, y: p.y + dy * 3, vx: dx * sp, vy: dy * sp, z: 9, vz: 2.6, t: 0, dmg: this.dmg, r: this.radius });
         G.sfx.play('throw');
       },
@@ -3691,11 +3734,26 @@ body.mouseaim #screen { cursor: none; }
     blower: {
       name: 'BLOWER', icon: 'blower',
       held: { len: 8, thick: 2, butt: '#d8c040', body: '#8a8aa0', tip: '#3a3a48', tipLen: 1 }, // yellow motor, grey tube
-      ammo: 160, max: 320, dmg: 0.12, rate: 2, range: 16, // tunable
+      ammo: 160, max: 320, dmg: 0.12, rate: 2, range: 20, // tunable
       push: 0.9, leafLoot: 0.12, phone: 0.05, fall: 1.5, ballDmg: 4, ballPop: 1.5, // tunable: shove per gust, chance a leaf pile hides loot, chance per gust a phone flies, damage landing off a trampoline, a ball's hit, its pop
       droneToss: 3, droneSpeed: 2, droneGlide: 0.975, droneTumble: 120, droneHit: 2, // tunable: a drone's shove (x a teen's), its top drift speed (px/tick), how far it glides (speed kept per tick), most ticks it tumbles, damage to each enemy it crashes into
+      ballHits: 3, // tunable: hits a ball takes before it pops
+      // The ball cannon: stand on a ball with the blower out and it's sucked into the tube (p.ballKind). Then fire
+      // charges instead of blowing (up to cannonCharge ticks); let go and the ball shoots out, cannonMin to cannonMax
+      // px/tick by the charge, for cannonDmg (and it breaks on whatever it hits). Costs cannonFuel.
+      cannonCharge: 50, cannonMin: 2.6, cannonMax: 6.5, cannonDmg: 6, cannonFuel: 8, // tunable
+      charge(p) { return !!p.ballKind; }, // (loaded: hold to charge, let go to fire)
+      power(p) { return Math.min(1, (p.charge || 0) / this.cannonCharge); },
       cd() { return this.rate; },
       fire(p, st, dx, dy) {
+        if (p.ballKind) { // the cannon
+          const k = this.power(p), sp = this.cannonMin + (this.cannonMax - this.cannonMin) * k;
+          st.shots.push({ kind: 'ball', ball: p.ballKind, cannon: true, x: p.x + dx * 8, y: p.y + dy * 6, vx: dx * sp, vy: dy * sp, z: 6, t: 0, life: 240, hits: 1, dmg: this.cannonDmg * (0.6 + 0.4 * k) });
+          p.ballKind = null; p.fireCd = 20;
+          st.burst(p.x + dx * 10, p.y - 8 + dy * 6, 8, ['#e8f8ff', '#90c8e0', '#ffffff'], 1.4, 8, 12); st.shake(2 + k * 4, 1);
+          G.sfx.play('whoosh');
+          return this.cannonFuel;
+        }
         const base = Math.atan2(dy, dx);
         for (let i = 0; i < 2; i++) {
           const a = base + G.rand(-0.28, 0.28), s = G.rand(2.6, 3.4);
@@ -3707,14 +3765,14 @@ body.mouseaim #screen { cursor: none; }
     // Melee pickups: swing (fire) to hit everyone in an arc in front of you. Ammo is durability: a swing that connects
     // wears it down one, a miss doesn't; at 0 it breaks. hit: { dmg, reach (px), cd (ticks), knock (shove multiplier) }
     bat: {
-      name: 'BAT', icon: 'bat', melee: true, breaks: 'BAT BROKE!',
+      name: 'BAT', icon: 'bat', melee: true, breaks: 'BAT BROKE!', spin: true,
       ammo: 15, max: 30, hit: { dmg: 1.5, reach: 18, cd: 22, knock: 2.2, col: '#e0c090' }, // tunable: weak, big shove, breaks fast
       held: { len: 8, thick: 2, butt: '#3a2a20', body: '#c8a070', tip: '#e0c090', tipLen: 2 },
       cd() { return this.hit.cd; },
       fire(p, st) { return p.swing(st, this.hit); },
     },
     machete: {
-      name: 'MACHETE', icon: 'machete', melee: true, breaks: 'MACHETE SNAPPED!',
+      name: 'MACHETE', icon: 'machete', melee: true, breaks: 'MACHETE SNAPPED!', spin: true,
       ammo: 40, max: 60, hit: { dmg: 3, reach: 20, cd: 26, knock: 1, col: '#ffffff', chops: true }, // tunable: hard hits, lasts longer; chops patchy hedges
       held: { len: 9, thick: 1, butt: '#3a2a20', body: '#d8d8e8', tip: '#ffffff', tipLen: 2 },
       cd() { return this.hit.cd; },
@@ -3736,8 +3794,9 @@ body.mouseaim #screen { cursor: none; }
 
   // use(p, st) returns true when consumed, or a short reason string when it can't be used
   G.ITEMS = {
+    // A slice of pie heals a heart. Four slices make a WHOLE PIE (combine: Player.giveItem), which heals you right up.
     pie: {
-      name: 'PIE', icon: 'pie',
+      name: 'PIE SLICE', icon: 'pie', combine: { n: 4, into: 'wholepie' },
       heal: 2, // tunable, in half-hearts (1 heart)
       use(p, st) {
         if (p.hp >= p.maxHp) return 'HP FULL';
@@ -3749,6 +3808,19 @@ body.mouseaim #screen { cursor: none; }
         return true;
       },
     },
+    wholepie: {
+      name: 'WHOLE PIE', icon: 'wholepie',
+      use(p, st) {
+        if (p.hp >= p.maxHp) return 'HP FULL';
+        const was = p.hp; p.hp = p.maxHp;
+        p.yum();
+        st.floater(p.x, p.y - 22, 'FULL HEALTH! +' + (p.hp - was) / 2, '#ff3a5a');
+        st.burst(p.x, p.y - 8, 24, ['#ff3a5a', '#ffb0c0', '#ffd23a', '#ffffff'], 1.6, 10, 30);
+        G.sfx.play('heal');
+        return true;
+      },
+    },
+
     coffee: {
       name: 'COFFEE', icon: 'coffee', max: 3, // carry up to three
       dur: 7, speed: 40, rate: 30, stack: 3, // tunable: seconds, % faster movement, % faster firing; how many cups' worth the boost builds to
@@ -3821,7 +3893,7 @@ body.mouseaim #screen { cursor: none; }
     const M = G.LOOT_MERCY, need = {};
     if (!p) return need;
     const sig = p.weapons[0];
-    if (G.WEAPONS[sig.id].returns) need.ammo = 0; // the skillet always comes back: no ammo boxes for Lou
+    if (G.WEAPONS[sig.id].returns || G.WEAPONS[sig.id].keeps) need.ammo = 0; // the skillet always comes back, the hockey stick never breaks: no ammo boxes
     else if (G.desperate(p)) need.ammo = M.noAmmo;
     else if (sig.ammo <= G.WEAPONS[sig.id].ammo * 0.2) need.ammo = M.lowAmmo; // low, or out with other weapons in hand
     if (p.hp <= p.maxHp / 4) need.burger = need['i:pie'] = M.lowHealth;
@@ -3851,6 +3923,8 @@ body.mouseaim #screen { cursor: none; }
     { group: 'SKILLET (LOU)', label: 'DAMAGE', o: W.skillet, k: 'dmg', min: 0.25, max: 20, step: 0.25 },
     { group: 'SKILLET (LOU)', label: 'THROW', o: W.skillet, k: 'out', min: 6, max: 80, step: 2, note: (v) => Math.round(v * W.skillet.speed) + 'PX' },
     { group: 'SKILLET (LOU)', label: 'FIRE DELAY', o: W.skillet, k: 'rate', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
+    { group: 'SKILLET (LOU)', label: 'KNIFE (LV2)', o: W.skillet.knife, k: 'dmg', min: 0, max: 10, step: 0.25 },
+    { group: 'SKILLET (LOU)', label: 'CLEAVER (LV3)', o: W.skillet.cleaver, k: 'dmg', min: 0, max: 15, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'DAMAGE', o: W.tranq, k: 'dmg', min: 0, max: 10, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'SLEEP', o: W.tranq, k: 'sleep', min: 0, max: 600, step: 15, note: (v) => (v / 60).toFixed(1) + 'S' },
     { group: 'TRANQ (JUNE)', label: 'ASLEEP: DAMAGE X', o: W.tranq, k: 'sleepMul', min: 1, max: 4, step: 0.25 },
@@ -3867,15 +3941,21 @@ body.mouseaim #screen { cursor: none; }
     { group: 'EMP (ROOT)', label: 'STUN', o: W.emp, k: 'zap', min: 0, max: 300, step: 5, note: (v) => (v / 60).toFixed(1) + 'S' },
     { group: 'EMP (ROOT)', label: 'RANGE', o: W.emp, k: 'range', min: 16, max: 120, step: 4, note: () => 'PX' },
     { group: 'EMP (ROOT)', label: 'HOLD DELAY', o: W.emp, k: 'cdBase', min: 4, max: 120, step: 1, note: (v) => perSec(v) },
-    { group: 'FOIL STARS (TED)', label: 'DAMAGE', o: W.foil, k: 'dmg', min: 0.1, max: 10, step: 0.1 },
-    { group: 'FOIL STARS (TED)', label: 'RANGE', o: W.foil, k: 'range', min: 6, max: 90, step: 2 },
-    { group: 'FOIL STARS (TED)', label: 'FAN', o: W.foil, k: 'fan', min: 0.05, max: 0.6, step: 0.01 },
-    { group: 'FOIL STARS (TED)', label: 'HOLD DELAY', o: W.foil, k: 'cdBase', min: 3, max: 40, step: 1, note: (v) => perSec(v) },
+    { group: 'HOCKEY STICK (TED)', label: 'DAMAGE', o: W.hockey, k: 'dmg', min: 0.25, max: 10, step: 0.25, note: () => 'LV1' },
+    { group: 'HOCKEY STICK (TED)', label: 'PER LEVEL', o: W.hockey, k: 'dmgLv', min: 0, max: 5, step: 0.25 },
+    { group: 'HOCKEY STICK (TED)', label: 'REACH', o: W.hockey, k: 'reach', min: 10, max: 40, step: 1, note: () => 'PX' },
+    { group: 'HOCKEY STICK (TED)', label: 'SWING DELAY', o: W.hockey, k: 'rate', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
+    { group: 'MELEE SPIN', label: 'CHARGE TIME', o: G.MELEE_SPIN, k: 'time', min: 10, max: 180, step: 5, note: (v) => perSec(v) },
+    { group: 'MELEE SPIN', label: 'DAMAGE X', o: G.MELEE_SPIN, k: 'mul', min: 1, max: 5, step: 0.25 },
+    { group: 'MELEE SPIN', label: 'REACH', o: G.MELEE_SPIN, k: 'reach', min: 12, max: 60, step: 2, note: () => 'PX' },
     { group: 'COFFEE POT (DOT)', label: 'DAMAGE', o: W.splash, k: 'dmg', min: 0.05, max: 5, step: 0.05 },
     { group: 'COFFEE POT (DOT)', label: 'FIRE DELAY', o: W.splash, k: 'rate', min: 1, max: 20, step: 1 },
     { group: 'COFFEE POT (DOT)', label: 'RANGE', o: W.splash, k: 'range', min: 4, max: 50, step: 1 },
     { group: 'SODA', label: 'DAMAGE', o: W.soda, k: 'dmg', min: 0.5, max: 30, step: 0.5 },
     { group: 'SODA', label: 'SPLASH', o: W.soda, k: 'radius', min: 6, max: 60, step: 2 },
+    { group: 'SODA', label: 'THROW NEAR', o: W.soda, k: 'near', min: 10, max: 100, step: 5, note: () => 'PX' },
+    { group: 'SODA', label: 'THROW FAR', o: W.soda, k: 'far', min: 40, max: 200, step: 5, note: () => 'PX' },
+    { group: 'SODA', label: 'AIM TIME', o: W.soda, k: 'aimTime', min: 10, max: 150, step: 5, note: (v) => perSec(v) },
     { group: 'SODA', label: 'FIRE DELAY', o: W.soda, k: 'rate', min: 4, max: 90, step: 2, note: (v) => perSec(v) },
     { group: 'SODA', label: 'AMMO/PICKUP', o: W.soda, k: 'ammo', min: 1, max: 30, step: 1 },
     { group: 'SODA', label: 'MAX AMMO', o: W.soda, k: 'max', min: 1, max: 99, step: 1 },
@@ -3886,6 +3966,10 @@ body.mouseaim #screen { cursor: none; }
     { group: 'BLOWER', label: 'LOOT IN LEAVES', o: W.blower, k: 'leafLoot', min: 0, max: 1, step: 0.02, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'PHONE BLOWN AWAY', o: W.blower, k: 'phone', min: 0, max: 0.5, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'BALL HIT', o: W.blower, k: 'ballDmg', min: 0, max: 20, step: 0.5 },
+    { group: 'BLOWER', label: 'BALL LASTS', o: W.blower, k: 'ballHits', min: 1, max: 9, step: 1, note: () => 'HITS' },
+    { group: 'BLOWER', label: 'CANNON HIT', o: W.blower, k: 'cannonDmg', min: 0, max: 30, step: 0.5 },
+    { group: 'BLOWER', label: 'CANNON CHARGE', o: W.blower, k: 'cannonCharge', min: 10, max: 180, step: 5, note: (v) => perSec(v) },
+    { group: 'BLOWER', label: 'CANNON SPEED', o: W.blower, k: 'cannonMax', min: 2, max: 12, step: 0.5, note: () => 'PX/TICK' },
     { group: 'BLOWER', label: 'DRONE TOSS', o: W.blower, k: 'droneToss', min: 1, max: 10, step: 0.5, note: (v) => 'X' + v + ' A TEEN' },
     { group: 'BLOWER', label: 'DRONE SPEED', o: W.blower, k: 'droneSpeed', min: 0.5, max: 12, step: 0.25, note: (v) => Math.round((v / G.PLAYER_SPEED) * 100) + '% OF YOU' },
     { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.99, step: 0.005, note: (v) => '~' + Math.round(W.blower.droneSpeed / (1 - v)) + 'PX' },
@@ -3969,9 +4053,28 @@ body.mouseaim #screen { cursor: none; }
     if (!kind) return false;
     R.setTile(tx, ty, (R.floors && R.floors[tx + ',' + ty]) || R.theme.ground);
     const m = Math.hypot(vx, vy) || 1;
-    st.shots.push({ kind: 'ball', ball: kind, x: tx * 16 + 8, y: ty * 16 + 10, vx: (vx / m) * speed, vy: (vy / m) * speed, z: 2, t: 0, life: 80, dmg: G.WEAPONS.blower.ballDmg });
+    st.shots.push({ kind: 'ball', ball: kind, x: tx * 16 + 8, y: ty * 16 + 10, vx: (vx / m) * speed, vy: (vy / m) * speed, z: 2, t: 0, life: 240, hits: G.WEAPONS.blower.ballHits, dmg: G.WEAPONS.blower.ballDmg });
     G.sfx.play('boing');
     return true;
+  };
+  // A ball that's come to rest (a shot with rest set) within reach px of (x, y) gets sent off again along (vx, vy).
+  // Returns the ball, if there was one.
+  G.kickBall = (st, x, y, vx, vy, speed = 3.6, reach = 9) => {
+    const b = st.shots.find((s) => s.kind === 'ball' && s.rest && Math.hypot(s.x - x, s.y - y) < reach);
+    if (!b) return null;
+    const m = Math.hypot(vx, vy) || 1;
+    b.rest = false; b.vx = (vx / m) * speed; b.vy = (vy / m) * speed; b.z = 2; b.t = 0; b.life = 240;
+    G.sfx.play('boing');
+    return b;
+  };
+  // A ball (a tile, or one lying where it stopped) at player p's feet: picked up, returns its kind (the blower cannon)
+  G.takeBall = (st, p) => {
+    const R = st.room, tx = Math.floor(p.x / 16), ty = Math.floor((p.y - 2) / 16), kind = R.theme.ballAt && R.theme.ballAt(R, tx, ty);
+    if (kind) { R.setTile(tx, ty, (R.floors && R.floors[tx + ',' + ty]) || R.theme.ground); return kind; }
+    const i = st.shots.findIndex((s) => s.kind === 'ball' && s.rest && Math.hypot(s.x - p.x, s.y - p.y) < 9);
+    if (i < 0) return null;
+    const b = st.shots[i]; st.shots.splice(i, 1);
+    return b.ball;
   };
   G.SHOTS = {
     dart: {
@@ -3980,10 +4083,15 @@ body.mouseaim #screen { cursor: none; }
         if (--s.life <= 0) return false;
         if (st.room.blocksShot(s.x, s.y)) { st.burst(s.x - s.vx, s.y - s.vy, 4, ['#ffffff', '#ff8a2a'], 0.8, 9, 10); G.sfx.play('spark'); return false; }
         if (s.pierce) { // full-health perk: goes through everyone in its way, hitting each once
-          for (const t of st.targets()) if (!s.pierce.has(t) && Math.abs(s.x - t.x) < 6 && Math.abs(s.y - (t.y - 2)) < 6) { s.pierce.add(t); t.hit(st, s.dmg, s.x, s.y); if (s.sleep && t.stun) t.stun(st, s.sleep, 'sleep'); }
+          for (const t of st.targets()) if (!s.pierce.has(t) && !(s.sleep && t.bot) && Math.abs(s.x - t.x) < 6 && Math.abs(s.y - (t.y - 2)) < 6) { s.pierce.add(t); t.hit(st, s.dmg, s.x, s.y); if (s.sleep && t.stun) t.stun(st, s.sleep, 'sleep'); }
           return true;
         }
         const t = hitTarget(st, s.x, s.y);
+        if (t && s.sleep && t.bot) { // a tranq dart on a robot: TINK, nothing to put to sleep
+          st.burst(s.x, s.y, 4, ['#c8c8d8', '#ffffff'], 1, 9, 8); G.sfx.play('spark');
+          if (!(t.tinkT > 0)) { st.floater(t.x, t.y - 26, 'TINK!', '#c8c8d8'); t.tinkT = 30; }
+          return false;
+        }
         if (t) {
           if (s.crit) { st.floater(t.x, t.y - 30, 'CHARGED!', '#ffd23a'); st.burst(s.x, s.y, 10, ['#ffd23a', '#ffffff'], 1.6, 9, 16); }
           t.hit(st, s.dmg, s.x, s.y);
@@ -4030,7 +4138,7 @@ body.mouseaim #screen { cursor: none; }
           st.scatterLeaves(lx, ly, s.vx, s.vy);
           if (G.chance(W.leafLoot)) { st.dropLoot(lx * 16 + 8, ly * 16 + 10); st.floater(lx * 16 + 8, ly * 16 - 6, 'UNDER THE LEAVES!', '#ffd23a'); }
         }
-        if (G.launchBall(st, lx, ly, s.vx, s.vy)) return false; // a ball on the lawn: off it goes
+        if (G.launchBall(st, lx, ly, s.vx, s.vy) || G.kickBall(st, s.x, s.y, s.vx, s.vy)) return false; // a ball on the lawn: off it goes
         if (--s.life <= 0 || R.blocksShot(s.x, s.y)) return false;
         const t = hitTarget(st, s.x, s.y, 7);
         if (t) {
@@ -4054,12 +4162,16 @@ body.mouseaim #screen { cursor: none; }
         ctx.fillRect(Math.round(s.x - v.x), Math.round(s.y - v.y - 8 - (s.alt || 0)), 2, 1);
       },
     },
-    // A basketball or soccer ball sent flying (a blower gust, a bat): bounces along, hits the first teen it reaches
-    // hard, then pops, knocking back (and stinging) the teens round it. Pops on a wall, or when it runs out of steam.
+    // A basketball or soccer ball sent flying (a blower gust, a bat, the blower cannon): bounces along and off walls,
+    // and hits whoever it reaches hard, bouncing off them; on its last hit (s.hits, G.WEAPONS.blower.ballHits) it pops,
+    // knocking back (and stinging) the teens round it. A ball out of the cannon (s.cannon) pops on its first hit.
+    // Out of steam, it comes to rest (s.rest) where it is, hits left and all, ready to be blown or batted again.
     ball: {
       update(s, st) {
+        if (s.rest) return true; // lying there (G.kickBall, G.takeBall)
         s.t++; s.x += s.vx; s.y += s.vy; s.vx *= 0.99; s.vy *= 0.99;
         s.z = 2 + Math.abs(Math.sin(s.t / 5)) * 7;
+        if (s.ignoreT > 0) s.ignoreT--;
         const W = G.WEAPONS.blower, pop = () => {
           st.burst(s.x, s.y - 4, 10, s.ball === 'basket' ? ['#e07030', '#3a1a10', '#ffffff'] : ['#f0f0f8', '#1a1a20', '#ffffff'], 1.6, 6, 18, true);
           for (const t of st.targets()) {
@@ -4071,14 +4183,30 @@ body.mouseaim #screen { cursor: none; }
           st.floater(s.x, s.y - 20, 'POP!', '#ffffff'); st.shake(3, 1); G.sfx.play('crack');
           return false;
         };
-        if (st.room.blocksShot(s.x, s.y) || --s.life <= 0 || Math.hypot(s.vx, s.vy) < 0.8) return pop();
-        const t = hitTarget(st, s.x, s.y, 8);
-        if (t) { t.hit(st, s.dmg, s.x, s.y); return pop(); }
+        if (st.room.blocksShot(s.x, s.y)) { // a wall: bounce off it (a cannon ball breaks)
+          if (s.cannon) return pop();
+          s.x -= s.vx; s.y -= s.vy;
+          const hx = st.room.blocksShot(s.x + s.vx, s.y), hy = st.room.blocksShot(s.x, s.y + s.vy);
+          if (hx || !hy) s.vx = -s.vx * 0.7;
+          if (hy || !hx) s.vy = -s.vy * 0.7;
+          G.sfx.play('boing');
+        }
+        if (--s.life <= 0 || Math.hypot(s.vx, s.vy) < 0.8) { s.rest = true; s.vx = s.vy = 0; s.z = 0; s.cannon = false; return true; } // out of steam: it rolls to a stop
+        const t = !(s.ignoreT > 0) && hitTarget(st, s.x, s.y, 8);
+        if (t) {
+          t.hit(st, s.dmg, s.x, s.y);
+          if (t.flying && t.kx !== undefined) { const m = Math.hypot(s.vx, s.vy) || 1; t.kx += (s.vx / m) * W.droneSpeed; t.ky += (s.vy / m) * W.droneSpeed; t.tumbleT = W.droneTumble; }
+          if (s.cannon || --s.hits <= 0) return pop();
+          const nx = s.x - t.x, ny = s.y - (t.y - 2), nm = Math.hypot(nx, ny) || 1, dot = (s.vx * nx + s.vy * ny) / nm; // bounce off them
+          s.vx = (s.vx - (2 * dot * nx) / nm) * 0.75; s.vy = (s.vy - (2 * dot * ny) / nm) * 0.75; s.ignoreT = 10;
+          st.burst(s.x, s.y - 4, 4, ['#ffffff', '#ffd23a'], 1, 8, 10);
+          G.sfx.play('boing');
+        }
         return true;
       },
       draw(ctx, s, v) {
         groundShadow(ctx, s, v);
-        const x = Math.round(s.x - v.x), y = Math.round(s.y - v.y - s.z), bb = s.ball === 'basket';
+        const x = Math.round(s.x - v.x), y = Math.round(s.y - v.y - s.z - (s.rest ? 1 : 0)), bb = s.ball === 'basket';
         ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 3, y - 3, 6, 6);
         ctx.fillStyle = bb ? '#e07030' : '#f0f0f8'; ctx.fillRect(x - 2, y - 2, 4, 4);
         ctx.fillStyle = bb ? '#3a1a10' : '#1a1a20'; if ((s.t >> 2) & 1) ctx.fillRect(x - 2, y, 4, 1); else ctx.fillRect(x, y - 2, 1, 4);
@@ -4167,7 +4295,28 @@ body.mouseaim #screen { cursor: none; }
         }
       },
     },
-    // Ted's foil stars: small, spinning, short range
+    // Lou's kitchen (skillet levels 2 and 3): a chef's knife or a meat cleaver, thrown straight and spinning. Hits the
+    // first one it reaches; a wall stops it with a clang.
+    utensil: {
+      update(s, st) {
+        s.t++; s.x += s.vx; s.y += s.vy;
+        if (--s.life <= 0) return false;
+        if (st.room.blocksShot(s.x, s.y)) { st.burst(s.x - s.vx, s.y - s.vy, 4, ['#ffffff', '#c8c8d8'], 0.9, 9, 8); G.sfx.play('clang'); return false; }
+        const t = hitTarget(st, s.x, s.y, s.tool === 'cleaver' ? 7 : 6);
+        if (t) { t.hit(st, s.dmg, s.x, s.y); st.burst(s.x, s.y - 8, 4, ['#ffffff', '#e03048'], 1, 9, 10); return false; }
+        return true;
+      },
+      draw(ctx, s, v) {
+        groundShadow(ctx, s, v);
+        const x = Math.round(s.x - v.x), y = Math.round(s.y - v.y - 9 - (s.alt || 0)), f = (s.t >> 1) & 3, cl = s.tool === 'cleaver';
+        const D = [[1, 0], [1, 1], [0, 1], [-1, 1]][f], blade = cl ? 3 : 4, handle = 3;
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 4, y - 4, 9, 9);
+        for (let i = 1; i <= blade; i++) { ctx.fillStyle = cl ? '#a8a8b8' : '#e8e8f0'; ctx.fillRect(x + D[0] * i, y + D[1] * i, cl ? 2 : 1, cl ? 2 : 1); }
+        for (let i = 0; i < handle; i++) { ctx.fillStyle = cl ? '#6a4a2a' : '#202028'; ctx.fillRect(x - D[0] * i, y - D[1] * i, 1, 1); }
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(x + D[0] * blade, y + D[1] * blade, 1, 1);
+      },
+    },
+    // Ted's foil stars (no longer his weapon; kept for anything that throws them): small, spinning, short range
     star: {
       update(s, st) {
         s.t++; s.x += s.vx; s.y += s.vy;
@@ -4190,7 +4339,8 @@ body.mouseaim #screen { cursor: none; }
     drop: {
       update(s, st) {
         s.x += s.vx; s.y += s.vy; s.z += s.vz; s.vz -= 0.18; s.vx *= 0.97; s.vy *= 0.97;
-        if (--s.life <= 0 || s.z <= 0 || st.room.blocksShot(s.x, s.y)) { st.burst(s.x, s.y, 2, ['#8a5030', '#c89060'], 0.6, 1, 10, true); return false; }
+        if (st.room.blocksShot(s.x, s.y)) { st.burst(s.x, s.y, 2, ['#8a5030', '#c89060'], 0.6, 1, 10, true); return false; }
+        if (--s.life <= 0 || s.z <= 0) { st.burst(s.x, s.y, 2, ['#8a5030', '#c89060'], 0.6, 1, 10, true); G.addSpill(st, s.x, s.y); return false; } // a spill where it lands
         const t = hitTarget(st, s.x, s.y, 7);
         if (t) { t.hit(st, s.dmg, s.x, s.y); st.burst(s.x, s.y, 2, ['#ffffff', '#c89060'], 0.8, 9, 8); return false; }
         const mate = st.players.find((p) => p !== s.owner && !p.dead && Math.abs(s.x - p.x) < 7 && Math.abs(s.y - (p.y - 2)) < 7);
@@ -4742,7 +4892,7 @@ body.mouseaim #screen { cursor: none; }
       Object.assign(this, {
         def, ctrl, x, y, hw: 4, hh: 5, fx: 0, fy: 1, dir: 'down', anim: 0, moving: false,
         hp: 0, maxHp: G.crewHp(def), speed: G.crewSpeed(def), lives: 3, dead: false,
-        fireCd: 0, charge: 0, fireUsed: false, skillCd: 0, skillMax: 1, revealT: 0, dashT: 0, dashX: 0, dashY: 0, inv: 0, recoil: 0, buzz: 0,
+        fireCd: 0, charge: 0, fireUsed: false, ballKind: null, spinHeld: false, spinT: 0, spinFx: 0, spinOf: null, skillCd: 0, skillMax: 1, revealT: 0, dashT: 0, dashX: 0, dashY: 0, inv: 0, recoil: 0, buzz: 0,
         // Inventory: slot 0 is always the signature weapon (infinite ammo, levels 1-3)
         weapons: [{ id: def.weapon, lv: 1, ammo: G.WEAPONS[def.weapon].ammo }], wsel: 0, // signature weapon: lots of ammo, not infinite
         items: [], isel: 0, cards: { red: 0, blue: 0, yellow: 0 }, keys: 0, // keycards by color (gates), plain keys (locked house doors)
@@ -4761,7 +4911,7 @@ body.mouseaim #screen { cursor: none; }
     update(st) {
       if (this.dead) return;
       const c = this.ctrl.s;
-      for (const k of ['fireCd', 'skillCd', 'revealT', 'inv', 'recoil', 'buzz', 'invShow', 'lockCd', 'bonkT', 'nagT', 'guardCd']) if (this[k] > 0) this[k]--;
+      for (const k of ['fireCd', 'skillCd', 'revealT', 'inv', 'recoil', 'buzz', 'invShow', 'lockCd', 'bonkT', 'nagT', 'guardCd', 'spinFx']) if (this[k] > 0) this[k]--;
       if (this.label && --this.label.t <= 0) this.label = null;
       if (this.healFlash > 0) this.healFlash--;
       let mx = c.mx, my = c.my;
@@ -4873,17 +5023,29 @@ body.mouseaim #screen { cursor: none; }
       const free = !this.mower && !this.swimming && this.dashT === 0;
       if (acted && c.fireP) this.fireUsed = true; // that press opened a door or searched: holding it doesn't charge
       if (!c.fire) this.fireUsed = false;
-      if (def.charge) { // charged weapons (plates): hold fire to load up more, let go to throw them all
-        const was = this.charge ? def.count(this, this.weapon) : 0;
+      // the blower cannon: standing on a ball with the blower out sucks it into the tube
+      if (this.weapon.id === 'blower' && !this.ballKind && free && !this.jump) { const k = G.takeBall(st, this); if (k) { this.ballKind = k; this.say('BALL LOADED! HOLD FIRE', '#ffd23a'); G.sfx.play('slurp'); } }
+      const charging = def.charge === true || (typeof def.charge === 'function' && def.charge(this, this.weapon));
+      if (def.spin) { // melee (Zelda-style): a press swings; keep holding to charge; let go when it's full: a spin
+        this.charge = 0;
+        const S = G.MELEE_SPIN;
+        if (c.fireP && !acted && free && this.fireCd <= 0) { this.shoot(st); this.spinHeld = true; this.spinT = 0; }
+        else if (c.fire && this.spinHeld && free) { if (++this.spinT === S.time) { G.sfx.play('blip'); st.burst(this.x + this.fx * 8, this.y - 10, 6, ['#ffffff', '#ffd23a'], 0.8, 10, 10); } }
+        if (!c.fire && this.spinHeld) { if (this.spinT >= S.time && free && this.weapon.id === this.spinOf) this.spinAttack(st, def); this.spinHeld = false; this.spinT = 0; }
+        if (this.spinHeld && !this.spinOf) this.spinOf = this.weapon.id;
+        if (!this.spinHeld) this.spinOf = null;
+      } else if (charging) { // charged weapons (plates, the blower cannon): hold fire to load up more, let go to fire
+        const was = this.charge && def.count ? def.count(this, this.weapon) : 0;
         if (c.fire && !acted && !this.fireUsed && free && (this.charge > 0 || this.fireCd <= 0)) {
           this.charge = (this.charge || 0) + 1;
-          if (def.count(this, this.weapon) > was && was > 0) G.sfx.play('blip'); // one more plate in hand
+          if (def.count && def.count(this, this.weapon) > was && was > 0) G.sfx.play('blip'); // one more plate in hand
         } else if (this.charge > 0) { if (!c.fire && free) this.shoot(st); this.charge = 0; }
       } else {
-        this.charge = 0;
+        this.charge = 0; this.spinHeld = false;
         if (!acted && free && ((c.fireP && def.tap && this.sinceShot >= def.tap(this.weapon)) || (c.fire && this.fireCd <= 0))) this.shoot(st);
       }
       this.sinceShot++;
+      this.idleT = this.moving || c.fire || c.skill || c.item || this.jump || this.charge > 0 || this.spinHeld ? 0 : (this.idleT || 0) + 1; // (idle animations)
       if (c.skillP) { if (this.swimming) G.sfx.play('deny'); else this.skill(st, mx, my, m); } // no dashing in water
       // the item / action button: open a door or search a trash can you're facing, otherwise use your item
       if (c.itemP && !acted) {
@@ -4996,7 +5158,39 @@ body.mouseaim #screen { cursor: none; }
     get sortY() { return this.tramp ? this.tramp.ay * 16 + 17 : this.z > 4 ? this.y + 48 : this.y; } // on one: just after it
     frame() {
       const f = this.jump ? 1 : this.moving ? [1, 0, 2, 0][(this.anim >> 3) & 3] : 0;
-      return this.sprites[this.dir][f];
+      const look = this.idleLook(); // idle: some of the crew glance about
+      return this.sprites[look || this.dir][f];
+    }
+    // Idle animations: standing still a while (idleT), everyone breathes (a pixel bob), and every few seconds does
+    // their own thing for a second: Pixel and Ted glance left and right (Ted's foil hat glints), Lou flips his
+    // skillet, June checks her watch, Root brings up a hologram, Dot's coffee steams. Looks only.
+    idlePhase() { const k = (this.idleT || 0) - 150; return k > 0 && k % 240 < 60 ? k % 240 : -1; }
+    idleLook() {
+      const id = this.def.id, ph = this.idlePhase();
+      if (ph < 0 || (id !== 'pixel' && id !== 'ted')) return null;
+      return ph < 20 ? 'left' : ph < 40 ? 'right' : 'down';
+    }
+    drawIdle(ctx, sx, by) {
+      const ph = this.idlePhase(), id = this.def.id;
+      if (ph < 0) return;
+      const k = ph / 60;
+      if (id === 'lou') { // a skillet flipped up and caught
+        const h = Math.round(Math.sin(k * Math.PI) * 12), x = sx + 4, y = by - 16 - h;
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillStyle = '#3a3a48'; ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x + 3, y, 2, 1);
+      } else if (id === 'june') { // checks her watch: a blinking face on her wrist, a little heart beat
+        ctx.fillStyle = (ph >> 2) & 1 ? '#ffffff' : '#7ff0ff'; ctx.fillRect(sx + 3, by - 11, 2, 2);
+        if (ph > 20) { ctx.fillStyle = '#ff5a7a'; ctx.fillRect(sx - 1, by - 28 - ((ph - 20) >> 3), 1, 1); ctx.fillRect(sx + 1, by - 28 - ((ph - 20) >> 3), 1, 1); ctx.fillRect(sx - 1, by - 27 - ((ph - 20) >> 3), 3, 1); ctx.fillRect(sx, by - 26 - ((ph - 20) >> 3), 1, 1); }
+      } else if (id === 'root') { // a hologram flickers up in front of her
+        if ((ph >> 1) % 7 === 0) return;
+        ctx.globalAlpha = 0.55; ctx.fillStyle = '#38f0a0'; ctx.fillRect(sx + 3, by - 18, 7, 5);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#c8fff0'; ctx.fillRect(sx + 4, by - 17 + ((ph >> 2) % 3), 5, 1);
+      } else if (id === 'dot') { // her coffee steams
+        ctx.fillStyle = '#e8e8f0';
+        for (let i = 0; i < 3; i++) { const t = (ph + i * 20) % 60; ctx.globalAlpha = 1 - t / 60; ctx.fillRect(sx + 6 + ((t >> 3) & 1), by - 12 - (t >> 2), 1, 1); }
+        ctx.globalAlpha = 1;
+      } else if (id === 'ted' && ph > 40) { // the foil hat glints
+        ctx.fillStyle = '#ffffff'; const g = ph - 40; ctx.fillRect(sx - 3 + (g >> 2), by - 22, 1, 1); if (g < 10) { ctx.fillRect(sx - 3 + (g >> 2), by - 24, 1, 1); }
+      }
     }
 
     // The charged-dart perk is ready: full health, signature weapon with darts in it, not fired for a moment
@@ -5077,6 +5271,16 @@ body.mouseaim #screen { cursor: none; }
       if (have) have.n = Math.min(max, have.n + add);
       else { this.items.push({ id, n: Math.min(max, add) }); if (this.items.length === 1) this.isel = 0; }
       this.invShow = 90; this.invKind = 'i';
+      const it = this.items.find((i) => i.id === id), C = def.combine; // four pie slices make a whole pie
+      if (C && it && it.n >= C.n) {
+        it.n -= C.n;
+        if (it.n <= 0) { this.items.splice(this.items.indexOf(it), 1); this.isel = Math.max(0, Math.min(this.isel, this.items.length - 1)); }
+        this.giveItem(C.into);
+        this.isel = this.items.findIndex((i) => i.id === C.into);
+        G.sfx.play('secret');
+        return C.into; // (what it made)
+      }
+      return null;
     }
 
     // Direction from this player (chest height) to the mouse cursor, if the solo player is aiming with the mouse
@@ -5091,7 +5295,7 @@ body.mouseaim #screen { cursor: none; }
       if (def.signature && w.ammo <= 0) return this.bonk(st, def.melee); // out of darts: melee
       let dx = this.fx, dy = this.fy, aimDist = null;
       // Aim assist: bend the shot toward the nearest target inside a cone (not when you're aiming with the mouse)
-      const cone = this.aimingWithMouse ? 0 : (G.AIM_CONES[G.opts().aimAssist] * Math.PI) / 180;
+      const cone = this.aimingWithMouse || def.charge === true ? 0 : (G.AIM_CONES[G.opts().aimAssist] * Math.PI) / 180; // (a charged throw goes where its marker showed)
       if (cone > 0) {
         let best = null, bd = 1e9;
         for (const t of st.targets()) {
@@ -5133,10 +5337,10 @@ body.mouseaim #screen { cursor: none; }
       this.fireCd = this.fireCdSet = Math.max(1, Math.round(def.cd(w) * boost));
       this.sinceShot = 0;
       this.recoil = 3;
-      if (def.returns) { /* comes back: never spent */ }
+      if (def.returns || def.keeps) { /* comes back / never breaks: never spent */ }
       else if (def.signature) w.ammo = Math.max(0, w.ammo - 1); // one per trigger pull, at any level
       else if (def.melee && used === false) { /* a miss doesn't wear a melee weapon */ }
-      else if ((w.ammo -= def.charge ? used : 1) <= 0) { // a charged throw spends every plate it threw
+      else if ((w.ammo -= typeof used === 'number' ? used : 1) <= 0) { // a charged throw spends every plate it threw (fire returns what it used)
         this.weapons.splice(this.wsel, 1);
         this.wsel = 0;
         this.invShow = 90; this.invKind = 'w';
@@ -5154,15 +5358,49 @@ body.mouseaim #screen { cursor: none; }
         if (Math.hypot(t.x - hx, t.y - 4 - hy) >= M.reach) continue;
         t.hit(st, M.dmg, this.x, this.y - 4);
         if (M.knock && t.kx !== undefined) { t.kx *= M.knock; t.ky *= M.knock; }
+        if (M.knock && t.flying && t.kx !== undefined && !t.dead) { // a bat sends a drone drifting off, tumbling, like the blower
+          const B = G.WEAPONS.blower; t.kx = this.fx * B.droneSpeed; t.ky = this.fy * B.droneSpeed; t.tumbleT = B.droneTumble; if (!t._tumbled) t._tumbled = new Set();
+        }
         hit = true;
       }
       // a ball lying in front of you gets whacked away (a bat or a punch: any swing)
-      if (G.launchBall(st, Math.floor(hx / 16), Math.floor((hy + 4) / 16), this.fx, this.fy, 4.2)) hit = true;
+      if (G.launchBall(st, Math.floor(hx / 16), Math.floor((hy + 4) / 16), this.fx, this.fy, 4.2) || G.kickBall(st, hx, hy + 4, this.fx, this.fy, 4.2, 12)) hit = true;
       // a chopping blade (the machete) cuts through a breakable hedge in front of you
       if (M.chops && st.breakWalls(hx, hy + 4, 4, st.room.theme.chop)) hit = true; // hedges only, never brick
       if (st.whack && st.whack(hx, hy + 4, 7)) hit = true; // any swing whacks loose boards (theme.melee)
       G.sfx.play(hit ? 'hit' : 'swipe');
       if (hit) st.shake(3, 1);
+      return hit;
+    }
+    // The melee charge let go: a spin, hitting every target within G.MELEE_SPIN.reach px all round for the weapon's hit
+    // times MELEE_SPIN.mul (a bigger shove; a drone goes tumbling). Balls round you get whacked, loose boards whacked,
+    // a machete chops the hedges round you. A pickup weapon wears one use if it connects.
+    spinAttack(st, def) {
+      const S = G.MELEE_SPIN, w = this.weapon, base = def.hitFor ? def.hitFor(w) : def.hit, B = G.WEAPONS.blower;
+      let hit = false;
+      for (const t of st.targets()) {
+        const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy);
+        if (d >= S.reach) continue;
+        t.hit(st, base.dmg * S.mul, this.x, this.y - 4);
+        if (t.kx !== undefined && !t.dead) {
+          const k = (base.knock || 1) * 2.5; t.kx += (dx / (d || 1)) * k; t.ky += (dy / (d || 1)) * k;
+          if (t.flying) { t.kx = (dx / (d || 1)) * B.droneSpeed; t.ky = (dy / (d || 1)) * B.droneSpeed; t.tumbleT = B.droneTumble; if (!t._tumbled) t._tumbled = new Set(); }
+        }
+        hit = true;
+      }
+      for (let i = 0; i < 8; i++) { // whatever's round you: balls, loose boards, hedges for a blade
+        const a = (i / 8) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a), hx = this.x + ux * 14, hy = this.y - 4 + uy * 11;
+        if (G.launchBall(st, Math.floor(hx / 16), Math.floor((hy + 4) / 16), ux, uy, 4.2) || G.kickBall(st, hx, hy + 4, ux, uy, 4.2, 10)) hit = true;
+        if (st.whack && st.whack(hx, hy + 4, 7)) hit = true;
+        if (base.chops && st.breakWalls(hx, hy + 4, 4, st.room.theme.chop)) hit = true;
+      }
+      this.spinFx = 14; this.recoil = 4; this.sinceShot = 0; this.fireCd = base.cd || 20;
+      st.burst(this.x, this.y - 8, 12, ['#ffffff', base.col || '#ffd23a', '#ffd23a'], 1.8, 8, 14);
+      st.shake(hit ? 5 : 2, 1); G.sfx.play('whoosh'); if (hit) G.sfx.play('hit');
+      if (!def.signature && hit && --w.ammo <= 0) { // a pickup weapon wears like a swing
+        this.weapons.splice(this.wsel, 1); this.wsel = 0; this.invShow = 90; this.invKind = 'w';
+        this.say(def.breaks || 'OUT OF ' + def.name, '#ff3a5a'); G.sfx.play('deny');
+      }
       return hit;
     }
     // Is there a wall you can whack (theme.melee: loose boards) just in front of you?
@@ -5232,8 +5470,11 @@ body.mouseaim #screen { cursor: none; }
       if (this.inv > 0 && this.dashT === 0 && Math.floor(this.inv / BLINK) & 1) return; // slow blink while invulnerable
       const by = sy - Math.round((this.z || 0) + this.matLift());
       if (this.jump && this.jump.pogo) this.drawPogo(ctx, sx, by);
-      ctx.drawImage(this.frame(), sx - 8 - Math.round(this.fx * (this.recoil > 0 ? 1 : 0)), by - 22);
-      this.drawAim(ctx, sx, by);
+      const breathe = this.idleT > 60 && ((this.idleT >> 5) & 1) ? 1 : 0; // standing still: a breath (a pixel bob)
+      ctx.drawImage(this.frame(), sx - 8 - Math.round(this.fx * (this.recoil > 0 ? 1 : 0)), by - 22 + breathe);
+      this.drawAim(ctx, sx, by + breathe);
+      this.drawIdle(ctx, sx, by + breathe);
+      this.drawCharge(ctx, sx, by);
       if (this.tramp) this.drawTrampArrows(ctx, sx, sy - TRAMP_LIFT); // on the mat, over you, so none hide
       if (this.bonkT > 0) { // a melee swing: an arc sweeping across the front, sized to the weapon's reach
         const a0 = Math.atan2(this.fy, this.fx), k = 1 - this.bonkT / 8, R = (this.swingReach || 16) * 0.65;
@@ -5241,6 +5482,35 @@ body.mouseaim #screen { cursor: none; }
         for (let i = 0; i < 7; i++) { const a = a0 - 1 + 2 * Math.min(1, k + 0.3) * (i / 6); ctx.fillRect(Math.round(sx + Math.cos(a) * R), Math.round(by - 9 + Math.sin(a) * R * 0.75), 2, 2); }
       }
       if (this.buzz > 0 && (G.tick >> 3) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(sx + 3, sy - 25, 1, 2); }
+    }
+    // A loaded blower's ball at the tube's mouth, and a power bar under you while a weapon with power() charges
+    drawCharge(ctx, sx, by) {
+      const def = G.WEAPONS[this.weapon.id];
+      if (this.ballKind && this.weapon.id === 'blower') {
+        const k = def.power(this), j = this.charge > 0 && k >= 1 ? ((G.tick >> 1) & 1) : 0, bb = this.ballKind === 'basket';
+        const x = Math.round(sx + this.fx * 11) + j, y = Math.round(by - 9 + this.fy * 8);
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 3, y - 3, 6, 6);
+        ctx.fillStyle = bb ? '#e07030' : '#f0f0f8'; ctx.fillRect(x - 2, y - 2, 4, 4);
+        ctx.fillStyle = bb ? '#3a1a10' : '#1a1a20'; ctx.fillRect(x - 2, y, 4, 1);
+      }
+      if (this.weapon.id === 'soda' && this.charge > 0) { // where the can will land: its splash ring, and a cross
+        const d = def.reach(this), lx = Math.round(sx + this.fx * d), ly = Math.round(by + this.fy * d * 0.9 + (this.z || 0)), r = def.radius, n = 22;
+        ctx.fillStyle = (G.tick >> 3) & 1 ? '#ffffff' : '#ff6a78';
+        for (let i = 0; i < n; i += 1) { if (i & 1) continue; const a = (i / n) * Math.PI * 2; ctx.fillRect(Math.round(lx + Math.cos(a) * r), Math.round(ly + Math.sin(a) * r * 0.6), 1, 1); }
+        ctx.fillRect(lx - 2, ly, 5, 1); ctx.fillRect(lx, ly - 2, 1, 5);
+      }
+      let k = null;
+      if (def.spin && this.spinHeld && this.spinT > 10) k = Math.min(1, this.spinT / G.MELEE_SPIN.time);
+      else if (this.charge > 0 && def.power) k = def.power(this, this.weapon);
+      if (this.spinFx > 0) { // the spin: a ring of streaks sweeping round you
+        const a0 = (14 - this.spinFx) * 0.55, R = G.MELEE_SPIN.reach * 0.7;
+        ctx.fillStyle = this.spinFx > 8 ? '#ffffff' : '#ffd23a';
+        for (let i = 0; i < 16; i++) { const a = a0 + (i / 16) * Math.PI * 2; if (i % 4 === 3) continue; ctx.fillRect(Math.round(sx + Math.cos(a) * R), Math.round(by - 9 + Math.sin(a) * R * 0.75), 2, 2); }
+      }
+      if (k === null) return;
+      const full = k >= 1, w = 14;
+      ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - w / 2 - 1, by + 3, w + 2, 4);
+      ctx.fillStyle = full ? ((G.tick >> 2) & 1 ? '#ffffff' : '#ffd23a') : '#ff8a2a'; ctx.fillRect(sx - w / 2, by + 4, Math.round(w * k), 2);
     }
     // Riding the pogo stick: the shaft under your feet, spring at the bottom (squashed near the ground)
     drawPogo(ctx, sx, by) {
@@ -5457,8 +5727,8 @@ body.mouseaim #screen { cursor: none; }
       let sound = 'pickup';
       if (this.kind === 'ammo') { // a box of ammo for your signature weapon: as big a share of it as a dart box is of darts
         const sig = p.weapons[0], def = G.WEAPONS[sig.id];
-        const add = def.returns ? 0 : Math.min(Math.round((G.PICKUP_STATS.ammo.amount * def.ammo) / G.WEAPONS.darts.ammo), def.max - sig.ammo);
-        sig.ammo += add; say(def.returns ? def.name + ' NEVER RUNS OUT' : add > 0 ? '+' + add + ' ' + def.name : def.name + ' FULL', '#ff8a2a');
+        const add = def.returns || def.keeps ? 0 : Math.min(Math.round((G.PICKUP_STATS.ammo.amount * def.ammo) / G.WEAPONS.darts.ammo), def.max - sig.ammo);
+        sig.ammo += add; say(def.returns || def.keeps ? def.name + ' NEVER RUNS OUT' : add > 0 ? '+' + add + ' ' + def.name : def.name + ' FULL', '#ff8a2a');
         if (add <= 0) st.addScore(100);
       } else if (this.kind === 'up') {
         const sig = p.weapons[0];
@@ -5467,7 +5737,7 @@ body.mouseaim #screen { cursor: none; }
       } else if (type === 'w') {
         p.giveWeapon(id); say(G.WEAPONS[id].name + ' +' + G.WEAPONS[id].ammo, '#ff8a2a');
       } else if (type === 'i') {
-        p.giveItem(id); say(G.ITEMS[id].name, '#38f0a0');
+        const made = p.giveItem(id); say(made ? 'A ' + G.ITEMS[made].name + '!' : G.ITEMS[id].name, made ? '#ffd23a' : '#38f0a0');
       } else if (this.kind === 'burger') {
         sound = 'eat';
         const heal = G.PICKUP_STATS.burger.heal;
@@ -5946,10 +6216,41 @@ body.mouseaim #screen { cursor: none; }
     if (d < (o.feel || 0) * G.diff().sight || !o.cone) return true;
     return ((p.x - e.x) * e.fx + (p.y - e.y) * e.fy) / (d || 1) >= Math.cos((o.cone * Math.PI) / 180);
   };
+  // Hacked robots (Root's Override: e.ally ticks left) fight for you: they go after other enemies, and what would
+  // hurt a player hurts an enemy instead (allyHurt), at most every ALLY_HIT ticks. Nobody shoots them meanwhile.
+  const ALLY_HIT = 30;
+  const foes = (e, st) => st.enemies.filter((t) => t !== e && !(t.ally > 0) && t.hittable());
+  // Hurt whatever this enemy can hurt within (rx, ry) px: players, or for a hacked robot, other enemies. first: just
+  // the first. Returns how many it hurt.
+  const hurtNear = (e, st, rx, ry, dmg, first = false) => {
+    let n = 0;
+    if (e.ally > 0) {
+      if (e.allyHitCd > 0) return 0;
+      for (const t of foes(e, st)) {
+        if (Math.abs(t.x - e.x) >= rx || Math.abs(t.y - e.y) >= ry) continue;
+        t.hit(st, dmg * G.SKILLS.override.allyDmg, e.x, e.y); n++; e.allyHitCd = ALLY_HIT;
+        if (first) break;
+      }
+      return n;
+    }
+    for (const p of st.players) {
+      if (p.dead || Math.abs(p.x - e.x) >= rx || Math.abs(p.y - e.y) >= ry) continue;
+      const hp = p.hp; p.hurt(st, dmg, e.x, e.y, e); if (p.hp < hp) n++;
+      if (first) break;
+    }
+    return n;
+  };
+  G.hurtNear = hurtNear;
   B.target = {
     init(e) { e.aggro = false; e.lost = 0; e.provoked = false; e.ignoreT = 0; },
     update(e, st, o) {
       let tgt = null, td = Infinity;
+      if (e.ally > 0) { // hacked: after the nearest enemy
+        for (const t of foes(e, st)) { const d = Math.hypot(t.x - e.x, t.y - e.y); if (d < td) { td = d; tgt = t; } }
+        e.aggro = !!tgt; e.target = tgt; e.targetDist = td;
+        if (tgt && td < 14) hurtNear(e, st, 12, 10, (e.tune.lunge && e.tune.lunge.dmg) || (e.tune.bump && e.tune.bump.dmg) || 1, true); // up close: it lays into them
+        return false;
+      }
       if (e.ignoreT > 0) e.ignoreT--;
       if (e.huntT > 0) e.huntT--; // just rose near you: hunting (see spawnTick), give-up range ignored till it runs out
       for (const p of st.players) {
@@ -6105,9 +6406,7 @@ body.mouseaim #screen { cursor: none; }
         return true;
       }
       if (e.lungeT > 0) {
-        if (o.dmg) for (const p of st.players) { // a pounce that bites (the robot dog): the first player it hits, then it backs off
-          if (p.dead || Math.abs(p.x - e.x) >= 9 || Math.abs(p.y - e.y) >= 8) continue;
-          p.hurt(st, o.dmg, e.x, e.y, e);
+        if (o.dmg && hurtNear(e, st, 9, 8, o.dmg, true)) { // a pounce that bites (the robot dog): the first it hits, then it backs off
           e.lungeT = 0; e.retreatT = e.tune.retreat ? e.tune.retreat.time : 0;
           return false;
         }
@@ -6221,7 +6520,7 @@ body.mouseaim #screen { cursor: none; }
   // Touching a player hurts them (for enemies that hurt just by contact: blobs, swarms...)
   B.contactDamage = {
     update(e, st, o) {
-      for (const p of st.players) if (!p.dead && Math.abs(p.x - e.x) < 8 && Math.abs(p.y - e.y) < 7) p.hurt(st, o.dmg || 1, e.x, e.y, e);
+      hurtNear(e, st, 8, 7, o.dmg || 1);
       return false;
     },
   };
@@ -6271,11 +6570,11 @@ body.mouseaim #screen { cursor: none; }
     update(e, st, o) {
       if (e.dropCd > 0 && --e.dropCd === 0) { e.hasPkg = true; e.pkgKind = boxKind(o); } // restocked
       const t = e.target;
-      if (!e.hasPkg || !t || !t.def || t.dead || Math.hypot(t.x - e.x, t.y - e.y) > (o.reach || 70)) return false;
+      if (!e.hasPkg || !t || (!t.def && !(e.ally > 0)) || t.dead || Math.hypot(t.x - e.x, t.y - e.y) > (o.reach || 70)) return false;
       const T = o.windup || 48, ahead = (o.lead || 0) * T * (t.speed || 1);
       const R = st.room, x = G.clamp(t.x + (t.pushX || 0) * ahead, 8, R.pw - 8), y = G.clamp(t.y + (t.pushY || 0) * ahead, 8, R.ph - 4);
-      const box = G.PARCELS[e.pkgKind] ? e.pkgKind : 'red';
-      st.shots.push({ kind: 'parcel', box, x, y, x0: e.x, y0: e.y, z0: (e.z || 0) + 6, t: 0, T, r: o.radius || 16, dmg: o.dmg || 2,
+      const box = e.ally > 0 ? 'red' : G.PARCELS[e.pkgKind] ? e.pkgKind : 'red'; // (a hacked drone only drops bursts)
+      st.shots.push({ kind: 'parcel', box, ally: e.ally > 0, x, y, x0: e.x, y0: e.y, z0: (e.z || 0) + 6, t: 0, T, r: o.radius || 16, dmg: o.dmg || 2,
         fuse: o.fuse || 150, fr: o.fuseRadius || 26, fd: o.fuseDmg || 3, open: o.open || 40, pool: o.pool || 'level' });
       e.hasPkg = false; e.dropCd = o.cooldown || 150;
       G.sfx.play('whistle');
@@ -6284,7 +6583,7 @@ body.mouseaim #screen { cursor: none; }
   };
   // The falling box: a shot (so online guests see it), drawn as a target on the ground and the box dropping in
   const blast = (s, st, r, dmg) => {
-    for (const p of st.players) if (!p.dead && Math.hypot(p.x - s.x, (p.y - s.y) * 1.4) < r + 4) p.hurt(st, dmg, s.x, s.y);
+    if (!s.ally) for (const p of st.players) if (!p.dead && Math.hypot(p.x - s.x, (p.y - s.y) * 1.4) < r + 4) p.hurt(st, dmg, s.x, s.y);
     st.explode(s.x, s.y, r, dmg); // a teen standing in it gets it too
   };
   G.SHOTS.parcel = {
@@ -6343,7 +6642,7 @@ body.mouseaim #screen { cursor: none; }
     update(e, st, o) {
       e.fetching = false;
       let best = null, bd = o.range || 120;
-      for (const s of st.shots) if (s.kind === 'ball') { const d = Math.hypot(s.x - e.x, s.y - e.y); if (d < bd) { bd = d; best = s; } }
+      for (const s of st.shots) if (s.kind === 'ball' && !s.rest) { const d = Math.hypot(s.x - e.x, s.y - e.y); if (d < bd) { bd = d; best = s; } }
       if (!best) { e.fetchSeen = false; return false; }
       if (!e.fetchSeen) { e.fetchSeen = true; st.floater(e.x, e.y - 22, 'BALL!', '#ffd23a'); }
       e.target = best; e.targetDist = bd; e.fetching = true;
@@ -6407,8 +6706,16 @@ body.mouseaim #screen { cursor: none; }
   // goes a bit faster. It never chases round corners: it's a floor cleaner.
   const DIRS8 = [[1, 0], [0.71, 0.71], [0, 1], [-0.71, 0.71], [-1, 0], [-0.71, -0.71], [0, -1], [0.71, -0.71]];
   function newHeading(e, st, o) {
-    const p = st.nearestPlayer(e.x, e.y);
-    if (p && !p.dead && !st.inSafeZone(p.x, p.y) && Math.hypot(p.x - e.x, p.y - e.y) < (o.sight || 140) && G.chance(o.seek || 0.35)) {
+    const mess = G.nearestSpill(st, e.x, e.y, o.sight || 140); // a coffee spill: it can't help itself, it goes to clean it
+    if (mess) {
+      const d = Math.hypot(mess.x - e.x, mess.y - e.y) || 1;
+      e.hx = (mess.x - e.x) / d; e.hy = (mess.y - e.y) / d; e.angry = false; e.roamT = Math.min(120, Math.round(d / Math.max(0.2, e.spd)) + 4);
+      if (!e.messT) { st.floater(e.x, e.y - 22, 'A MESS!', '#c89060'); e.messT = 1; }
+      return;
+    }
+    e.messT = 0;
+    const p = e.ally > 0 ? foes(e, st).sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y))[0] : st.nearestPlayer(e.x, e.y);
+    if (p && !p.dead && (e.ally > 0 || !st.inSafeZone(p.x, p.y)) && Math.hypot(p.x - e.x, p.y - e.y) < (o.sight || 140) && G.chance(e.ally > 0 ? 1 : o.seek || 0.35)) {
       const d = Math.hypot(p.x - e.x, p.y - e.y) || 1;
       e.hx = (p.x - e.x) / d; e.hy = (p.y - e.y) / d; e.angry = true; e.roamT = G.randi(90, 150);
       return;
@@ -6432,12 +6739,7 @@ body.mouseaim #screen { cursor: none; }
   // Bump (robot mop): running into a player hurts them (o.dmg half-hearts); then it reverses away
   B.bump = {
     update(e, st, o) {
-      for (const p of st.players) {
-        if (p.dead || Math.abs(p.x - e.x) >= 10 || Math.abs(p.y - e.y) >= 8) continue;
-        const hp = p.hp;
-        p.hurt(st, o.dmg || 1, e.x, e.y, e);
-        if (p.hp < hp) { e.hx = -e.hx; e.hy = -e.hy; e.roamT = 50; e.angry = false; }
-      }
+      if (hurtNear(e, st, 10, 8, o.dmg || 1, true)) { e.hx = -e.hx; e.hy = -e.hy; e.roamT = 50; e.angry = false; }
       return false;
     },
   };
@@ -6447,10 +6749,26 @@ body.mouseaim #screen { cursor: none; }
   B.trail = {
     update(e, st, o) {
       if (!st.wet) st.wet = new Map();
-      const R = st.room;
-      st.wet.set(Math.floor((e.y - 3) / 16) * R.w + Math.floor(e.x / 16), o.life || 480);
+      const R = st.room, i = Math.floor((e.y - 3) / 16) * R.w + Math.floor(e.x / 16);
+      st.wet.set(i, o.life || 480);
+      if (st.spill && st.spill.delete(i)) { st.burst(e.x, e.y - 2, 5, ['#c89060', '#ffffff', '#bfe8ff'], 0.8, 4, 12); if (G.chance(0.3)) st.floater(e.x, e.y - 22, 'SPOTLESS!', '#bfe8ff'); } // it cleans up a coffee spill
       return false;
     },
+  };
+  // Coffee spills (Dot's hot coffee where it lands: st.spill, cell -> ticks left): sticky underfoot for the living
+  // (G.WEAPONS.splash.spillSlow), and a mop bot can't leave one alone: it heads for the nearest it sees and cleans it.
+  G.addSpill = (st, x, y) => {
+    const R = st.room, tx = Math.floor(x / 16), ty = Math.floor((y - 3) / 16);
+    if (tx < 0 || ty < 0 || tx >= R.w || ty >= R.h || R.theme.solid.has(R.at(tx, ty))) return;
+    if (!st.spill) st.spill = new Map();
+    st.spill.set(ty * R.w + tx, G.WEAPONS.splash.spillLife);
+  };
+  G.spillAt = (st, x, y) => !!st.spill && st.spill.size > 0 && st.spill.has(Math.floor((y - 3) / 16) * st.room.w + Math.floor(x / 16));
+  G.nearestSpill = (st, x, y, within) => {
+    if (!st.spill || !st.spill.size) return null;
+    let best = null, bd = within;
+    for (const i of st.spill.keys()) { const sx = (i % st.room.w) * 16 + 8, sy = Math.floor(i / st.room.w) * 16 + 11, d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = { x: sx, y: sy }; } }
+    return best;
   };
   G.wetAt = (st, x, y) => !!st.wet && st.wet.size > 0 && st.wet.has(Math.floor((y - 3) / 16) * st.room.w + Math.floor(x / 16));
 
@@ -6531,6 +6849,7 @@ body.mouseaim #screen { cursor: none; }
     tranq: { speed: 2.3, mul: 1, col: ['#c8a8ff', '#e8e8f0'] },
     emp: { speed: 1.7, mul: 1, col: ['#7ff0ff', '#ffffff'], r: 5 },
     foil: { speed: 2.3, mul: 1, n: 3, spread: 0.32, col: ['#e0e0f0', '#9a9ab0'] },
+    hockey: { speed: 2.8, mul: 1, col: ['#1a1a20', '#4a4a58'], r: 4 }, // a slapped puck
     splash: { speed: 1.5, mul: 1, lob: true, r: 14, col: ['#8a5a30', '#f0d8b0'] },
   };
   function fireClone(e, st, t, o) {
@@ -6715,11 +7034,16 @@ body.mouseaim #screen { cursor: none; }
         return;
       }
       if (this.phoneHunt && !this.tj) { this.huntPhone(st); return; } // its phone got blown away: nothing else matters
+      if (this.ally > 0) { // hacked (Root's Override): fighting for you until it runs out, then it shuts down and beams out
+        if (this.allyHitCd > 0) this.allyHitCd--;
+        if (--this.ally === 0) { st.floater(this.x, this.y - 26, 'OFFLINE', '#a8a0c8'); this.sink = SINK; G.sfx.play('beep'); return; }
+      }
       this.steerX = this.steerY = 0; this.speedMul = 1;
       let held = false;
       for (const [name, o] of this.brain) if (B[name].update(this, st, o)) { held = true; break; }
+      if (!this.bot && !this.flying && G.spillAt(st, this.x, this.y)) this.speedMul *= G.WEAPONS.splash.spillSlow; // sticky coffee underfoot
       if (!held) this.steer(st);
-      st.keepOutOfSafeZone(this);
+      if (!(this.ally > 0)) st.keepOutOfSafeZone(this);
       if (this.moving) this.anim++;
       this.dir = G.facing(this.fx, this.fy);
     }
@@ -6821,7 +7145,7 @@ body.mouseaim #screen { cursor: none; }
     }
     draw(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
-      if (this.bot) { G.drawBot(this, ctx, sx, sy); return; } // robots: art-bots.js
+      if (this.bot) { G.drawBot(this, ctx, sx, sy); if (this.ally > 0) G.drawHacked(this, ctx, sx, sy); return; } // robots: art-bots.js
       if (this.glitch) { G.drawClone(this, ctx, sx, sy); for (const [name] of this.brain) if (B[name].draw) B[name].draw(this, ctx, sx, sy); return; } // deepfakes: art-bots.js
       const f = this.moving ? [1, 0, 2, 0][(this.anim >> this.animShift) & 3] : 0;
       const spr = this.sprites[this.dir][f];
@@ -7012,7 +7336,7 @@ body.mouseaim #screen { cursor: none; }
   G.gripOn = (st, p) => {
     let drag = 0;
     for (const e of st.enemies) {
-      if (!e.grip || e.dead || e.rise > 0 || e.sink || e.stunT > 0) continue; // asleep: it lets go
+      if (!e.grip || e.dead || e.rise > 0 || e.sink || e.stunT > 0 || e.ally > 0) continue; // asleep (or hacked): it lets go
       const reach = e.tune.swipe ? e.tune.swipe.reach : GRIP_REACH;
       if (Math.hypot(e.x - p.x, (e.y - p.y) * 1.6) < reach) drag += e.grip.drag;
     }
@@ -7084,6 +7408,7 @@ body.mouseaim #screen { cursor: none; }
     G.compact(st.enemies, (e) => !e.dead);
     resolveBodies(st);
     if (st.wet) for (const [i, t] of st.wet) if (t <= 1) st.wet.delete(i); else st.wet.set(i, t - 1); // wet floor dries
+    if (st.spill) for (const [i, t] of st.spill) if (t <= 1) st.spill.delete(i); else st.spill.set(i, t - 1); // and so do coffee spills
   };
 
   // Put one enemy of `type` near player p (debug panel and test room): a free spot 48-80 px away it can walk to,
@@ -7122,7 +7447,7 @@ body.mouseaim #screen { cursor: none; }
     const W = G.WEAPONS, ids = Object.keys(W);
     return [...ids.filter((id) => !W[id].signature), ...ids.filter((id) => W[id].signature)];
   };
-  const ITEMS = ['pie', 'coffee', 'bomb', 'pogo']; // (not the PDA: practice has no map to show)
+  const ITEMS = ['pie', 'wholepie', 'coffee', 'bomb', 'pogo']; // (not the PDA: practice has no map to show)
   const itemMax = (id) => G.ITEMS[id].max || G.ITEM_STACK;
   G.practiceKit = (p, first) => {
     for (const id of ORDER()) {
@@ -7627,7 +7952,7 @@ body.mouseaim #screen { cursor: none; }
     },
     ted: {
       id: 'ted', name: 'TINFOIL TED', short: 'TED', role: 'CONSPIRACY GUY', ready: true,
-      weapon: 'foil', weaponName: 'FOIL STAR SPREAD', skill: 'I KNEW IT!', skillId: 'iKnewIt', gate: 'secret', gateDesc: 'FINDS SECRET WALLS',
+      weapon: 'hockey', weaponName: 'HOCKEY STICK (HOLD: SPIN)', skill: 'I KNEW IT!', skillId: 'iKnewIt', gate: 'secret', gateDesc: 'FINDS SECRET WALLS',
       stats: { SPD: 3, POW: 3, RNG: 3, HP: 4 },
     },
     dot: {
@@ -7699,13 +8024,21 @@ body.mouseaim #screen { cursor: none; }
         return true;
       },
     },
-    // Root: a burst of interference. Every phone near Root fries (stunned), and the nearest locked house door within
-    // reach unlocks and swings open: no key needed (smart locks). Keycard gates still want their card.
+    // Root: a burst of interference. The nearest robot within hackR px is HACKED: it fights for you for hackT ticks
+    // (goes after other enemies, its hits land on them x allyDmg), then shuts down. Every other phone near Root fries
+    // (stunned), and the nearest locked house door within reach unlocks and swings open: no key needed (smart locks).
+    // Keycard gates still want their card.
     override: {
-      name: 'OVERRIDE', cd: 420, r: 64, zap: 120, door: 48, // tunable: zap reach px, stun ticks, door reach px
+      name: 'OVERRIDE', cd: 420, r: 64, zap: 120, door: 48, hackR: 80, hackT: 600, allyDmg: 1.5, // tunable: zap reach px, stun ticks, door reach px; hack reach px, ticks a hacked robot fights for you, its damage x
       use(p, st) {
-        let n = 0;
-        for (const t of near(st, p.x, p.y, this.r)) if (t.stun) { t.stun(st, this.zap, 'zap'); n++; }
+        let n = 0, hacked = null, hd = this.hackR;
+        for (const e of st.enemies) if (e.bot && e.hittable() && !(e.ally > 0)) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < hd) { hd = d; hacked = e; } }
+        if (hacked) {
+          hacked.ally = this.hackT; hacked.stunT = 0; hacked.allyHitCd = 0; hacked.hasPkg = hacked.hasPkg || false; n++;
+          st.floater(hacked.x, hacked.y - 30, 'HACKED!', '#38f0a0');
+          st.burst(hacked.x, hacked.y - 10, 14, ['#38f0a0', '#c8fff0', '#ffffff'], 1.4, 10, 20);
+        }
+        for (const t of near(st, p.x, p.y, this.r)) if (t.stun && t !== hacked) { t.stun(st, this.zap, 'zap'); n++; }
         let door = null, dd = this.door;
         for (const d of st.room.hdoors || []) {
           if (d.open || !d.locked) continue;
@@ -7713,7 +8046,7 @@ body.mouseaim #screen { cursor: none; }
           if (dist < dd) { dd = dist; door = d; }
         }
         if (door) { door.locked = false; st.openHouseDoor(door, p); p.say('ACCESS GRANTED', '#38f0a0'); }
-        else p.say(n ? 'OVERRIDE!' : 'NOTHING TO HACK', '#38f0a0');
+        else p.say(hacked ? 'YOU WORK FOR ME NOW' : n ? 'OVERRIDE!' : 'NOTHING TO HACK', '#38f0a0');
         ring(st, p.x, p.y - 8, this.r, ['#38f0a0', '#7ff0ff', '#ffffff']);
         G.sfx.play('zap');
         return true;
@@ -7757,6 +8090,9 @@ body.mouseaim #screen { cursor: none; }
     { group: 'SKILLS', label: 'UNPLUG RECHARGE', o: S.unplug, k: 'cd', min: 30, max: 1800, step: 30, note: sec },
     { group: 'SKILLS', label: 'UNPLUG REACH', o: S.unplug, k: 'reach', min: 12, max: 96, step: 4, note: () => 'PX' },
     { group: 'SKILLS', label: 'OVERRIDE RECHARGE', o: S.override, k: 'cd', min: 30, max: 1800, step: 30, note: sec },
+    { group: 'SKILLS', label: 'HACKED ROBOT FIGHTS', o: S.override, k: 'hackT', min: 0, max: 1800, step: 30, note: sec },
+    { group: 'SKILLS', label: 'HACK REACH', o: S.override, k: 'hackR', min: 0, max: 200, step: 8, note: () => 'PX' },
+    { group: 'SKILLS', label: 'HACKED HITS X', o: S.override, k: 'allyDmg', min: 0, max: 5, step: 0.25 },
     { group: 'SKILLS', label: 'I KNEW IT RECHARGE', o: S.iKnewIt, k: 'cd', min: 30, max: 1800, step: 30, note: sec },
     { group: 'SKILLS', label: 'I KNEW IT SHOWS', o: S.iKnewIt, k: 'show', min: 60, max: 1800, step: 60, note: sec },
     { group: 'SKILLS', label: '86 IT RECHARGE', o: S.eightySix, k: 'cd', min: 30, max: 1200, step: 30, note: sec },
@@ -9096,7 +9432,7 @@ body.mouseaim #screen { cursor: none; }
       G.toast(this.practice ? 'WEAPON PRACTICE' : this.test ? 'TEST ROOM' : 'LEVEL ' + this.def.num + ' - ' + this.def.name, 180);
     }
     // Everything shots can hit
-    targets() { return [...this.dummies.filter((d) => d.alive()), ...this.enemies.filter((e) => e.hittable())]; }
+    targets() { return [...this.dummies.filter((d) => d.alive()), ...this.enemies.filter((e) => e.hittable() && !(e.ally > 0))]; } // (not a robot Root hacked)
     // Safe zone around the player start, only while nobody has left it yet: true if (x, y) is inside it (grown by `pad`)
     inSafeZone(x, y, pad = 0) { const z = this.safeZone; return !!z && Math.hypot(x - z.x, y - z.y) < z.r + pad; }
     // Once every living player is outside the safe zone it switches off for the rest of the attempt
@@ -9394,7 +9730,7 @@ body.mouseaim #screen { cursor: none; }
       ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, G.H);
       ctx.drawImage(this.room.canvas, -cx, -cy);
 
-      G.drawWet(ctx, this, cx, cy); // a mop bot's trail
+      G.drawWet(ctx, this, cx, cy); // a mop bot's trail, coffee spills
       for (const r of this.rings) { // blast rings on the ground (flattened circles)
         const rad = r.max * (1 - r.life / 14) + 2, n = Math.max(16, Math.round(rad * 2));
         ctx.fillStyle = r.col;
@@ -10873,7 +11209,8 @@ body.mouseaim #screen { cursor: none; }
     'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
-    'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged']); // (the clones')
+    'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', // (the clones')
+    'allyHitCd', 'messT', 'idleT', 'spinT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle and spin counters)
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(o) {
@@ -10900,7 +11237,8 @@ body.mouseaim #screen { cursor: none; }
     (R.hdoors || []).forEach((d, i) => { const v = (d.open ? 1 : 0) | (d.locked ? 2 : 0); if (v) x['d' + i] = v; });
     return {
       g: { t: st.t, score: st.score, saved: st.saved, lost: st.lost, tally: st.tallyFlash, pda: st.pda, exit: st.exit ? st.exit.open : false, over: st.overT,
-        wet: st.wet && st.wet.size ? [...st.wet].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0 }, // a mop bot's wet floor: cell, half-seconds left
+        wet: st.wet && st.wet.size ? [...st.wet].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0, // a mop bot's wet floor: cell, half-seconds left
+        spill: st.spill && st.spill.size ? [...st.spill].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0 }, // coffee spills, the same // a mop bot's wet floor: cell, half-seconds left
       p: Object.fromEntries(st.players.map((p) => { const q = pack(p); q.crew = p.def.id; return [p.num, q]; })),
       e: packList(st, st.enemies.filter((e) => !e.dead)),
       n: packList(st, st.neighbors.filter((n) => !n.gone)),
@@ -11016,6 +11354,7 @@ body.mouseaim #screen { cursor: none; }
     if (g.tally > st.tallyFlash) st.tallyFlash = g.tally;
     if (st.exit) st.exit.open = g.exit;
     st.wet = new Map(); for (let i = 0; g.wet && i < g.wet.length; i += 2) st.wet.set(g.wet[i], g.wet[i + 1] * 30);
+    st.spill = new Map(); for (let i = 0; g.spill && i < g.spill.length; i += 2) st.spill.set(g.spill[i], g.spill[i + 1] * 30);
     // map cells that changed since the guest last looked
     const R = st.room, had = st.cellsSeen || (st.cellsSeen = {});
     for (const key in snap.x) {

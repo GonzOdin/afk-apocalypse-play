@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 02:00';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 03:03';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1676,6 +1676,7 @@ body.mouseaim #screen { cursor: none; }
       mopbot: look(16, 14, mop(false)), mopbotAngry: look(16, 14, mop(true)),
     };
     for (const k of ['drone', 'robodog', 'mopbot']) A.people[k] = A.bots[k]; // so a look name finds them like a person's
+    A.people.clone = A.crew.pixel; // a deepfake's look until it picks whose copy it is (G.drawClone draws that one)
   };
 
   // Drawing a robot (Enemy.draw hands robots over to this). sx, sy: its feet on screen.
@@ -1706,6 +1707,29 @@ body.mouseaim #screen { cursor: none; }
     ctx.fillRect(sx - (w >> 1) + 1, sy - h + 1 + shown, w - 2, 1);
     ctx.fillStyle = '#3ad0ff';
     for (let i = 0; i < 3; i++) ctx.fillRect(sx - 8 + ((G.tick * 5 + i * 7) % 16), sy - 2 - ((G.tick * 3 + i * 11) % (h + 6)), 1, 1);
+  };
+
+  // A deepfake clone: the copied crew member's own sprite, glitching. Magenta and cyan ghosts split either side, a
+  // slice of it slips sideways now and then, and a dark scanline runs down it, so it never passes for the real one.
+  // Rising: it glitches in, flickering. sx, sy: its feet on screen.
+  G.drawClone = (e, ctx, sx, sy) => {
+    const set = G.art.crew[e.crew] || G.art.crew.pixel, f = e.moving ? [1, 0, 2, 0][(e.anim >> e.animShift) & 3] : 0;
+    const spr = (set[e.dir] || set.down)[f], x = sx - 8, y = sy - 22, t = G.tick + e.anim * 7;
+    const k = e.rise > 0 ? 1 - e.rise / e.riseMax : e.sink > 0 ? e.sink / 36 : 1; // how much of it is here
+    if (k < 1 && (t >> 1) % 3 === 0) return; // flickering in or out
+    G.drawShadow(ctx, sx, sy, 5);
+    const split = e.aimT > 0 ? 2 : 1;
+    ctx.globalAlpha = 0.55 * k;
+    ctx.drawImage(G.tinted(spr, '#ff3ab0'), x - split, y);
+    ctx.drawImage(G.tinted(spr, '#3ad0ff'), x + split, y);
+    ctx.globalAlpha = 0.9 * k;
+    ctx.drawImage(e.flash ? G.tinted(spr, '#ffffff') : spr, x, y);
+    ctx.globalAlpha = 1;
+    if ((t % 47) < 5) { // a slice slips sideways
+      const sy0 = 4 + ((t * 13) % 14), dx = (t & 1) ? 2 : -2;
+      ctx.drawImage(spr, 0, sy0, 16, 3, x + dx, y + sy0, 16, 3);
+    }
+    ctx.fillStyle = 'rgba(20,12,40,.35)'; ctx.fillRect(x + 1, y + ((t >> 2) % 22), 14, 1); // a scanline running down it
   };
 
   // Wet floor (a robot mop's trail): a shiny puddle on every wet cell, fading as it dries. st.wet: cell -> ticks left.
@@ -4342,6 +4366,11 @@ body.mouseaim #screen { cursor: none; }
  *   bump    dmg         half-hearts the robot mop does running into you
  *   trail   life        ticks the floor stays wet behind a robot mop;  slip: 0..1 how much you slide on it (0.95 = ice)
  *   vacuum  radius      px: the robot mop sucks up loot this close (it all comes back out when it's destroyed)
+ * Deepfake clones (PLAN.md):
+ *   keep    min / max   px: the clone backs off closer than min, strafes between min and max, closes in beyond max
+ *   shoot   range       px: aims at you this close (with a clear line);  windup: ticks of aiming (the tell);
+ *           cooldown    ticks between shots;  dmg: half-hearts a shot (the copied skillet does double)
+ *   blink   chance      chance a hit makes it glitch aside;  dist: px it jumps;  cooldown: ticks between blinks
  *
  * ENEMY_SPAWN, per level id (levels.js); anything left out comes from G.ENEMY_DEFAULTS in enemies.js:
  *   cap     most enemies alive at once          every   [min, max] ticks between spawns (60 ticks = 1 s)
@@ -4356,6 +4385,7 @@ body.mouseaim #screen { cursor: none; }
     rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2, windup: 14, cooldown: 120 } },
     flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 150, radius: 16, dmg: 2, lead: 0.4 } },
     hound: { hp: 3, speed: 0.9, sight: { notice: 100, giveUp: 150, cone: 70, feel: 30, neighbors: 0 }, grip: { drag: 0.15 }, mosey: { pace: 0.5, chance: 0.012 }, lunge: { range: 64, speed: 2.6, windup: 18, cooldown: 110, dmg: 1 }, circle: { dist: 44 }, retreat: { time: 36 }, bark: { radius: 130, cooldown: 360, hunt: 240 }, fetch: { range: 120 } },
+    mimic: { hp: 4, speed: 0.7, sight: { notice: 130, giveUp: 200, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, keep: { min: 50, max: 100 }, shoot: { range: 120, windup: 24, cooldown: 70, dmg: 1 }, blink: { chance: 0.35, dist: 40, cooldown: 90 } },
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
   };
   window.G.ENEMY_SPAWN = {
@@ -5727,7 +5757,7 @@ body.mouseaim #screen { cursor: none; }
     update(e, st) {
       if (e.rise <= 0) return false;
       e.rise--;
-      if (!e.bot && e.rise % 4 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y, 1, ['#3a2a20', '#5a4a30', '#7ff0ff'], 0.6, 1, 14, true); // (robots beam in: G.drawBot)
+      if (!e.bot && !e.glitch && e.rise % 4 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y, 1, ['#3a2a20', '#5a4a30', '#7ff0ff'], 0.6, 1, 14, true); // (robots beam in: G.drawBot)
       return true;
     },
   };
@@ -5836,7 +5866,7 @@ body.mouseaim #screen { cursor: none; }
     update(e, st, o) {
       const t = e.target;
       if (!t) { e.noPathT = 0; return false; }
-      if (e.circling) return false; // a robot dog circling you (B.circle) does its own steering
+      if (e.circling || e.ranged) return false; // a robot dog circling you (B.circle), or a clone keeping its distance (B.keepAway), steers itself
       let dx = t.x - e.x, dy = t.y - e.y;
       const F = flowFor(st, e);
       if (t.def && F) {
@@ -6230,6 +6260,130 @@ body.mouseaim #screen { cursor: none; }
     },
   };
 
+  // ----- Deepfake clones (PLAN.md): glitchy copies of the crew, shooting the copied crew member's own weapon -----
+
+  // Can a shot get from (x0, y0) to (x1, y1)? (sampled every 6 px at hand height)
+  const lineClear = (st, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6); for (let i = 1; i < n; i++) if (st.room.blocksShot(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n - 8)) return false; return true; };
+  // Mimic: on its first tick a clone becomes a copy of one of the crew in the game (whoever's playing), so each crew
+  // pick meets its own deepfake; e.crew picks its art and its weapon.
+  B.mimic = {
+    init(e) { e.crew = 'pixel'; e.picked = false; },
+    update(e, st) {
+      if (e.picked) return false;
+      e.picked = true;
+      const crews = st.players.map((p) => p.def && p.def.id).filter((id) => G.CREW[id]);
+      e.crew = crews.length ? G.pick(crews) : G.pick(Object.keys(G.CREW));
+      return false;
+    },
+  };
+  // Keep away: closer than o.min px it backs off, between o.min and o.max it strafes round you (chase steps aside),
+  // farther than that it closes in like anyone else
+  B.keepAway = {
+    init(e) { e.orbit = G.chance(0.5) ? 1 : -1; e.ranged = false; },
+    update(e, st, o) {
+      e.ranged = false;
+      const t = e.target;
+      if (!t || !t.def) return false;
+      const d = e.targetDist || 1, ux = (t.x - e.x) / d, uy = (t.y - e.y) / d;
+      if (d > (o.max || 100) || !lineClear(st, e.x, e.y, t.x, t.y)) return false; // no clear shot: go round (chase) instead
+      e.ranged = true;
+      const radial = d < (o.min || 50) ? -1.2 : 0;
+      e.steerX += -uy * e.orbit * 0.9 + ux * radial; e.steerY += ux * e.orbit * 0.9 + uy * radial;
+      if (G.chance(0.008)) e.orbit = -e.orbit;
+      return false;
+    },
+  };
+  // Shoot: within o.range px of a player it can see (nothing that stops shots in between), it stops and aims for
+  // o.windup ticks (it flickers and a red sight dot shows: your cue to move), then fires its copied weapon at where
+  // you were; o.cooldown ticks to the next. o.dmg half-hearts a hit (the skillet hits harder). See G.CLONE_SHOTS.
+  B.shoot = {
+    init(e) { e.shotCd = G.randi(40, 90); e.aimT = 0; },
+    update(e, st, o) {
+      if (e.shotCd > 0) e.shotCd--;
+      const t = e.target;
+      if (e.aimT > 0) {
+        e.moving = false;
+        if (t) e.turnToward(t.x - e.x, t.y - e.y);
+        if (--e.aimT === 0 && t && !t.dead) fireClone(e, st, t, o);
+        return true;
+      }
+      if (!t || !t.def || t.dead || e.shotCd > 0 || e.targetDist > (o.range || 120) || !lineClear(st, e.x, e.y, t.x, t.y)) return false;
+      e.aimT = o.windup || 24; e.shotCd = (o.cooldown || 70) + e.aimT;
+      return true;
+    },
+    draw(e, ctx, sx, sy) { if (e.aimT > 0 && (e.aimT >> 1) & 1) { ctx.fillStyle = '#ff3a5a'; ctx.fillRect(Math.round(sx + e.fx * 10) - 1, Math.round(sy - 12 + e.fy * 8) - 1, 3, 3); } },
+  };
+  // Each crew weapon as a clone fires it: speed (px/tick), mul (x the shot damage), n shots spread `spread` radians,
+  // lob: thrown in an arc that splashes r px where it lands; col: its colors
+  G.CLONE_SHOTS = {
+    darts: { speed: 2.6, mul: 1, col: ['#3ad0ff', '#ff8a2a'] },
+    skillet: { speed: 1.9, mul: 2, col: ['#2a2a34', '#8a8a9a'], r: 5 },
+    tranq: { speed: 2.3, mul: 1, col: ['#c8a8ff', '#e8e8f0'] },
+    emp: { speed: 1.7, mul: 1, col: ['#7ff0ff', '#ffffff'], r: 5 },
+    foil: { speed: 2.3, mul: 1, n: 3, spread: 0.32, col: ['#e0e0f0', '#9a9ab0'] },
+    splash: { speed: 1.5, mul: 1, lob: true, r: 14, col: ['#8a5a30', '#f0d8b0'] },
+  };
+  function fireClone(e, st, t, o) {
+    const W = G.CLONE_SHOTS[G.CREW[e.crew] ? G.CREW[e.crew].weapon : 'darts'] || G.CLONE_SHOTS.darts, w = G.CREW[e.crew] ? G.CREW[e.crew].weapon : 'darts';
+    const a0 = Math.atan2(t.y - e.y, t.x - e.x), n = W.n || 1, dmg = (o.dmg || 1) * W.mul;
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (n > 1 ? (i - (n - 1) / 2) * W.spread : 0);
+      if (W.lob) st.shots.push({ kind: 'cloneShot', w, lob: true, x0: e.x, y0: e.y, x: e.x, y: e.y, tx: t.x, ty: t.y, t: 0, T: Math.max(20, Math.round(Math.hypot(t.x - e.x, t.y - e.y) / W.speed)), r: W.r, dmg });
+      else st.shots.push({ kind: 'cloneShot', w, x: e.x + Math.cos(a) * 6, y: e.y + Math.sin(a) * 5, vx: Math.cos(a) * W.speed, vy: Math.sin(a) * W.speed, life: 120, r: W.r || 4, dmg, t: 0 });
+    }
+    G.sfx.play(w === 'emp' ? 'zap' : w === 'skillet' ? 'throw' : 'shoot');
+  }
+  // A clone's shot: hurts players (never enemies); stopped by what stops shots; a lob splashes where it lands
+  G.SHOTS.cloneShot = {
+    update(s, st) {
+      s.t++;
+      const hurt = (r) => { for (const p of st.players) if (!p.dead && Math.abs(p.x - s.x) < r + 3 && Math.abs(p.y - 2 - s.y) < r + 2) p.hurt(st, s.dmg, s.x, s.y); };
+      if (s.lob) {
+        const k = s.t / s.T;
+        s.x = s.x0 + (s.tx - s.x0) * k; s.y = s.y0 + (s.ty - s.y0) * k;
+        if (k < 1) return true;
+        hurt(s.r); st.burst(s.x, s.y, 12, G.CLONE_SHOTS.splash.col, 1.4, 4, 18, true); G.sfx.play('fizz');
+        return false;
+      }
+      s.x += s.vx; s.y += s.vy;
+      if (--s.life <= 0) return false;
+      if (st.room.blocksShot(s.x, s.y)) { st.burst(s.x, s.y, 3, G.CLONE_SHOTS[s.w].col, 0.8, 9, 10); return false; }
+      for (const p of st.players) if (!p.dead && Math.abs(p.x - s.x) < s.r + 2 && Math.abs(p.y - 2 - s.y) < s.r + 2) { p.hurt(st, s.dmg, s.x, s.y); st.burst(s.x, s.y, 4, G.CLONE_SHOTS[s.w].col, 1, 9, 10); return false; }
+      return true;
+    },
+    draw(ctx, s, v) {
+      const W = G.CLONE_SHOTS[s.w] || G.CLONE_SHOTS.darts, x = Math.round(s.x - v.x), y = Math.round(s.y - v.y);
+      const z = s.lob ? Math.round(Math.sin((s.t / s.T) * Math.PI) * 26) : 9; // lobbed: up and down; else hand height
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - 2, y, 4, 1);
+      const glitch = (s.t >> 1) & 1; // deepfake shots flicker magenta / cyan at the edges
+      ctx.fillStyle = glitch ? '#ff3ab0' : '#3ad0ff'; ctx.fillRect(x - 2 - glitch, y - z - 2, 5, 5);
+      ctx.fillStyle = W.col[0]; ctx.fillRect(x - 2, y - z - 2, 4, 4);
+      ctx.fillStyle = W.col[1]; ctx.fillRect(x - 1, y - z - 1, 2, 2);
+    },
+  };
+  // Blink: hit, it may glitch a few steps sideways (o.chance, o.dist px), leaving a flicker of pixels; o.cooldown ticks between
+  B.blink = {
+    init(e) { e.blinkCd = 0; e.lastHp = null; },
+    update(e, st, o) {
+      if (e.blinkCd > 0) e.blinkCd--;
+      if (e.lastHp === null) e.lastHp = e.hp;
+      const hit = e.hp < e.lastHp;
+      e.lastHp = e.hp;
+      if (!hit || e.blinkCd > 0 || !G.chance(o.chance || 0.35)) return false;
+      const t = e.target, base = t ? Math.atan2(t.y - e.y, t.x - e.x) : G.rand(0, Math.PI * 2);
+      for (const side of G.chance(0.5) ? [1, -1] : [-1, 1]) {
+        const a = base + (side * Math.PI) / 2, x = e.x + Math.cos(a) * (o.dist || 40), y = e.y + Math.sin(a) * (o.dist || 40) * 0.8;
+        if (st.room.boxHits(x, y, e.hw, e.hh, e) || !lineClear(st, e.x, e.y + 8, x, y + 8)) continue;
+        st.burst(e.x, e.y - 10, 10, ['#ff3ab0', '#3ad0ff', '#ffffff'], 1.2, 12, 14);
+        e.x = x; e.y = y; e.blinkCd = o.cooldown || 90; e.aimT = 0; e.kx = e.ky = 0;
+        st.burst(e.x, e.y - 10, 10, ['#ff3ab0', '#3ad0ff', '#ffffff'], 1.2, 12, 14);
+        G.sfx.play('zap');
+        break;
+      }
+      return false;
+    },
+  };
+
   // ===== Archetypes and enemy types =====
   // A brain is an ordered list of [behaviorName, options]. Order matters: holds (rise, phone, swipe, lunge) go first.
   // Sight ranges (the target behavior's options) live in tuning.js, so the debug panel can save them.
@@ -6264,6 +6418,13 @@ body.mouseaim #screen { cursor: none; }
     },
     // Tough and slow, minds its own business: roams in straight lines, leaves the floor slippery, sucks up loot and
     // bumps you if you're in its way: the robot mop. (noLinger: it never sinks away for not chasing anyone.)
+    // Deepfake clone: a glitchy copy of one of the crew. Keeps its distance, strafes, aims (flicker + red dot) and
+    // shoots the copied crew member's own weapon; glitches aside when hit. glitch: drawn with G.drawClone
+    mimic: {
+      stats: { score: 150, anim: 3, glitch: true },
+      brain: [['mimic', {}], ['rise', { time: 40 }], ['knockback', {}], ['target', TU.mimic.sight], ['blink', TU.mimic.blink], ['shoot', TU.mimic.shoot],
+        ['keepAway', TU.mimic.keep], ['chase', {}], ['wander', TU.mimic.mosey], ['separate', {}]],
+    },
     sweeper: {
       stats: { score: 150, anim: 2, bot: true, noLinger: true },
       brain: [['rise', { time: 30 }], ['knockback', {}], ['trail', TU.sweeper.trail], ['vacuum', TU.sweeper.vacuum], ['bump', TU.sweeper.bump], ['roam', TU.sweeper.roam]],
@@ -6276,6 +6437,7 @@ body.mouseaim #screen { cursor: none; }
     drone: { name: 'DELIVERY DRONE', archetype: 'flyer', looks: ['drone'] },
     robodog: { name: 'ROBO DOG', archetype: 'hound', looks: ['robodog'] },
     mopbot: { name: 'MOP BOT', archetype: 'sweeper', looks: ['mopbot'] },
+    clone: { name: 'DEEPFAKE', archetype: 'mimic', looks: ['clone'] },
   };
 
   // ===== The enemy =====
@@ -6285,7 +6447,7 @@ body.mouseaim #screen { cursor: none; }
       const T = G.ENEMY_TYPES[type], A = G.ARCHETYPES[T.archetype], S = { ...A.stats, ...T.stats };
       this.tune = TU[T.archetype]; // hp, speed, grip... (live: the debug panel can change them mid-game)
       Object.assign(this, {
-        type, x, y, hw: 4, hh: 4, hp: this.tune.hp, isEnemy: true, canTramp: !!S.canTramp, bot: !!S.bot, flying: !!S.flying, noLinger: !!S.noLinger, z: 0, jitter: G.rand(0.9, 1.15), score: S.score, animShift: S.anim,
+        type, x, y, hw: 4, hh: 4, hp: this.tune.hp, isEnemy: true, canTramp: !!S.canTramp, bot: !!S.bot, glitch: !!S.glitch, flying: !!S.flying, noLinger: !!S.noLinger, z: 0, jitter: G.rand(0.9, 1.15), score: S.score, animShift: S.anim,
         flash: 0, kx: 0, ky: 0, anim: G.randi(0, 31), dir: 'down', fx: 0, fy: 1, moving: false, dead: false,
         rise: 0, riseMax: 1, sink: 0, calmT: 0, target: null, targetDist: Infinity, steerX: 0, steerY: 0, speedMul: 1, stuck: 0, alert: 0, farT: 0,
       });
@@ -6312,7 +6474,7 @@ body.mouseaim #screen { cursor: none; }
       if (this.alert > 0) this.alert--;
       if (this.sink > 0) { // going back underground (lost interest for too long): no brain, just sink and vanish
         if (--this.sink === 0) this.dead = true;
-        if (!this.bot && this.sink % 4 === 0) st.burst(this.x + G.fx.rand(-5, 5), this.y, 1, ['#3a2a20', '#5a4a30'], 0.6, 1, 14, true);
+        if (!this.bot && !this.glitch && this.sink % 4 === 0) st.burst(this.x + G.fx.rand(-5, 5), this.y, 1, ['#3a2a20', '#5a4a30'], 0.6, 1, 14, true);
         return;
       }
       if (this.stunT > 0 && !this.tj) { // asleep (tranq darts) or fried (EMP): no brain, it just gets shoved about
@@ -6410,7 +6572,11 @@ body.mouseaim #screen { cursor: none; }
       this.dead = true;
       st.addScore(this.score);
       st.floater(this.x, this.y - 26, '+' + this.score, '#ffd23a');
-      if (this.bot) { // robots go out in a shower of sparks and bits
+      if (this.glitch) { // a deepfake breaks up into pixels
+        st.burst(this.x, this.y - 10, 18, ['#ff3ab0', '#3ad0ff', '#ffffff', '#140c1c'], 1.8, 12, 26);
+        st.floater(this.x, this.y - 36, 'FAKE!', '#ff3ab0');
+        G.sfx.play('zap');
+      } else if (this.bot) { // robots go out in a shower of sparks and bits
         st.burst(this.x, this.y - 6 - (this.z || 0), 16, ['#ffd23a', '#ff8a2a', '#b8bcc8', '#3a3a48', '#ffffff'], 2, 10, 30, true);
         G.sfx.play('zap');
       } else {
@@ -6425,6 +6591,7 @@ body.mouseaim #screen { cursor: none; }
     draw(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
       if (this.bot) { G.drawBot(this, ctx, sx, sy); return; } // robots: art-bots.js
+      if (this.glitch) { G.drawClone(this, ctx, sx, sy); for (const [name] of this.brain) if (B[name].draw) B[name].draw(this, ctx, sx, sy); return; } // deepfakes: art-bots.js
       const f = this.moving ? [1, 0, 2, 0][(this.anim >> this.animShift) & 3] : 0;
       const spr = this.sprites[this.dir][f];
       if (this.rise > 0 || this.sink > 0) { // rising out of (or sinking back into) the ground: shown from the head down
@@ -6601,7 +6768,7 @@ body.mouseaim #screen { cursor: none; }
     const hunt = cfg.hunt === true ? 600 : cfg.hunt || 0, h = D.hunt === null ? hunt : Math.min(hunt, D.hunt);
     if (h && D.aggro) e.huntT = h; // hunt: for this long it keeps coming whatever its give-up range
     st.enemies.push(e);
-    G.sfx.play(e.bot ? 'beep' : 'rise');
+    G.sfx.play(e.bot || e.glitch ? 'beep' : 'rise');
     s.rest = cfg.rest;
     st.spawnT = Math.round(G.randi(cfg.every[0], cfg.every[1]) * D.every);
   }
@@ -6740,7 +6907,7 @@ body.mouseaim #screen { cursor: none; }
  *   9 / 0    give-up range -/+ 10 px
  *   7 / 8    vision cone narrower / wider (10 degrees per press; 360 = full circle)
  *   1, 2...  which enemy kind the keys change (in archetype order: 1 shambler = phone teen, 2 rusher = sprinter,
- *            3 flyer = delivery drone, 4 hound = robo dog, 5 sweeper = mop bot)
+ *            3 flyer = delivery drone, 4 hound = robo dog, 5 mimic = deepfake, 6 sweeper = mop bot)
  */
 (function () {
   'use strict';
@@ -6775,6 +6942,8 @@ body.mouseaim #screen { cursor: none; }
       { g: 'retreat', k: 'time', label: 'BACKS OFF FOR', step: 6, min: 0, max: 180, show: secs },
       { g: 'roam', k: 'seek', label: 'AIMS AT YOU', step: 0.05, min: 0, max: 1, show: pct },
       { g: 'roam', k: 'sight', label: 'AIMS WITHIN', step: 10, min: 40, max: 300, show: px },
+      { g: 'keep', k: 'min', label: 'KEEPS AT LEAST', step: 5, min: 0, max: (t) => t.keep.max - 10, show: px },
+      { g: 'keep', k: 'max', label: 'STRAFES WITHIN', step: 5, min: (t) => t.keep.min + 10, max: 220, show: px },
     ],
     FIGHT: [
       { k: 'hp', label: 'HEALTH', step: 1, min: 1, max: 30, show: (v) => v + ' hp (new ones)' },
@@ -6793,6 +6962,10 @@ body.mouseaim #screen { cursor: none; }
       { g: 'drop', k: 'radius', label: 'PARCEL BLAST', step: 2, min: 6, max: 48, show: px },
       { g: 'drop', k: 'dmg', label: 'PARCEL DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'drop', k: 'lead', label: 'AIMS AHEAD', step: 0.1, min: 0, max: 1, show: pct },
+      { g: 'shoot', k: 'range', label: 'SHOOTS WITHIN', step: 10, min: 30, max: 260, show: px },
+      { g: 'shoot', k: 'windup', label: 'AIM TIME', step: 2, min: 4, max: 90, show: secs },
+      { g: 'shoot', k: 'cooldown', label: 'BETWEEN SHOTS', step: 5, min: 10, max: 300, show: secs },
+      { g: 'shoot', k: 'dmg', label: 'SHOT DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'bump', k: 'dmg', label: 'BUMP DAMAGE', step: 1, min: 0, max: 8, show: (v) => v / 2 + ' hearts' },
       { g: 'phone', k: 'chance', label: 'PHONE CHECKS', step: 0.001, min: 0, max: 0.05, show: (v) => (v ? 'every ~' + (1 / v / 60).toFixed(1) + 's' : 'never') },
     ],
@@ -6805,6 +6978,9 @@ body.mouseaim #screen { cursor: none; }
       { g: 'trail', k: 'life', label: 'PUDDLES LAST', step: 30, min: 0, max: 1800, show: secs },
       { g: 'trail', k: 'slip', label: 'SLIPPERY', step: 0.05, min: 0, max: 0.98, show: (v) => (v ? pct(v) : 'not at all') },
       { g: 'vacuum', k: 'radius', label: 'SUCKS UP LOOT', step: 2, min: 0, max: 40, show: (v) => (v ? px(v) : 'never') },
+      { g: 'blink', k: 'chance', label: 'GLITCH DODGE', step: 0.05, min: 0, max: 1, show: (v) => (v ? pct(v) + ' of hits' : 'never') },
+      { g: 'blink', k: 'dist', label: 'DODGE DISTANCE', step: 4, min: 8, max: 100, show: px },
+      { g: 'blink', k: 'cooldown', label: 'BETWEEN DODGES', step: 10, min: 0, max: 600, show: secs },
       { g: 'phone', k: 'notice', label: 'LOOKS UP AT', step: 2, min: 0, max: 80, show: px },
     ],
   };
@@ -6858,7 +7034,9 @@ body.mouseaim #screen { cursor: none; }
   };
   const stateOf = (e) => {
     if (e.sink > 0) return e.bot ? 'BEAM OUT' : 'SINK';
-    if (e.rise > 0) return e.bot ? 'BEAM IN' : 'RISE';
+    if (e.rise > 0) return e.bot ? 'BEAM IN' : e.glitch ? 'GLITCH IN' : 'RISE';
+    if (e.aimT > 0) return 'AIM';
+    if (e.ranged) return 'STRAFE';
     if (e.stunT > 0) return e.stunKind === 'zap' ? 'FRIED' : e.stunKind === 'dizzy' ? 'DIZZY' : 'ASLEEP';
     if (e.type === 'mopbot') return (e.angry ? 'BUMP' : 'SWEEP') + (e.bag && e.bag.length ? ' BAG ' + e.bag.length : '');
     if (e.fetching) return 'FETCH';
@@ -10290,7 +10468,8 @@ body.mouseaim #screen { cursor: none; }
   const SKIP = new Set(['def', 'ctrl', 'sprites', 'kd', 'brain', 'tune', 'target', 'bumpedDoor', 'grip', 'hits', 'spr', 'tile', 'nid', 'goal',
     'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
-    'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY']); // (the robots' bookkeeping)
+    'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
+    'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged']); // (the clones')
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(o) {

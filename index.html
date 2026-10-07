@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-06 22:13 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-06 22:20 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -3592,19 +3592,24 @@ body.mouseaim #screen { cursor: none; }
         G.sfx.play('shoot');
       },
     },
-    // Root: an EMP ping. A wave spreads out in an arc in front of Root, zapping every teen it reaches (a little
-    // damage, and their phones fry: stunned for a moment). Walls stop it. Higher levels: a wider arc, farther.
+    // Root: an EMP wave. It ripples out from Root in an arc that widens with the level (arc1 / arc2 / arc3 degrees:
+    // level 3 is a full circle) and fries whatever it passes: half damage to living things (organic x dmg), a lot to
+    // robots and deepfakes (robot x dmg), a stun (zap ticks; robots longer), and it blasts phones out of teens' hands
+    // (phone chance). Walls stop it. The price of the wave: it's slow (cdBase / tapCd), and levels don't speed it up.
     emp: {
       name: 'EMP', icon: 'emp', signature: true,
       ammo: 90, max: 180,
       melee: { dmg: 0.5, reach: 16, cd: 20 },
       held: { len: 6, thick: 2, butt: '#5a5a6a', body: '#24242e', tip: '#38f0a0', tipLen: 2 }, // a gadget with an antenna glow
-      dmg: 1.2, zap: 40, range: 44, cdBase: 24, tapCd: 14, // tunable. zap = stun ticks, range in px (plus 8 a level)
-      cd(w) { return Math.max(4, this.cdBase - (w.lv - 1) * 2); },
-      tap(w) { return Math.max(4, this.tapCd - (w.lv - 1) * 2); },
+      dmg: 1, organic: 0.5, robot: 3, phone: 0.6, zap: 40, range: 44, cdBase: 42, tapCd: 32, arc1: 90, arc2: 180, arc3: 360, // tunable. zap = stun ticks, range in px (plus 8 a level)
+      cd() { return this.cdBase; },
+      tap() { return this.tapCd; },
+      arc(w) { return [this.arc1, this.arc2, this.arc3][Math.min(3, w.lv) - 1]; }, // degrees
       fire(p, st, dx, dy, w) {
         G.sfx.play('zap');
-        st.shots.push({ kind: 'emp', x: p.x + dx * 4, y: p.y + dy * 3, a: Math.atan2(dy, dx), spread: 0.35 + w.lv * 0.2, r: 4, rMax: this.range + (w.lv - 1) * 8, hits: new Set(), dmg: this.dmg, zap: this.zap });
+        const full = this.arc(w) >= 360, o = full ? 0 : 1; // a full circle starts at Root, not in front
+        st.shots.push({ kind: 'emp', x: p.x + dx * 4 * o, y: p.y + dy * 3 * o, a: Math.atan2(dy, dx), spread: (Math.min(360, this.arc(w)) / 2) * (Math.PI / 180), r: 4, rMax: this.range + (w.lv - 1) * 8, hits: new Set(),
+          dmg: this.dmg, organic: this.organic, robot: this.robot, phone: this.phone, zap: this.zap });
       },
     },
     // Tinfoil Ted: foil stars, thrown in a fan: 3, then 5, then 7. Short range, spins as it flies.
@@ -3851,10 +3856,17 @@ body.mouseaim #screen { cursor: none; }
     { group: 'TRANQ (JUNE)', label: 'ASLEEP: DAMAGE X', o: W.tranq, k: 'sleepMul', min: 1, max: 4, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'HOLD DELAY', o: W.tranq, k: 'cdBase', min: 3, max: 40, step: 1, note: (v) => perSec(v) },
     { group: 'TRANQ (JUNE)', label: 'RANGE', o: W.tranq, k: 'range', min: 10, max: 120, step: 2 },
-    { group: 'EMP (ROOT)', label: 'DAMAGE', o: W.emp, k: 'dmg', min: 0, max: 10, step: 0.1 },
+    { group: 'EMP (ROOT)', label: 'DAMAGE', o: W.emp, k: 'dmg', min: 0, max: 10, step: 0.1, note: () => 'BASE' },
+    { group: 'EMP (ROOT)', label: 'VS LIVING', o: W.emp, k: 'organic', min: 0, max: 3, step: 0.1, note: (v) => 'X' + v + ' = ' + +(v * W.emp.dmg).toFixed(2) },
+    { group: 'EMP (ROOT)', label: 'VS ROBOTS', o: W.emp, k: 'robot', min: 0, max: 10, step: 0.25, note: (v) => 'X' + v + ' = ' + +(v * W.emp.dmg).toFixed(2) },
+    { group: 'EMP (ROOT)', label: 'PHONE BLAST', o: W.emp, k: 'phone', min: 0, max: 1, step: 0.05, note: (v) => Math.round(v * 100) + '%' },
+    { group: 'EMP (ROOT)', label: 'ARC LV1', o: W.emp, k: 'arc1', min: 20, max: 360, step: 10, note: () => 'DEG' },
+    { group: 'EMP (ROOT)', label: 'ARC LV2', o: W.emp, k: 'arc2', min: 20, max: 360, step: 10, note: () => 'DEG' },
+    { group: 'EMP (ROOT)', label: 'ARC LV3', o: W.emp, k: 'arc3', min: 20, max: 360, step: 10, note: () => 'DEG' },
+    { group: 'EMP (ROOT)', label: 'TAP DELAY', o: W.emp, k: 'tapCd', min: 4, max: 90, step: 1, note: (v) => perSec(v) },
     { group: 'EMP (ROOT)', label: 'STUN', o: W.emp, k: 'zap', min: 0, max: 300, step: 5, note: (v) => (v / 60).toFixed(1) + 'S' },
     { group: 'EMP (ROOT)', label: 'RANGE', o: W.emp, k: 'range', min: 16, max: 120, step: 4, note: () => 'PX' },
-    { group: 'EMP (ROOT)', label: 'HOLD DELAY', o: W.emp, k: 'cdBase', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
+    { group: 'EMP (ROOT)', label: 'HOLD DELAY', o: W.emp, k: 'cdBase', min: 4, max: 120, step: 1, note: (v) => perSec(v) },
     { group: 'FOIL STARS (TED)', label: 'DAMAGE', o: W.foil, k: 'dmg', min: 0.1, max: 10, step: 0.1 },
     { group: 'FOIL STARS (TED)', label: 'RANGE', o: W.foil, k: 'range', min: 6, max: 90, step: 2 },
     { group: 'FOIL STARS (TED)', label: 'FAN', o: W.foil, k: 'fan', min: 0.05, max: 0.6, step: 0.01 },
@@ -4131,17 +4143,27 @@ body.mouseaim #screen { cursor: none; }
           let clear = true; // walls stop the wave
           for (let i = 1, n = Math.ceil(d / 4); i < n && clear; i++) if (st.room.blocksShot(s.x + (dx * i) / n, s.y + (dy * i) / n)) clear = false;
           if (!clear) continue;
-          s.hits.add(t); t.hit(st, s.dmg, t.x, t.y - 4);
+          s.hits.add(t);
+          const tech = !!(t.bot || t.glitch); // robots and deepfakes: electronics, it fries them; anything living barely
+          t.hit(st, s.dmg * (tech ? (s.robot !== undefined ? s.robot : 1) : (s.organic !== undefined ? s.organic : 1)), t.x, t.y - 4);
+          if (t.dead) continue;
           if (t.stun && s.zap > 0) t.stun(st, s.zap, 'zap');
+          if (t.isEnemy && t.losePhone && !t.phoneHunt && G.LOOKS[t.look] && G.LOOKS[t.look].holdPhone && G.chance(s.phone || 0)) t.losePhone(st, dx, dy); // its phone gets blasted away
         }
         return true;
       },
-      draw(ctx, s, v) {
-        const n = Math.ceil(s.spread * s.r / 3), fade = s.r > s.rMax * 0.7;
-        for (let i = 0; i <= n; i++) {
-          const a = s.a - s.spread + (2 * s.spread * i) / Math.max(1, n), x = s.x + Math.cos(a) * s.r, y = s.y + Math.sin(a) * s.r * 0.8;
-          ctx.fillStyle = i % 2 ? (fade ? '#1e8a5a' : '#38f0a0') : fade ? '#3a8a8a' : '#c8fff0';
-          ctx.fillRect(Math.round(x - v.x), Math.round(y - v.y - 8 - (s.alt || 0)), 2, 1);
+      draw(ctx, s, v) { // a rippling band: two wobbling rings, the trailing one dimmer
+        const n = Math.ceil(s.spread * s.r / 2.5), fade = s.r > s.rMax * 0.7, full = s.spread >= Math.PI - 0.01;
+        for (const [dr, k] of [[0, 1], [-3, 0]]) {
+          const r = s.r + dr;
+          if (r <= 2) continue;
+          for (let i = 0; i <= n; i++) {
+            if (full && i === n) continue;
+            const a = s.a - s.spread + (2 * s.spread * i) / Math.max(1, n), w = Math.sin(a * 6 + s.r * 0.6) * 1.3; // the wobble
+            const x = s.x + Math.cos(a) * (r + w), y = s.y + Math.sin(a) * (r + w) * 0.8;
+            ctx.fillStyle = k ? (i % 2 ? (fade ? '#1e8a5a' : '#38f0a0') : fade ? '#3a8a8a' : '#c8fff0') : fade ? '#145a3a' : '#1e8a5a';
+            ctx.fillRect(Math.round(x - v.x), Math.round(y - v.y - 8 - (s.alt || 0)), 2, 1);
+          }
         }
       },
     },

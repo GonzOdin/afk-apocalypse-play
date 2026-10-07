@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 03:07';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 04:04';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -3645,14 +3645,25 @@ body.mouseaim #screen { cursor: none; }
     },
     // Dinner plates: found in kitchen cabinets (search a kitchen counter or a cabinet). Thrown flat, they fly straight,
     // then drop and shatter; one that hits someone shatters on them. Keeps the player scrappy.
+    // Charged: hold fire to pick up more plates (one more every `chargeRate` ticks, up to `most`, never more than you
+    // have), let go to throw them all at once, fanned out evenly `fan` degrees apart around your aim, so a full handful
+    // of 8 makes a half circle. Every plate thrown comes off the stack.
     plates: {
       name: 'PLATES', icon: 'plate',
       held: { plate: true },
-      ammo: 4, max: 12, dmg: 2, speed: 3.2, range: 34, rate: 18, // tunable: plates per stack, most carried, damage, px/tick, ticks before it drops, fire delay
+      ammo: 8, max: 64, dmg: 2, speed: 3.2, range: 34, rate: 18, // tunable: plates per stack, most carried, damage, px/tick, ticks before it drops, fire delay
+      charge: true, chargeRate: 8, most: 8, // tunable: ticks per extra plate while held, most thrown at once
       cd() { return this.rate; },
-      fire(p, st, dx, dy) {
-        st.shots.push({ kind: 'plate', x: p.x + dx * 6, y: p.y + dy * 4, vx: dx * this.speed, vy: dy * this.speed, z: 8, t: 0, life: this.range, dmg: this.dmg });
+      count(p, w) { return Math.max(1, Math.min(this.most, w.ammo, 1 + Math.floor(((p.charge || 1) - 1) / this.chargeRate))); },
+      fan() { return 180 / Math.max(1, this.most - 1); }, // degrees between plates: the most at once spans a half circle
+      fire(p, st, dx, dy, w) {
+        const n = this.count(p, w), step = (this.fan() * Math.PI) / 180, a0 = Math.atan2(dy, dx);
+        for (let i = 0; i < n; i++) {
+          const a = a0 + (i - (n - 1) / 2) * step, ux = Math.cos(a), uy = Math.sin(a);
+          st.shots.push({ kind: 'plate', x: p.x + ux * 6, y: p.y + uy * 4, vx: ux * this.speed, vy: uy * this.speed, z: 8, t: 0, life: this.range, dmg: this.dmg });
+        }
         G.sfx.play('throw');
+        return n;
       },
     },
     // Leaf blower: short-range spray, hold to blow (ammo = fuel)
@@ -3878,7 +3889,10 @@ body.mouseaim #screen { cursor: none; }
     { group: 'ZOMBIES', label: 'DROP CHANCE', o: G.LOOT_CHANCE, k: 'zombie', min: 0, max: 100, step: 5, note: () => '%' },
     { group: 'PLATES', label: 'DAMAGE', o: W.plates, k: 'dmg', min: 0.5, max: 20, step: 0.5 },
     { group: 'PLATES', label: 'FLIGHT', o: W.plates, k: 'range', min: 8, max: 90, step: 2, note: (v) => Math.round(v * W.plates.speed) + 'PX' },
-    { group: 'PLATES', label: 'PER STACK', o: W.plates, k: 'ammo', min: 1, max: 12, step: 1 },
+    { group: 'PLATES', label: 'PER STACK', o: W.plates, k: 'ammo', min: 1, max: 16, step: 1 },
+    { group: 'PLATES', label: 'MOST CARRIED', o: W.plates, k: 'max', min: 8, max: 99, step: 1 },
+    { group: 'PLATES', label: 'MOST AT ONCE', o: W.plates, k: 'most', min: 1, max: 12, step: 1, note: (v) => (v > 1 ? Math.round(180 / (v - 1)) + ' DEG APART' : 'STRAIGHT') },
+    { group: 'PLATES', label: 'CHARGE SPEED', o: W.plates, k: 'chargeRate', min: 2, max: 30, step: 1, note: (v) => 'FULL IN ' + ((v * (W.plates.most - 1)) / 60).toFixed(1) + 'S' },
     { group: 'FULL-HP PERK', label: 'CHARGE TIME', o: G.PERK, k: 'recharge', min: 10, max: 300, step: 10, note: (v) => (v / 60).toFixed(1) + 'S' },
     { group: 'FULL-HP PERK', label: 'CHARGED DMG', o: G.PERK, k: 'critDmg', min: 2, max: 99, step: 1 },
     { group: 'FULL-HP PERK', label: 'RAPID BOOST', o: G.PERK, k: 'rapid', min: 0, max: 80, step: 5, note: () => '%' },
@@ -4648,7 +4662,7 @@ body.mouseaim #screen { cursor: none; }
       Object.assign(this, {
         def, ctrl, x, y, hw: 4, hh: 5, fx: 0, fy: 1, dir: 'down', anim: 0, moving: false,
         hp: 0, maxHp: G.crewHp(def), speed: G.crewSpeed(def), lives: 3, dead: false,
-        fireCd: 0, skillCd: 0, skillMax: 1, revealT: 0, dashT: 0, dashX: 0, dashY: 0, inv: 0, recoil: 0, buzz: 0,
+        fireCd: 0, charge: 0, fireUsed: false, skillCd: 0, skillMax: 1, revealT: 0, dashT: 0, dashX: 0, dashY: 0, inv: 0, recoil: 0, buzz: 0,
         // Inventory: slot 0 is always the signature weapon (infinite ammo, levels 1-3)
         weapons: [{ id: def.weapon, lv: 1, ammo: G.WEAPONS[def.weapon].ammo }], wsel: 0, // signature weapon: lots of ammo, not infinite
         items: [], isel: 0, cards: { red: 0, blue: 0, yellow: 0 }, keys: 0, // keycards by color (gates), plain keys (locked house doors)
@@ -4776,7 +4790,19 @@ body.mouseaim #screen { cursor: none; }
       if (c.inextP) this.cycleItem(1);
       // Tapping fires faster than holding: a fresh press only has to wait the (shorter) tap delay
       const def = G.WEAPONS[this.weapon.id];
-      if (!acted && !this.mower && !this.swimming && this.dashT === 0 && ((c.fireP && def.tap && this.sinceShot >= def.tap(this.weapon)) || (c.fire && this.fireCd <= 0))) this.shoot(st);
+      const free = !this.mower && !this.swimming && this.dashT === 0;
+      if (acted && c.fireP) this.fireUsed = true; // that press opened a door or searched: holding it doesn't charge
+      if (!c.fire) this.fireUsed = false;
+      if (def.charge) { // charged weapons (plates): hold fire to load up more, let go to throw them all
+        const was = this.charge ? def.count(this, this.weapon) : 0;
+        if (c.fire && !acted && !this.fireUsed && free && (this.charge > 0 || this.fireCd <= 0)) {
+          this.charge = (this.charge || 0) + 1;
+          if (def.count(this, this.weapon) > was && was > 0) G.sfx.play('blip'); // one more plate in hand
+        } else if (this.charge > 0) { if (!c.fire && free) this.shoot(st); this.charge = 0; }
+      } else {
+        this.charge = 0;
+        if (!acted && free && ((c.fireP && def.tap && this.sinceShot >= def.tap(this.weapon)) || (c.fire && this.fireCd <= 0))) this.shoot(st);
+      }
       this.sinceShot++;
       if (c.skillP) { if (this.swimming) G.sfx.play('deny'); else this.skill(st, mx, my, m); } // no dashing in water
       // the item / action button: open a door or search a trash can you're facing, otherwise use your item
@@ -5030,7 +5056,7 @@ body.mouseaim #screen { cursor: none; }
       if (def.returns) { /* comes back: never spent */ }
       else if (def.signature) w.ammo = Math.max(0, w.ammo - 1); // one per trigger pull, at any level
       else if (def.melee && used === false) { /* a miss doesn't wear a melee weapon */ }
-      else if (--w.ammo <= 0) {
+      else if ((w.ammo -= def.charge ? used : 1) <= 0) { // a charged throw spends every plate it threw
         this.weapons.splice(this.wsel, 1);
         this.wsel = 0;
         this.invShow = 90; this.invKind = 'w';
@@ -5163,10 +5189,19 @@ body.mouseaim #screen { cursor: none; }
       const ux = Math.round(Math.cos(a) * 100) / 100, uy = Math.round(Math.sin(a) * 100) / 100;
       const kick = this.recoil > 0 ? 1 : 0, side = ux === 0 ? 4 : 0, up = uy < 0 ? -2 : 0;
       const ox = sx + side + ux * (3 - kick), oy = sy - 9 + up + uy * (2 - kick); // from the hands
-      if (H.plate) { // a dinner plate held out flat, ready to throw
-        const x = Math.round(ox + ux * 2) - 2, y = Math.round(oy + uy * 2) - 1;
-        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 1, y - 1, 7, 4);
-        ctx.fillStyle = '#3a70c0'; ctx.fillRect(x, y, 5, 2); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, y, 3, 1);
+      if (H.plate) { // a dinner plate held out flat, ready to throw; charging, a growing stack of them
+        const D = G.WEAPONS.plates, n = this.charge > 0 ? D.count(this, this.weapon) : 1;
+        const k = Math.min(n, 4), x = Math.round(ox + ux * 2) - 2, y = Math.round(oy + uy * 2) - 1 - (k - 1) * 2; // up to 4 drawn
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 1, y - 1, 7, 2 * k + 2);
+        for (let i = 0; i < k; i++) { ctx.fillStyle = '#3a70c0'; ctx.fillRect(x, y + i * 2, 5, 2); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, y + i * 2, 3, 1); }
+        if (n > 1 || this.charge > D.chargeRate / 2) { // where they'll go: a fan of dots around the aim
+          const step = (D.fan() * Math.PI) / 180, a0 = Math.atan2(this.fy, this.fx), blink = (G.tick >> 3) & 1;
+          for (let i = 0; i < n; i++) {
+            const b = a0 + (i - (n - 1) / 2) * step, px = Math.round(sx + Math.cos(b) * 20), py = Math.round(sy - 7 + Math.sin(b) * 17);
+            ctx.fillStyle = '#140c1c'; ctx.fillRect(px - 1, py - 1, 3, 3);
+            ctx.fillStyle = n >= Math.min(D.most, this.weapon.ammo) && blink ? '#ffd040' : '#ffffff'; ctx.fillRect(px, py, 1, 1);
+          }
+        }
         return;
       }
       if (H.can) { // held, not aimed: a little can out in front

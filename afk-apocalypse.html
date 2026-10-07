@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 01:32 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 08:14 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -3929,10 +3929,12 @@ body.mouseaim #screen { cursor: none; }
   //   something held rather than aimed (a soda can).
   // fire(p, st, dx, dy, w, aimDist): dx/dy = unit aim (after aim assist); aimDist = distance to assisted target or null.
   // cd(w) = frames between shots. Fire delays and ranges are in frames (60 per second).
-  // The melee charge (Zelda-style): with a spin weapon (spin: true: Ted's hockey stick, the bat, the machete), hold
-  // fire after a swing; once it's held `time` ticks, letting go spins you round: every target within `reach` px takes
-  // the weapon's hit times `mul` (Player.spinAttack).
+  // The melee charge (Zelda-style) is Tinfoil Ted's perk (G.CREW.ted.spin): with a spin weapon (spin: true: his hockey
+  // stick, the bat, the machete), he holds fire after a swing; once it's held `time` ticks, letting go spins him round:
+  // every target within `reach` px (the weapon's own `spinReach` if it has one: the hockey stick reaches farther)
+  // takes the weapon's hit times `mul` (Player.spinAttack). Anyone else just swings.
   G.MELEE_SPIN = { time: 45, mul: 2, reach: 28 }; // tunable
+  G.spinReach = (def) => (def && def.spinReach) || G.MELEE_SPIN.reach;
   G.WEAPONS = {
     darts: {
       name: 'DARTS', icon: 'darts', signature: true,
@@ -4023,8 +4025,9 @@ body.mouseaim #screen { cursor: none; }
       },
     },
     // Tinfoil Ted: a hockey stick. A melee signature weapon that never breaks: swing to hit everyone in an arc in front
-    // of you (a big shove). Hold fire after a swing to charge it (G.MELEE_SPIN), let go when it's full: a spin attack
-    // all round you. Levels: harder hits, a little more reach.
+    // of you (a big shove). Ted's perk: hold fire after a swing to charge it (G.MELEE_SPIN), let go when it's full: a
+    // spin attack all round him, wider with the stick (spinReach) than with a bat or machete. Levels: harder hits, a
+    // little more reach.
     hockey: {
       name: 'HOCKEY STICK', icon: 'hockey', signature: true, melee: true, keeps: true,
       ammo: 1, max: 1, // never spent (it never breaks)
@@ -4033,7 +4036,7 @@ body.mouseaim #screen { cursor: none; }
       cd() { return this.rate; },
       hitFor(w) { return { dmg: this.dmg + (w.lv - 1) * this.dmgLv, reach: this.reach + (w.lv - 1) * 2, cd: this.rate, knock: this.knock, col: '#c89060' }; },
       fire(p, st, dx, dy, w) { return p.swing(st, this.hitFor(w)); },
-      spin: true,
+      spin: true, spinReach: 40, // tunable: the spin's reach with the stick (other melee weapons: G.MELEE_SPIN.reach)
     },
     // Dot: hot coffee from the pot, splashed in a short arc. Hold to keep pouring. Higher levels pour more. Coffee
     // that lands on a teammate perks them up: they run faster for a while (support play; `perk` ticks a drop).
@@ -4311,10 +4314,11 @@ body.mouseaim #screen { cursor: none; }
     { group: 'HOCKEY STICK (TED)', label: 'DAMAGE', o: W.hockey, k: 'dmg', min: 0.25, max: 10, step: 0.25, note: () => 'LV1' },
     { group: 'HOCKEY STICK (TED)', label: 'PER LEVEL', o: W.hockey, k: 'dmgLv', min: 0, max: 5, step: 0.25 },
     { group: 'HOCKEY STICK (TED)', label: 'REACH', o: W.hockey, k: 'reach', min: 10, max: 40, step: 1, note: () => 'PX' },
+    { group: 'HOCKEY STICK (TED)', label: 'SPIN REACH', o: W.hockey, k: 'spinReach', min: 12, max: 80, step: 2, note: () => 'PX' },
     { group: 'HOCKEY STICK (TED)', label: 'SWING DELAY', o: W.hockey, k: 'rate', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
     { group: 'MELEE SPIN', label: 'CHARGE TIME', o: G.MELEE_SPIN, k: 'time', min: 10, max: 180, step: 5, note: (v) => perSec(v) },
     { group: 'MELEE SPIN', label: 'DAMAGE X', o: G.MELEE_SPIN, k: 'mul', min: 1, max: 5, step: 0.25 },
-    { group: 'MELEE SPIN', label: 'REACH', o: G.MELEE_SPIN, k: 'reach', min: 12, max: 60, step: 2, note: () => 'PX' },
+    { group: 'MELEE SPIN', label: 'REACH (BAT, MACHETE)', o: G.MELEE_SPIN, k: 'reach', min: 12, max: 60, step: 2, note: () => 'PX' },
     { group: 'COFFEE POT (DOT)', label: 'DAMAGE', o: W.splash, k: 'dmg', min: 0.05, max: 5, step: 0.05 },
     { group: 'COFFEE POT (DOT)', label: 'FIRE DELAY', o: W.splash, k: 'rate', min: 1, max: 20, step: 1 },
     { group: 'COFFEE POT (DOT)', label: 'RANGE', o: W.splash, k: 'range', min: 4, max: 50, step: 1 },
@@ -5802,7 +5806,7 @@ body.mouseaim #screen { cursor: none; }
         weapons: [{ id: def.weapon, lv: 1, ammo: G.WEAPONS[def.weapon].ammo }], wsel: 0, // signature weapon: lots of ammo, not infinite
         items: [], isel: 0, cards: { red: 0, blue: 0, yellow: 0 }, keys: 0, // keycards by color (gates), plain keys (locked house doors)
         invShow: 0, invKind: 'w', label: null, lockCd: 0, sinceShot: 99, healFlash: 0, diagHold: 0, pushX: 0, pushY: 0,
-        gate: def.gate, canSwim: true, swimming: false, jump: null, tramp: null, z: 0, jumpCd: 0, // gate: the crew gate they get past (crew.js; theme.pass)
+        gate: def.gate, spinner: !!def.spin, canSwim: true, swimming: false, jump: null, tramp: null, z: 0, jumpCd: 0, // gate: the crew gate they get past (crew.js; theme.pass)
       });
       this.hp = o.hp || this.maxHp;
       this.sprites = G.art.crew[def.id];
@@ -5931,7 +5935,7 @@ body.mouseaim #screen { cursor: none; }
       // the blower cannon: standing on a ball with the blower out sucks it into the tube
       if (this.weapon.id === 'blower' && !this.ballKind && free && !this.jump) { const k = G.takeBall(st, this); if (k) { this.ballKind = k; this.say('BALL LOADED! HOLD FIRE', '#ffd23a'); G.sfx.play('slurp'); } }
       const charging = def.charge === true || (typeof def.charge === 'function' && def.charge(this, this.weapon));
-      if (def.spin) { // melee (Zelda-style): a press swings; keep holding to charge; let go when it's full: a spin
+      if (def.spin && this.spinner) { // Ted's perk, melee (Zelda-style): a press swings; keep holding to charge; let go when it's full: a spin
         this.charge = 0;
         const S = G.MELEE_SPIN;
         if (c.fireP && !acted && free && this.fireCd <= 0) { this.shoot(st); this.spinHeld = true; this.spinT = 0; }
@@ -6278,15 +6282,15 @@ body.mouseaim #screen { cursor: none; }
       if (hit) st.shake(3, 1);
       return hit;
     }
-    // The melee charge let go: a spin, hitting every target within G.MELEE_SPIN.reach px all round for the weapon's hit
+    // The melee charge let go: a spin, hitting every target within G.spinReach(def) px all round for the weapon's hit
     // times MELEE_SPIN.mul (a bigger shove; a drone goes tumbling). Balls round you get whacked, loose boards whacked,
     // a machete chops the hedges round you. A pickup weapon wears one use if it connects.
     spinAttack(st, def) {
-      const S = G.MELEE_SPIN, w = this.weapon, base = def.hitFor ? def.hitFor(w) : def.hit, B = G.WEAPONS.blower;
+      const S = G.MELEE_SPIN, R = G.spinReach(def), w = this.weapon, base = def.hitFor ? def.hitFor(w) : def.hit, B = G.WEAPONS.blower;
       let hit = false;
       for (const t of st.targets()) {
         const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy);
-        if (d >= S.reach) continue;
+        if (d >= R) continue;
         t.hit(st, base.dmg * S.mul, this.x, this.y - 4);
         if (t.kx !== undefined && !t.dead) {
           const k = (base.knock || 1) * 2.5; t.kx += (dx / (d || 1)) * k; t.ky += (dy / (d || 1)) * k;
@@ -6294,13 +6298,14 @@ body.mouseaim #screen { cursor: none; }
         }
         hit = true;
       }
-      for (let i = 0; i < 8; i++) { // whatever's round you: balls, loose boards, hedges for a blade
-        const a = (i / 8) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a), hx = this.x + ux * 14, hy = this.y - 4 + uy * 11;
+      const rr = Math.min(R / 2, 22); // whatever's round you: balls, loose boards, hedges for a blade
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a), hx = this.x + ux * rr, hy = this.y - 4 + uy * rr * 0.8;
         if (G.launchBall(st, Math.floor(hx / 16), Math.floor((hy + 4) / 16), ux, uy, 4.2) || G.kickBall(st, hx, hy + 4, ux, uy, 4.2, 10)) hit = true;
         if (st.whack && st.whack(hx, hy + 4, 7)) hit = true;
         if (base.chops && st.breakWalls(hx, hy + 4, 4, st.room.theme.chop)) hit = true;
       }
-      this.spinFx = 14; this.recoil = 4; this.sinceShot = 0; this.fireCd = base.cd || 20;
+      this.spinFx = 14; this.spinR = R; this.recoil = 4; this.sinceShot = 0; this.fireCd = base.cd || 20;
       st.burst(this.x, this.y - 8, 12, ['#ffffff', base.col || '#ffd23a', '#ffd23a'], 1.8, 8, 14);
       st.shake(hit ? 5 : 2, 1); G.sfx.play('whoosh'); if (hit) G.sfx.play('hit');
       if (!def.signature && hit && --w.ammo <= 0) { // a pickup weapon wears like a swing
@@ -6406,10 +6411,10 @@ body.mouseaim #screen { cursor: none; }
         ctx.fillRect(lx - 2, ly, 5, 1); ctx.fillRect(lx, ly - 2, 1, 5);
       }
       let k = null;
-      if (def.spin && this.spinHeld && this.spinT > 10) k = Math.min(1, this.spinT / G.MELEE_SPIN.time);
+      if (def.spin && this.spinner && this.spinHeld && this.spinT > 10) k = Math.min(1, this.spinT / G.MELEE_SPIN.time);
       else if (this.charge > 0 && def.power) k = def.power(this, this.weapon);
       if (this.spinFx > 0) { // the spin: a ring of streaks sweeping round you
-        const a0 = (14 - this.spinFx) * 0.55, R = G.MELEE_SPIN.reach * 0.7;
+        const a0 = (14 - this.spinFx) * 0.55, R = (this.spinR || G.MELEE_SPIN.reach) * 0.7;
         ctx.fillStyle = this.spinFx > 8 ? '#ffffff' : '#ffd23a';
         for (let i = 0; i < 16; i++) { const a = a0 + (i / 16) * Math.PI * 2; if (i % 4 === 3) continue; ctx.fillRect(Math.round(sx + Math.cos(a) * R), Math.round(by - 9 + Math.sin(a) * R * 0.75), 2, 2); }
       }
@@ -9107,7 +9112,8 @@ body.mouseaim #screen { cursor: none; }
     },
     ted: {
       id: 'ted', name: 'TINFOIL TED', short: 'TED', role: 'CONSPIRACY GUY', ready: true,
-      weapon: 'hockey', weaponName: 'HOCKEY STICK (HOLD: SPIN)', skill: 'I KNEW IT!', skillId: 'iKnewIt', gate: 'secret', gateDesc: 'FINDS SECRET WALLS',
+      // spin: his perk, a charged spin with any melee weapon (G.MELEE_SPIN; the hockey stick's reaches farther)
+      weapon: 'hockey', weaponName: 'HOCKEY STICK (HOLD: SPIN)', spin: true, skill: 'I KNEW IT!', skillId: 'iKnewIt', gate: 'secret', gateDesc: 'FINDS SECRET WALLS',
       stats: { SPD: 3, POW: 3, RNG: 3, HP: 4 },
     },
     dot: {

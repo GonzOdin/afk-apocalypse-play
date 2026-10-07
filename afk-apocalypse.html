@@ -198,7 +198,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 01:40';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 01:44';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -862,8 +862,8 @@ body.mouseaim #screen { cursor: none; }
     Object.assign(el.style, { left: Math.round(x - s / 2) + 'px', top: Math.round(y - h / 2) + 'px', width: Math.round(s) + 'px', height: Math.round(h) + 'px' });
   }
   // The touch controls as a handheld: a bezel round the screen (r.bez px), the wordmark under it (portrait), a D-pad
-  // or joystick on the left, and three big buttons on the right: FIRE (OK in menus) and ACTION (use your item, open
-  // things) side by side with SKILL (BACK) below between them; a WEAPON pill over FIRE and an ITEM pill over ACTION
+  // or joystick on the left, and three big buttons on the right: ACTION (use your item, open things) and FIRE (OK in
+  // menus) side by side with SKILL (BACK) below between them; an ITEM pill over ACTION and a WEAPON pill over FIRE
   // to swap; and the SELECT (nothing yet) and START (pause) pills.
   I.layoutTouch = (r, vw, vh, portrait, sf) => {
     if (!els.layer) return;
@@ -876,7 +876,7 @@ body.mouseaim #screen { cursor: none; }
       els.brand.style.display = ''; els.brand.style.left = vw / 2 + 'px'; els.brand.style.top = r.top + r.h + bz + 7 + 'px';
       B = G.clamp(vw * 0.19, 58, 96);
       const ax = vw - sf.r - 16 - B / 2, ay = cy - B * 0.3;
-      item = [ax, ay, B]; fire = [ax - B * 1.15, ay, B]; skill = [ax - B * 0.575, ay + B * 0.92, B];
+      fire = [ax, ay, B]; item = [ax - B * 1.15, ay, B]; skill = [ax - B * 0.575, ay + B * 0.92, B];
       pill = [G.clamp(vw * 0.13, 42, 56), 15];
       sel = [vw / 2 - pill[0] * 0.8, pillY]; start = [vw / 2 + pill[0] * 0.8, pillY];
       stickR = G.clamp(vw * 0.13, 44, 64);
@@ -889,7 +889,7 @@ body.mouseaim #screen { cursor: none; }
       els.brand.style.display = 'none'; els.grille.style.display = 'none';
       B = Math.min(G.clamp(vh * 0.21, 54, 88), (colW - 24) / 2.2);
       const ax = vw - sf.r - 14 - B / 2, ay = vh - sf.b - 12 - B * 1.42;
-      item = [ax, ay, B]; fire = [ax - B * 1.15, ay, B]; skill = [ax - B * 0.575, ay + B * 0.92, B];
+      fire = [ax, ay, B]; item = [ax - B * 1.15, ay, B]; skill = [ax - B * 0.575, ay + B * 0.92, B];
       pill = [G.clamp(colW * 0.3, 40, 54), 15];
       sel = [rx - pill[0] * 0.75, sf.t + 30]; start = [rx + pill[0] * 0.75, sf.t + 30];
       stickR = G.clamp(vh * 0.14, 44, 64);

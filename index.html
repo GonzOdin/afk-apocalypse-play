@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 18:26 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 18:35 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2911,17 +2911,22 @@ body.mouseaim #screen { cursor: none; }
     const plankUp = (r, tx, ty, room) => {
       const { hor, ver } = plankDir(tx, ty, room), broken = room.at(tx, ty) === 'V', hits = room.wallHits ? room.wallHits(tx, ty) : 0;
       const bottom = 9, top0 = bottom - PLANK_H;
-      if (ver) { // seen edge-on: a thick line of boards running north-south (down to the next cell if the line goes on)
+      const post = () => { // seen edge-on: a thick line of boards running north-south (down to the next cell if the line goes on)
         const h = (PL(room.at(tx, ty + 1)) ? 16 : bottom + 1) - top0 + 2;
         r(5, top0 - 2, 6, h, PLANK.dark); r(6, top0 - 2, 4, h, PLANK.board); r(6, top0 - 2, 1, h, PLANK.lit); r(6, top0 - 2, 4, 1, PLANK.top);
-      }
-      if (!hor) return;
+      };
+      if (!hor) { post(); return; }
+      // the boards run across the cell, or, where the line turns or branches (a corner, a T), only from the post
+      // toward the side(s) it carries on, so a corner meets in an L instead of crossing
+      const x0 = ver && !PL(room.at(tx - 1, ty)) ? 6 : 0, x1 = ver && !PL(room.at(tx + 1, ty)) ? 10 : 16;
       const gone = broken ? 4 + 4 * Math.floor(G.hash(tx * 5, ty * 3) * 2) : -1; // the missing board
       for (let x = 0; x < 16; x += 4) {
+        const xa = Math.max(x, x0), w = Math.min(x + 4, x1) - xa;
+        if (w <= 0) continue;
         const top = top0 + (G.hash(tx * 16 + x, ty * 7) > 0.7 ? 1 : 0);
         if (x === gone) { r(x, top + 3, 4, bottom - top - 3, PLANK.gap); r(x, bottom - 3, 4, 3, '#4a3020'); continue; } // a hole, a stump at the bottom
-        r(x, top, 4, bottom - top + 1, PLANK.board); r(x, top, 1, bottom - top + 1, PLANK.lit); r(x + 3, top, 1, bottom - top + 1, PLANK.dark); r(x, top, 4, 1, PLANK.top);
-        r(x + 1, top + 4, 1, 1, PLANK.nail); r(x + 1, bottom - 4, 1, 1, PLANK.nail);
+        r(xa, top, w, bottom - top + 1, PLANK.board); if (xa === x) r(x, top, 1, bottom - top + 1, PLANK.lit); if (xa + w === x + 4) r(x + 3, top, 1, bottom - top + 1, PLANK.dark); r(xa, top, w, 1, PLANK.top);
+        if (w === 4) { r(x + 1, top + 4, 1, 1, PLANK.nail); r(x + 1, bottom - 4, 1, 1, PLANK.nail); }
       }
       if (broken) {
         const lx = gone === 4 ? 9 : 5; // a loose board hanging off one nail, across the gap
@@ -2929,6 +2934,7 @@ body.mouseaim #screen { cursor: none; }
         r(gone + 1, bottom + 1, 2, 1, PLANK.top); r(gone - 2, bottom, 1, 1, PLANK.lit); r(gone + 5, bottom + 1, 2, 1, PLANK.board); // splinters
         for (let k = 0; k < hits * 2; k++) { const cx = (G.hash(tx + k, ty * 9) * 14) | 0, cy = top0 + 3 + ((G.hash(ty + k, tx * 5) * 12) | 0); r(cx, cy, 1, 3, PLANK.gap); } // cracks from whacks
       }
+      if (ver) post(); // the corner post, over the boards
     };
     // Keycard gate: a steel security gate as tall as a brick wall, chunky posts, bars you can see through, a
     // hazard stripe and a glowing red card reader, so it can't be mistaken for a gap in the wall.
@@ -4954,16 +4960,16 @@ body.mouseaim #screen { cursor: none; }
         "Jhhhhh......ww...f....Z..h...t.....J...b..........b..h...YY..J..Jg.J...........J..J..J.....J..JJ",
         "J................f.......h.........J...b..........b..h...YY..J..J..JJJJJJJJJJ..J..J..JJJJ..J..JJ",
         "J................f.......h.........J...b..........b..h.......J..JZ....J.......Z......Z.....J..JJ",
-        "J...YY.........oof..C....h.........JZ..b..........b..h.IIIII.J..J.....J....................J..JJ",
-        "J...YY...........fhhhhh..h..hhhhhh.J...bWWWWOOWWWWb..h.I.5.I.J..JJJJ..J..JJJJJJJJJJJJJJeeJJJ..JJ",
-        "J.t..............f.......h.........J....Wqq<nnkksW...h.I...I.J..J..J..J...............g..Z....JJ",
-        "J........t.......f.......h.........J....WnaynnNnzW...h.IIVII.J..J..J..J.......................JJ",
+        "J...YY.........oof..C....h.........JZ..b..........b..h.......J..J.....J....................J..JJ",
+        "J...YY...........fhhhhh..h..hhhhhh.J...bWWWWOOWWWWb..h.......J..JJJJ..J..JJJJJJJJJJJJJJeeJJJ..JJ",
+        "J.t..............f.......h.........J....Wqq<nnkksW...h.......J..J..J..J...............g..Z....JJ",
+        "J........t.......f.......h.........J....WnaynnNnzW...h.......J..J..J..J.......................JJ",
         "J................f.......h........ZJ.t..Wjnnnnnn[W...........J..J..J..JJJJJJJJeeJJJJJJJJJJJJ..JJ",
         "J.Z..............f..t............g.J....KKKKOOKKKK..........tJ..J..J...N........2.J........J..JJ",
-        "J...pppppppp.....f.................J....dddd..dddd...........J..J..J.........pp...J........J..JJ",
-        "J...pppNppppZ....f........oo.......J.....~~~l.......fffffff..J..J..JJJJJJJ...pp...JJJeeJJ..J..JJ",
-        "J...pppppppp.....ffffffffffffffffffJ.g.~~YY~~...Z...f,,,,,fZ.J...........J...pp.Z.......J..J..JJ",
-        "J...pppppppp.....f............h....J...~~YY~~.Z.....f,,,,,f..J...........J..............J..JZ.JJ",
+        "J...pppppppp.....f.................J....dddd..I.9I...........J..J..J.........pp...J........J..JJ",
+        "J...pppNppppZ....f........oo.......J.....~~~l.I..I..fffffff..J..J..JJJJJJJ...pp...JJJeeJJ..J..JJ",
+        "J...pppppppp.....ffffffffffffffffffJ.g.~~YY~~.IVII..f,,,,,fZ.J...........J...pp.Z.......J..J..JJ",
+        "J...pppppppp.....f............h....J...~~YY~~.Z...Z.f,,,,,f..J...........J..............J..JZ.JJ",
         "Jfffppppppppffffff.g..........h....J....~~~.........foo,,,f..JJJJ..JJJJ..J..J..JJJJJJJZ.J..J..JJ",
         "J...pppppppp.....f....Z.t.....h....J......hhhhhhh...,,,,,,,..i...........J..J..J.....J........JJ",
         "JZ..pppppppp.....f............h....J..N.............,,,,oo,..i...........J..J..J.....J........JJ",
@@ -4974,26 +4980,26 @@ body.mouseaim #screen { cursor: none; }
         "J................f.................J.........t..........l.Z..J........J....................J..JJ",
         "Jhhhhhhh...fffffff........h.....g..J.............g.t.........J........J............N.......J..JJ",
         "J..........f.....f.....N..h......Z.J......................t..J..JJJJ..JJJJJJJ..JJJJ..J..J..J..JJ",
-        "J....IIIII.fA....f........h........J.........................J8....J..............J.....J.....JJ",
-        "J..N.I.4.I.f.....f........h........JJJGGJJJJccccccccJJJJJJJJJJ.....J..............J.....J.....JJ",
-        "J....I...I.f..oo.f........h........h........cccccccc.........JGGJJJJJJJJJJJJJJJJJJJJJJJJJGGJJJJJ",
-        "J....IIVII.fffffff........h........h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
+        "J..........fA....f........h........J.........................J8....J..............J.....J.....JJ",
+        "J..N.......f.....f........h........JJJGGJJJJccccccccJJJJJJJJJJ.....J..............J.....J.....JJ",
+        "J..........f..oo.f........h........h........cccccccc.........JGGJJJJJJJJJJJJJJJJJJJJJJJJJGGJJJJJ",
+        "J..........fffffff........h........h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
         "J..t.......Z.....f........h.t....ooh......l::==-===::.::::::::::::::::.....cc.........cc.......J",
         "J...WWWWOOWWWW...f........h........h.......::======::.::::::::::::::::.....cc.........cc.......J",
         "J...Wqq<nnkksW...f........h........J::::::.::==-===::...............::::::::::::::::::::::::::.J",
         "JJJJWnaynnnnzWJJJJJJJJJJJJJJJJJJJJJJ.......::======::.....cc........::::::::::::::::::::::::::.J",
         "J...Wjnnnnnn[W.........Zh...........h.Z..h.::==-===::.....cc...cc..............................J",
         "J...HHHHOOHHHH..........h...........h.t..h.::cc====::..........cc.....Z.........l..t....Z....g.J",
-        "J...dddd..dddt..........h.g.........h....hm::cc-===::.h..Z...wDwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
-        "J..m......Z.l.........m.h..hhthh....h....h.::======::.h......w.................................J",
-        "J...............g...*~~~h...........hfffff.::==-===Z:lh......w.::::::::::::IIIII:.WWWWWWWWWWW..J",
-        "J..........h.......~~YY~h...........hf4..f.::======::.h......w.:::::cc::cc:I.A.I:.Wqqnnn<kksW..J",
-        "J....~~.~..h.IIIII.~~YY~h...........hf...f.::==-===::.h..t...w.:::::cc::cc:I...I:.WnaynBnnnzW..J",
-        "J...~~YY.g.h.I.9.I..~~~.............hf.oof.::====cc::.h......w.::::::::::::IIVII:.Wjnnnnnnn[W.ZJ",
-        "J..N.~YY~..h.I...I..0....l..........hfffff.::==-=cc::m....g..w.:::::::Z::::::::::.KKKKOOKKKKK..J",
-        "J.....~~~..h.IIVII..........hhhhhhh.h....h.::======::........w.:cc::cc::::::cc:Z:.dddd..dddd...J",
-        "J..........h................I..7..I.h....hl::==-===::.h.JJJ.Jw.:cc::cc::::::cc:::..........wwwwJ",
-        "J.t...........ffffffff..h...I.+..tI.h....h.::======::.htJ....w.::::::::::::::::::..........v.A.J",
+        "J...I.4I..dddt..........h.g.........h....hm::cc-===::.h..Z...wDwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
+        "J..mI..I..Z.l.........m.h..hhthh....h....h.::======::.h......w.................................J",
+        "J...IVII........g...*~~~h...........hfffff.::==-===Z:lh......w.::::::::::::::::::.WWWWWWWWWWW..J",
+        "J..........h.......~~YY~h...........hf4..f.::======::.h......w.:::::cc::cc:::::::.Wqqnnn<kksW..J",
+        "J....~~.~..h.......~~YY~h...........hf...f.::==-===::.h..t...w.:::::cc::cc:::::::.WnaynBnnnzW..J",
+        "J...~~YY.g.h........~~~.............hf.oof.::====cc::.h......w.::::::::::::::::::.Wjnnnnnnn[W.ZJ",
+        "J..N.~YY~..h........0....l..........hfffff.::==-=cc::m....g..w.:::::::Z::::::::::.KKKKOOKKKKK..J",
+        "J.....~~~..h................hhhhhhh.h....h.::======::........w.:cc::cc::::::cc:Z:.I.5I..dddd...J",
+        "J..........h................I..7..I.h....hl::==-===::.h.JJJ.Jw.:cc::cc::::::cc:::.I..I.....wwwwJ",
+        "J.t...........ffffffff..h...I.+..tI.h....h.::======::.htJ....w.::::::::::::::::::.IVII.....v.A.J",
         "J.........*...f......f..h.Z.IIIVIII........::==-===::.h.J.1..w.::::::::::::::::::......N...w...J",
         "J.............f......f..h.............Z....::======::.h.J....w.:cc::::::cc::cc:::..........wwwwJ",
         "Jhhhhhhh......f....Z.f..h.....*..............::::::.....JJJJJwZ:cc::::::cc::cc:::g.............J",
@@ -5086,33 +5092,33 @@ body.mouseaim #screen { cursor: none; }
       rows: [
         "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
         "w:::::::::::::Z::::::::::::::w.....................J......w...........................lw",
-        "w:l:::::::::::::w:::::::::B::w.......h............hJ...9N.w.N.........t................w",
+        "w:l:::::::::::::w:::::::::B::w.......h............hJ...9..w.N.........t................w",
         "w::::N::::::::::w::::::::N:::w.......h..hhh.t.hhh.hJ......w...t.................t......w",
         "w???????????::::w???{????????w...t...h.........Z..hJJeJJJJw.......................Z....w",
-        "w???????g???::::w????????????e.......h............h.......w.........Z..................w",
+        "w???????g???::::w????????????e.......h............h.....N.w.........Z..................w",
         "w??g????????::::?%???????????e...Z...h...a..8..a..h.......w............................w",
         "w???????????::::????????g????w.JJJJJJJ............JJJJJJJ.w............................w",
         "w???uuuuuuuu:::Z??Z??????????w....Z...t..........t........w...WWWWWWWWWWWWWWWWW........w",
-        "w?????????%?::Q:?????????????w.........::::::::::.........w...Wkk<nnWnnnnnnnnjW........w",
+        "w?????????%?::Q:??????C??????w.........::::::::::.........w...Wkk<nnWnnnnnnnnjW........w",
         "w??g????????::::?uuuuuuuuuu??w.........::::::::::.........w...Wn+nnnWnsnnsnnsnW........w",
         "w???????????::::?????????????w.YY......::pppppp::.........w...WnnnnnWnsnnsnnsNW........w",
-        "wwvww?{Zw???::::??????????g??w.YY......::pppppp::....lZ...w...WnnnnnWnsnnsnnsnW........w",
+        "wwvww?{Zw???::::??????????g??w.YY......::pppppp::....l....w...WnnnnnWnsnnsnnsnW........w",
         "ww:Aw???w???::::??????%??????w.........::pp:ppp::.........w...Wnnnnn^nnnnnNnnnW........w",
-        "wwwww?g?w???::::?????????????w....l....::ppp:pp::.........w...WnnnnnWnsnBnnnsnW........w",
+        "wwwww?g?w???::::?????????????w....l....::ppp:pp::...Z.....w...WnnnnnWnsnBnnnsnW........w",
         "w:::::::w:::::::::(((((::::::wm........::pppppp::......YY.w...WnnnUnWnsnnnnnsnW........w",
         "w:::::::w::::::::::g:::::::l:wJJJJ.....::pppppp::......YY.w...WnnnnnWnsnqqnns[W........w",
         "w::::::::::::::::::::::::::::wJ..J.....::::::::::.........w...WnnnnnWnnnnnnnnnW........w",
         "w:::::::::::::::::::?????Z???wJ4.J.....:::::::::Z.........w...KKKKKKKKKKKKOOKKK........w",
-        "w:WWWWWWWWWWWWWWOOWW?????????wJ..J....t..........t........w......Z.....................w",
-        "w:Wkkkkkkn<Wnkknnn[W????g????wJJ.J......hhh...hhh.........w.....................Zh.....w",
-        "w:WnnnnnnnnWnnnnnnnW???????%?w.JJJJJJJ.....l......JJJJJJJ.w............t.........h..t..w",
+        "w:WWWWWWWWWWWWWWOOWW?????????wJ..J....t..........t........w.....ZI.9I.I.AI.............w",
+        "w:Wkkkkkkn<Wnkknnn[W????g????wJJ.J......hhh...hhh.........w......I..I.I..I......Zh.....w",
+        "w:WnnnnnnnnWnnnnnnnW???????%?w.JJJJJJJ.....l......JJJJJJJ.w.....6IVII.IVII.......h..t..w",
         "w:WnannnnannnnnnannW?????????w.......h..Z.........h.......w......................h.....w",
         "w:WnnnnnnnnWnnnnnNnW???{?????w.......h...a.....a..h.......w.....hhhhhh...........h.....w",
         "w:WnnnnBnnnnnnnnnnnW?????????w...t...h.....t......h...t...wZ......g.....N........h..t..w",
         "w:WnannnnannnnnnannW??????g??w.N.....h............h.......w...t...............g..h.....w",
         "w:WjnnnnnnnnnnnnnnsW?????????w.......h.....g......h.......w........l..uuuu.............w",
         "w:KKKKKKKKKKKOOKKKKK?????????w............................w............................w",
-        "wwwwwwwwwwwww::wwwwwwwwwwwwwwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwxxwwwwwwwwwww",
+        "wwwwwwwwwwwww::wwwwwwwwwwwwwwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwDwwwwwwwwwwww",
         "w::::::::::::::::::::::::::::h:::::::::::::::::::::::::::::::::wwwwwwwwwww::::wwwwwwwwww",
         "wg::::::::::::::::::::::Z::g:h:::::::::::::::::::::::::::::::::wwwwwwwwwww::::wwwwwwwwww",
         "wZ:ccc:ccc:ccc:cccccc:ccc::::h:hhhhhh::::::::::::::hhhhhh::::::wwwwwwwwwww:::Zwwwwwwwwww",
@@ -5136,7 +5142,7 @@ body.mouseaim #screen { cursor: none; }
         "w:::::::Z::::::::::::Z:::::g:::::::a:::::uuuuuu:::::a:::::w???????????:::::??????Z?????w",
         "w((((((((((::m:::::::::::::::h:::::::hhh::::::::hhh:::::::w?uuuuuuuuu?:::::?uuuuuuuuuu?w",
         "w=========(::::::::::::::::::h:::::::hhh:::P::::hhh:::::::w???????????:::::?(??????????w",
-        "w==={=====(:::))))):::::::{::h:hhhh::::::::::::::::::hhhh:w???????????::6::?(Z????cc???w",
+        "w==={=====(:::))))):::::::{::h:hhhh::::::::::::::::::hhhh:w???????????::8::?(Z????cc???w",
         "w=========)::::::::::::::::::h:hhhh::::::::::::::::::hhhh:w?????%???Z?:::::?(?????cc???w",
         "w=-=-=-=-=):{::::::fffffff:::h::::::::a::::::::::a::::::::w?////??????:::::?(???//////?w",
         "w=========(::::::::f::9::f:::h:::::::::::::::::::::::Z::::w???????????::l::?(??????????w",
@@ -5207,7 +5213,7 @@ body.mouseaim #screen { cursor: none; }
         "........................................................................................",
         "........................................................................................",
       ],
-      kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
+      kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "43,28": "locked", "44,28": "locked", "75,28": "blue", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "72,52": "blue", "82,52": "up//burnt/shut" },
       floors: { "65,9": "n", "10,20": "n" },
       loot: { "3,6": "i:pie", "63,9": "w:plates", "26,12": "i:coffee", "77,16": "w:plates", "13,20": "w:plates", "66,24": "teen", "1,30": "burger", "84,37": "ammo", "9,44": "i:pie", "77,56": "w:squirt" },
     },
@@ -10261,12 +10267,6 @@ body.mouseaim #screen { cursor: none; }
     { what: 'breakable wall', is: (T, c) => !!((T.breakable && T.breakable.has(c)) || (T.bombable && T.bombable.has(c))), opens: (T, c) => c === 'D' }, // rockets and bombs open them all
     { what: 'locked gate', is: (T, c, R, x, y) => c === 'G' && G.gateLocked(R, x, y), opens: (T, c) => c === 'D' || !!((T.breakable && T.breakable.has(c)) || (T.bombable && T.bombable.has(c))) }, // a garden gate a house key opens
   ];
-  // Are all these cells in one piece you can walk around (no jumps, nothing opened)?
-  const walkTogether = (R, cells) => {
-    const W = R.w, seen = new Set([cells[0]]), q = [cells[0]];
-    while (q.length) { const i = q.pop(), x = i % W, y = (i - x) / W; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < R.h && !seen.has(j) && walkableCell(R, nx, ny)) { seen.add(j); q.push(j); } } }
-    return cells.every((c) => seen.has(c));
-  };
   K.leakyLocks = (R, grid) => {
     const W = R.w, H = R.h, T = R.theme, N = W * H;
     const sy = grid.findIndex((r) => r.includes('P'));
@@ -10277,18 +10277,22 @@ body.mouseaim #screen { cursor: none; }
       const cells = [];
       for (let i = 0; i < N; i++) if (L.is(T, R.at(i % W, (i - (i % W)) / W), R, i % W, (i - (i % W)) / W)) cells.push(i);
       if (!cells.length) continue;
-      const reach = new Uint8Array(N), q = [start];
-      reach[start] = 1;
-      while (q.length) {
-        const i = q.pop(), x = i % W, y = (i - x) / W;
-        const tramp = T.bounce && T.bounce.has(R.at(x, y)) ? trampLandings(R, x, y) : [];
-        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1], ...jumpLandings(R, x, y), ...tramp]) {
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-          const j = ny * W + nx, c = R.at(nx, ny);
-          if (reach[j]) continue;
-          if (walkableCell(R, nx, ny) || L.opens(T, c) || (c === 'G' && (G.gateLocked(R, nx, ny) ? L.what !== 'locked gate' : !foot[i]))) { reach[j] = 1; q.push(j); }
+      const flood = (jumps) => { // from the start with every other opener; jumps: the pogo and trampolines too
+        const reach = new Uint8Array(N), q = [start];
+        reach[start] = 1;
+        while (q.length) {
+          const i = q.pop(), x = i % W, y = (i - x) / W;
+          const more = jumps ? [...jumpLandings(R, x, y), ...(T.bounce && T.bounce.has(R.at(x, y)) ? trampLandings(R, x, y) : [])] : [];
+          for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1], ...more]) {
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+            const j = ny * W + nx, c = R.at(nx, ny);
+            if (reach[j]) continue;
+            if (walkableCell(R, nx, ny) || L.opens(T, c) || (c === 'G' && (G.gateLocked(R, nx, ny) ? L.what !== 'locked gate' : !foot[i]))) { reach[j] = 1; q.push(j); }
+          }
         }
-      }
+        return reach;
+      };
+      const reach = flood(true), walk = flood(false);
       for (const i of cells) {
         if (seen.has(i)) continue;
         const x = i % W, y = (i - x) / W, c = R.at(x, y);
@@ -10307,8 +10311,10 @@ body.mouseaim #screen { cursor: none; }
             if (nx >= 0 && ny >= 0 && nx < W && ny < H && R.at(nx, ny) !== c && walkableCell(R, nx, ny)) sides.push(ny * W + nx);
           }
         }
-        if (L.what === 'breakable wall' && sides.length >= 2 && walkTogether(R, sides)) continue; // both sides already joined on foot: a patchy hedge for looks (James: "alternative hedge coloring"), not a lock
-        if (sides.length >= 2 && sides.every((s) => reach[s])) out.push({ x, y, ch: c, what: L.what });
+        // leaky: a jump gets you to every side of it without its opener. If you can walk round it anyway (another
+        // way in, or both sides already joined), it's a shortcut or just for looks (James: patchy hedge as
+        // "alternative hedge coloring"), not a lock that leaks
+        if (sides.length >= 2 && sides.every((s) => reach[s]) && !sides.every((s) => walk[s])) out.push({ x, y, ch: c, what: L.what });
       }
     }
     return out;

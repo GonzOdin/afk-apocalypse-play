@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 23:09 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 23:25 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1978,6 +1978,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   // Is the garden gate at (x, y) a locked one (kinds 'locked' on any of its side-by-side cells)? A locked gate opens
   // from either side with a plain house key (ZAMN-style), instead of only from the locked side like a latch gate
+  // Which side a latch gate opens from, if the editor set it ('north' / 'south' on any cell of the gate), else null
+  // (it opens from whichever side you can't reach from the start: room.outside)
+  G.gateSide = (R, x, y) => {
+    if (!R.kinds) return null;
+    let a = x; while (R.at(a - 1, y) === 'G') a--;
+    for (let b = a; R.at(b, y) === 'G'; b++) { const k = R.kinds[b + ',' + y]; if (k === 'north' || k === 'south') return k; }
+    return null;
+  };
   G.gateLocked = (R, x, y) => {
     if (!R.kinds) return false;
     let a = x; while (R.at(a - 1, y) === 'G') a--;
@@ -3649,7 +3657,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ['n', 'WOOD FLOOR'], ['y', 'RUG'], ['q', 'COUCH'], ['k', 'KITCHEN COUNTER'], ['z', 'BED'], ['a', 'COFFEE TABLE'], ['s', 'BOOKSHELF'], ['j', 'TV'], ['[', 'CABINET'], ['<', 'POTTED PLANT'], ['f', 'PICKET FENCE'], ['I', 'PLANK FENCE (TALL, WOOD)'], ['V', 'BROKEN PLANK FENCE (A FEW WHACKS BREAK IT: A SMALL SECRET)'], ['_', 'FALLEN FENCE (BOARDS DOWN: WALK THROUGH)'], ['h', 'SHORT HEDGE (FULL TILE, SHOOT OVER)'], ['J', 'TALL HEDGE (FULL TILE, 1 TALL)'], ['i', 'SPARSE HEDGE (WALK/SEE THROUGH)'], ['b', 'BRICK HEDGE (HEDGE OVER BRICK, UNBREAKABLE)'], ['r', 'BUSTED HEDGE (BLOWN OPEN, WALKABLE)'],
         ['S', 'SECRET TALL HEDGE (BOMB IT)'], ['e', 'PATCHY TALL HEDGE (ROCKETS/BOMBS BREAK IT)'], ['t', 'TREE'], ['Y', 'BIG TREE (2X2 OBSTACLE: ONE CLICK PLACES IT)'], ['l', 'STREETLIGHT (CLICK ONE AGAIN: BUSTED)'], ['m', 'MAILBOX'], ['g', 'TRASH CAN (CLICK ONE AGAIN: KNOCKED OVER)'], ['%', 'JUNK PILE (SEARCH IT)'], ['*', 'SPORTS GEAR (WALK OVER IT)'],
         ['(', 'SANDBAGS (LOW WALL: SHOOT OVER IT)'], [')', 'BARRICADE (STRIPED SAWHORSE)'], ['/', 'RAZOR WIRE (BLOCKS YOU AND THE POGO)'], ['{', 'BURNING OIL DRUM (SMOKES, LIGHTS THE GROUND)'], ['}', 'PROPAGANDA SIGN (STAY ONLINE)'], ['?', 'RUBBLE (WALKABLE)'],
-        ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'GARDEN GATE (LATCH: OPENS FROM THE LOCKED SIDE; CLICK ONE AGAIN: LOCKED, A HOUSE KEY OPENS IT)'],
+        ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'GARDEN GATE (LATCH: OPENS FROM THE SIDE YOU CAN\'T REACH; CLICK AGAIN: OPENS FROM THE NORTH, FROM THE SOUTH, LOCKED)'],
       ],
       groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj[<'], ['HEDGES & WALLS', 'hJbiSerfIV_wuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*'], ['DYSTOPIA', '()/{}?']],
       // border: what's past the map edge: a tall hedge, fully solid (a tree would only block at its trunk)
@@ -6216,7 +6224,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   // ===== Room =====
   G.PICKUP_CHARS = { '+': 'disk', ']': 'ticket', A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
-  const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', '$', ...Object.keys(G.PICKUP_CHARS)]); // &: a lawn mower (mower.js), $: a spawn button (practice.js)
+  const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', '$', '|', ...Object.keys(G.PICKUP_CHARS)]); // |: an enemy placed in the map (G.placeEnemy) // &: a lawn mower (mower.js), $: a spawn button (practice.js)
 
   class Room {
     constructor(def) {
@@ -6308,7 +6316,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       const x = e.x + (dx / m) * reach, y = e.y + (dy / m) * reach, l = x - e.hw, r = x + e.hw, t = y - e.hh, b = y;
       for (let ty = Math.floor(t / 16); ty <= Math.floor((b - 0.01) / 16); ty++) for (let tx = Math.floor(l / 16); tx <= Math.floor((r - 0.01) / 16); tx++) {
         const key = this.theme.searchable.has(this.at(tx, ty)) ? [tx, ty] : this.theme.searchCell ? this.theme.searchCell(this, tx, ty) : null; // (a car's trunk: its car's key cell)
-        if (!key || !G.lootAt(this, key[0], key[1]) || this.searched.has(key[1] * this.w + key[0]) || G.cellKind(this, key[0], key[1]) === 'knocked') continue; // nothing in it, or a knocked-over can
+        if (!key || this.searched.has(key[1] * this.w + key[0]) || G.cellKind(this, key[0], key[1]) === 'knocked') continue; // opened already, or a knocked-over can (every container opens, empty or not)
         const rs = this.solidRects(tx, ty, null);
         if (rs && rs.some((R) => l < R[0] + R[2] && r > R[0] && t < R[1] + R[3] && b > R[1])) return { tx: key[0], ty: key[1] };
       }
@@ -6591,7 +6599,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         if (d > 0 && x > 8 && y > 8 && x < R.pw - 8 && y < R.ph - 8 && clearPath(d) && !R.boxHits(x, y, this.hw, this.hh, this)) { to = { x, y }; break; }
       }
       if (!to) to = { x: this.x, y: this.y }; // nowhere to land: straight up and back down
-      this.jump = { t: 0, T: opts.time || JUMP.time, x0: this.x, y0: this.y, x1: to.x, y1: to.y, h: height, pogo: !!opts.pogo, pound: !!opts.pound };
+      let landTramp = null; // coming down on another trampoline: land right on its mat and keep bouncing (no stepping off and on)
+      if (!opts.pogo && !opts.pound && R.trampolineAt(to.x, to.y - 2) && (to.x !== this.x || to.y !== this.y)) {
+        landTramp = G.trampAnchor(R, Math.floor(to.x / 16), Math.floor((to.y - 2) / 16));
+        to = { x: landTramp[0] * 16 + 16, y: landTramp[1] * 16 + TRAMP_FEET };
+      }
+      this.jump = { t: 0, T: opts.time || JUMP.time, x0: this.x, y0: this.y, x1: to.x, y1: to.y, h: height, pogo: !!opts.pogo, pound: !!opts.pound, landTramp };
       this.swimming = false;
       if (ux || uy) { this.fx = ux; this.fy = uy; }
       G.sfx.play('boing');
@@ -6634,6 +6647,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.x = j.x0 + (j.x1 - j.x0) * k; this.y = j.y0 + (j.y1 - j.y0) * k;
       this.z = 4 * j.h * k * (1 - k); // a parabola: up, then down
       if (j.t >= j.T && j.tramp) { this.jump = null; this.z = 0; this.trampLand(st); return; } // a bounce on the trampoline
+      if (j.t >= j.T && j.landTramp) { // landed on another trampoline's mat: straight into bouncing on it (push a way to launch again)
+        this.jump = null; this.z = 0;
+        this.tramp = { ax: j.landTramp[0], ay: j.landTramp[1], dir: null, hops: 1 };
+        this.trampHop(st);
+        return;
+      }
       if (j.t >= j.T) { // landed
         this.jump = null; this.z = 0; this.jumpCd = 10;
         st.burst(this.x, this.y, 6, ['#a89878', '#ffffff'], 0.9, 1, 16, true);
@@ -6671,7 +6690,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     matLift() {
       const j = this.jump;
       if (this.tramp) return this.tramp.hops === 0 && j ? TRAMP_LIFT * (j.t / j.T) : TRAMP_LIFT;
-      return j && j.lift0 ? j.lift0 * (1 - j.t / j.T) : 0;
+      return j ? (j.lift0 || 0) * (1 - j.t / j.T) + (j.landTramp ? TRAMP_LIFT * (j.t / j.T) : 0) : 0; // (onto another mat: easing up onto it)
     }
     // Depth sort position: while high in a jump you're drawn over everything you're flying past. On a trampoline you
     // sort just after it (you're on its mat), so a fence in front of the trampoline still stays in front of you.
@@ -6971,7 +6990,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           continue;
         }
         if (d.latch) {
-          const R = st.room, inside = R.outside && !R.outside[Math.floor((this.y - 4) / 16) * R.w + Math.floor(this.x / 16)];
+          const R = st.room, side = G.gateSide(R, d.tx, d.ty), py = Math.floor((this.y - 4) / 16);
+          const inside = side ? (side === 'north' ? py < d.ty : py > d.ty) : R.outside && !R.outside[py * R.w + Math.floor(this.x / 16)]; // set in the editor, or the side you can't reach from the start
           if (inside) { // the whole gate swings open: every latch tile side by side with this one
             const row = R.doors.filter((o) => o.latch && !o.open && o.ty === d.ty);
             let a = d.tx, b = d.tx;
@@ -7753,6 +7773,39 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const G = window.G;
 
   // Can e walk in a straight line from where it is to (x, y)? (its body fits all the way, sampled every 3 px)
+  // Line of sight from a to b (people's feet): what stops a shot stops sight (house walls, closed doors, tall hedges and
+  // brick, racks...); short fences, short hedges, cars and furniture you see over. The ends are skipped (where they stand).
+  G.sightLine = (room, ax, ay, bx, by) => {
+    const L = Math.hypot(bx - ax, by - ay), n = Math.ceil(L / 4);
+    for (let i = 1; i < n; i++) {
+      const k = i / n; if (k * L < 6 || (1 - k) * L < 6) continue;
+      if (room.blocksShot(ax + (bx - ax) * k, ay - 4 + (by - ay) * k)) return false;
+    }
+    return true;
+  };
+  // A step toward a target that isn't a player (a neighbor): breadth-first over the cells enemies can walk (the flow
+  // field's open cells) in a box around the two of them. The center of the next cell, or null if there's no way there.
+  G.localStep = (st, e, tx, ty, F) => {
+    const R = st.room, W = R.w, ex = Math.floor(e.x / 16), ey = Math.floor((e.y - 3) / 16), gx = Math.floor(tx / 16), gy = Math.floor((ty - 3) / 16);
+    if (ex === gx && ey === gy) return { x: tx, y: ty };
+    const x0 = Math.max(0, Math.min(ex, gx) - 6), x1 = Math.min(W - 1, Math.max(ex, gx) + 6), y0 = Math.max(0, Math.min(ey, gy) - 6), y1 = Math.min(R.h - 1, Math.max(ey, gy) + 6);
+    const open = (x, y) => (x === gx && y === gy) || F.open[y * W + x];
+    const prev = new Map([[gy * W + gx, -1]]), q = [gy * W + gx];
+    for (let h = 0; h < q.length; h++) { // from the target out, so the first time we reach the enemy we know its next cell
+      const i = q[h], x = i % W, y = (i - x) / W;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy, j = ny * W + nx;
+        if (nx < x0 || nx > x1 || ny < y0 || ny > y1 || prev.has(j)) continue;
+        if (!(nx === ex && ny === ey) && !open(nx, ny)) continue;
+        if (dx && dy && (!open(x + dx, y) || !open(x, y + dy))) continue;
+        prev.set(j, i);
+        if (nx === ex && ny === ey) { const c = i % W, r = (i - c) / W; return c === gx && r === gy ? { x: tx, y: ty } : { x: c * 16 + 8, y: r * 16 + 11 }; }
+        q.push(j);
+      }
+    }
+    return null;
+  };
   G.clearLine = (room, e, x, y) => {
     const n = Math.ceil(Math.hypot(x - e.x, y - e.y) / 3);
     for (let i = 1; i < n; i++) if (room.boxHits(e.x + ((x - e.x) * i) / n, e.y + ((y - e.y) * i) / n, e.hw, e.hh, e)) return false;
@@ -7861,15 +7914,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (e.lost > 0) e.lost--;
       const F = flowFor(st, e), canReach = !F || F.reachable(e.x, e.y - 3); // seeing you through a fence with no way round isn't enough
       const sight = G.diff().sight; // the difficulty setting shortens (or keeps) every sight range
-      const spotted = tgt && td < (o.notice || 120) * sight && sees(e, tgt, td, o) && canReach;
+      const spotted = tgt && td < (o.notice || 120) * sight && sees(e, tgt, td, o) && canReach && G.sightLine(st.room, e.x, e.y, tgt.x, tgt.y); // it has to see you: no sensing through walls
       if (!e.aggro && (spotted || (e.provoked && tgt && canReach))) { e.aggro = true; e.alert = Math.max(e.alert, 24); e.lost = 0; } // "!"
       else if (e.aggro && td > (o.giveUp || 190) * sight && !(e.huntT > 0)) { e.aggro = false; e.lost = 40; e.wanderT = 0; }   // "?"
       e.provoked = false;
       if (!e.aggro) { tgt = null; td = Infinity; }
       for (const n of st.neighbors || []) {
-        if (n.gone) continue;
+        if (n.gone || (e.skipN && e.skipN.get(n) > st.t)) continue; // (one it found no way to: left alone for a while)
         const d = Math.hypot(n.x - e.x, n.y - e.y);
-        if (d < (o.neighbors !== undefined ? o.neighbors : 90) && d < td) { td = d; tgt = n; } // (0: leaves neighbors alone, like the robots)
+        if (d < (o.neighbors !== undefined ? o.neighbors : 90) && d < td && G.sightLine(st.room, e.x, e.y, n.x, n.y)) { td = d; tgt = n; } // (0: leaves neighbors alone, like the robots) only ones it can see
       }
       e.target = tgt;
       e.targetDist = td;
@@ -7947,6 +8000,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           const step = F.stepFrom(e.x, e.y - 3);
           if (step) { dx = step.x - e.x; dy = step.y - (e.y - 3); }
         }
+      } else if (F && !e.flying && (Math.hypot(dx, dy) > (o.direct || 24) || !G.clearLine(st.room, e, t.x, t.y))) { // a neighbor: go round fences and walls to them, not into them
+        if (!e.nStep || e.nStep.n !== t || st.t - e.nStep.t > 12) e.nStep = { n: t, t: st.t, step: G.localStep(st, e, t.x, t.y, F) };
+        const step = e.nStep.step;
+        if (!step) { (e.skipN = e.skipN || new Map()).set(t, st.t + 240); e.target = null; e.nStep = null; return false; } // no way to them: leave them for now
+        dx = step.x - e.x; dy = step.y - e.y;
       }
       const m = Math.hypot(dx, dy) || 1;
       e.steerX += (dx / m) * (o.weight || 1); e.steerY += (dy / m) * (o.weight || 1);
@@ -7963,9 +8021,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     update(e, st) {
       if (e.tj) {
         const j = e.tj, k = ++j.t / j.T;
-        e.x = j.x0 + (j.x1 - j.x0) * k; e.y = j.y0 + (j.y1 - j.y0) * k; e.z = 4 * j.h * k * (1 - k) + (j.lift || 0) * (j.hop ? k : 1 - k);
+        e.x = j.x0 + (j.x1 - j.x0) * k; e.y = j.y0 + (j.y1 - j.y0) * k; e.z = 4 * j.h * k * (1 - k) + (j.lift || 0) * (j.chain ? 1 : j.hop ? k : 1 - k);
         e.moving = true;
-        if (j.t >= j.T) { e.z = 0; e.tj = null; if (j.hop) launchFrom(e, st, j.ax, j.ay); else e.trampCd = 40; }
+        if (j.t >= j.T) { e.z = 0; e.tj = null; if (j.hop || j.chain) launchFrom(e, st, j.ax, j.ay); else e.trampCd = 40; } // (landed on another mat: launch again from it)
         return true;
       }
       if (e.trampCd > 0) { e.trampCd--; return false; }
@@ -7990,7 +8048,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (clear && d >= 0 && d < bd) { bd = d; best = [lx, ly]; }
     }
     if (!best) { e.trampCd = 60; e.x = cx; e.y = cy; return; } // nowhere better to go: step off and walk
-    e.tj = { t: 0, T: TRAMP_LAUNCH.time, h: TRAMP_LAUNCH.height, x0: cx, y0: cy, x1: best[0], y1: best[1], lift: G.TRAMP.lift };
+    let chain = null; // coming down on another trampoline: onto its mat, and straight on from there
+    if (R.trampolineAt(best[0], best[1] - 2)) { chain = G.trampAnchor(R, Math.floor(best[0] / 16), Math.floor((best[1] - 2) / 16)); best = [chain[0] * 16 + 16, chain[1] * 16 + G.TRAMP.feet]; }
+    e.tj = { t: 0, T: TRAMP_LAUNCH.time, h: TRAMP_LAUNCH.height, x0: cx, y0: cy, x1: best[0], y1: best[1], lift: G.TRAMP.lift, chain: !!chain, ax: chain && chain[0], ay: chain && chain[1] };
     G.sfx.play('boing');
   }
 
@@ -8630,6 +8690,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
     hittable() { return !this.dead && this.rise < this.riseMax * 0.5 && (this.sink === 0 || this.sink > SINK / 2); }
     update(st) {
+      if (this.dormant) { // placed in the map (|): stands there doing nothing until it comes on screen, then it's awake for good
+        if (!st.onScreen(this.x, this.y, -8)) { this.moving = false; return; }
+        this.dormant = false; this.alert = 20;
+      }
       if (this.flash > 0) this.flash--;
       if (this.alert > 0) this.alert--;
       if (this.sink > 0) { // going back underground (lost interest for too long): no brain, just sink and vanish
@@ -8973,7 +9037,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     for (const s of st.spawners) if (s.rest > 0) s.rest--;
     if (st.spawnT > 0) { st.spawnT--; return; }
     const D = G.diff();
-    if (st.enemies.length >= (cfg.cap > 0 ? Math.max(1, Math.round(cfg.cap * D.cap)) : 0)) return; // (a cap of 0 stays 0)
+    if (st.enemies.filter((e) => !e.placed).length >= (cfg.cap > 0 ? Math.max(1, Math.round(cfg.cap * D.cap)) : 0)) return; // (a cap of 0 stays 0; placed enemies don't count)
     const flyFull = G.flyersFull(st), padded = new Set(st.spawners.filter((s) => s.type).map((s) => s.type));
     const mix = {}; // what a plain Z point can send: the mix less the types that have spawners of their own (and flyers, when there are enough)
     for (const [t, w] of Object.entries(cfg.types || {})) if (w > 0 && !padded.has(t) && !(flyFull && G.isFlyingType(t))) mix[t] = w;
@@ -9067,10 +9131,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       // far from everyone for 5 seconds: quietly remove it (its spawner will send another when you come back)
       let near = Infinity;
       for (const p of st.players) if (!p.dead) near = Math.min(near, Math.hypot(p.x - e.x, p.y - e.y));
-      e.farT = near > 420 ? e.farT + 1 : 0;
+      e.farT = near > 420 && !e.placed ? e.farT + 1 : 0; // (a placed enemy stays put: it never goes away on its own)
       if (e.farT > 300) e.dead = true;
       // not chasing anyone for cfg.linger ticks: sink back into the ground, so fresh ones can rise near the players
-      e.calmT = e.aggro || e.noLinger || e.rise > 0 || e.sink > 0 ? 0 : e.calmT + 1;
+      e.calmT = e.aggro || e.noLinger || e.placed || e.rise > 0 || e.sink > 0 ? 0 : e.calmT + 1;
       if (e.calmT > cfg.linger && !e.sink) { e.sink = SINK; if (st.onScreen(e.x, e.y)) G.sfx.play('rise'); }
     }
     for (const e of st.enemies) if (e.dead && e.bag && e.bag.length) { // a mop bot's loot comes back out, whether it was destroyed or left
@@ -9121,6 +9185,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   // Put one enemy of `type` near player p (debug panel and test room): a free spot 48-80 px away it can walk to,
   // aware of you from the start. Ignores the cap. Returns it, or null if there was no room.
+  // An enemy placed in the map (marker |, its type in the map's kinds): already up, asleep until it's on screen (so it
+  // doesn't wander off, eat neighbors or vacuum up loot before you get there), and it never despawns or sinks away
+  G.placeEnemy = (st, type, x, y) => {
+    const e = new G.Enemy(G.ENEMY_TYPES[type] ? type : 'phoneTeen', x, y);
+    e.rise = 0; e.placed = true; e.dormant = true;
+    st.enemies.push(e);
+    return e;
+  };
   G.spawnEnemyNear = (st, type, p = st.players.find((q) => !q.dead)) => {
     if (!p || !G.ENEMY_TYPES[type]) return null;
     const flying = !!G.ARCHETYPES[G.ENEMY_TYPES[type].archetype].stats.flying, R = st.room;
@@ -10271,7 +10343,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const K = (G.EditKit = {});
 
   K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'], ['&', 'LAWN MOWER (PUSH IT: MOWS TEENS TILL IT RUNS OUT OF GAS)'],
-    ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ENEMY SPAWN (CLICK ONE AGAIN: ONE TYPE ONLY)'], ['B', 'PACKAGE'], ['Q', 'PDA'],
+    ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ENEMY SPAWN (CLICK ONE AGAIN: ONE TYPE ONLY)'], ['B', 'PACKAGE'], ['|', 'ENEMY THAT STAYS PUT (ASLEEP TILL YOU SEE IT, NEVER DESPAWNS; CLICK AGAIN: WHICH)'], ['Q', 'PDA'],
     ['+', 'DATA DISK (ONE PER LEVEL, BEHIND A SECRET: ALL FIVE UNLOCK THE SECRET LEVEL)'], [']', 'BONUS TICKET (FIND IT: THE BONUS LEVEL AFTER THIS ONE IS NEXT)'], ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
   ];
@@ -10294,11 +10366,20 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     });
     return c;
   }
+  // A placed enemy's icon: a teen with a red Z Z (asleep, waiting where it was put)
+  let stayIcon = null;
+  const makeStayIcon = () => {
+    const src = G.art.people.teen1.down[0], c = G.makeCanvas(src.width, src.height), x = c.getContext('2d');
+    x.drawImage(src, 0, 0); x.fillStyle = '#ff3a5a';
+    for (const [a, b] of [[10, 2], [13, 0]]) { x.fillRect(a, b, 3, 1); x.fillRect(a + 1, b + 1, 1, 1); x.fillRect(a, b + 2, 3, 1); }
+    return c;
+  };
   K.markerSprite = (ch) => {
     const A = G.art;
     if (ch === 'P') return A.crew.pixel.down[0];
     if (ch === 'N') return A.people.dad.down[0];
     if (ch === 'Z') return A.people.teen1.down[0];
+    if (ch === '|') return stayIcon || (stayIcon = makeStayIcon());
     if (ch === 'T') return A.dummy;
     if (ch === 'B') return A.pkg;
     if (ch === 'U') return A.upBox;
@@ -10392,7 +10473,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     return c;
   };
   // Palette sections: theme.groups is [[title, 'chars'], ...]; anything not listed lands in OTHER
-  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT$'], ['PICKUPS', 'QA8CU1234567890FX&+]']];
+  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZ|BT$'], ['PICKUPS', 'QA8CU1234567890FX&+]']];
   const sections = (entries, groups) => {
     if (!groups) return [['TILES', entries]];
     const out = groups.map(([t, chars]) => [t, entries.filter((e) => chars.includes(e[0]))]);
@@ -10716,7 +10797,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         if (has.pogo) next.push(...jumpLandings(R, x, y));
         if (T.bounce && T.bounce.has(R.at(x, y))) next.push(...trampLandings(R, x, y));
         for (const [nx, ny] of next) {
-          const j = ny * W + nx, latch = !foot[i] && R.at(nx, ny) === 'G' && !G.gateLocked(R, nx, ny);
+          const side = R.at(nx, ny) === 'G' && G.gateSide(R, nx, ny);
+          const j = ny * W + nx, latch = R.at(nx, ny) === 'G' && !G.gateLocked(R, nx, ny) && (side ? (side === 'north' ? y < ny : y > ny) : !foot[i]); // (opens from the side the editor set, else from the side you can't walk to)
           if (!out.has(j) && (passable(nx, ny) || latch)) { out.add(j); q.push(j); }
         }
       }
@@ -10980,7 +11062,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<|'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -11023,14 +11105,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const rawAt = (st) => (x, y) => (x < 0 || y < 0 || x >= st.room.w || y >= st.room.h ? st.room.theme.border : st.raw[y][x]);
   // Markers for things the stage runs today (pickups, targets, neighbors, enemy spawn points) go live as you place them.
   // Package, start and exit markers are stored in the map and drawn as icons; they come alive as those features land.
-  const LIVE = (ch) => ch === 'T' || ch === 'Z' || ch === 'N' || ch === '$' || !!G.PICKUP_CHARS[ch];
+  const LIVE = (ch) => ch === 'T' || ch === 'Z' || ch === 'N' || ch === '$' || ch === '|' || !!G.PICKUP_CHARS[ch];
   function removeAt(st, x, y) {
     const keep = (e) => e.tile !== x + ',' + y;
-    st.pickups = st.pickups.filter(keep); st.dummies = st.dummies.filter(keep); st.spawners = st.spawners.filter(keep); st.neighbors = st.neighbors.filter(keep); st.buttons = st.buttons.filter(keep);
+    st.pickups = st.pickups.filter(keep); st.enemies = st.enemies.filter(keep); st.dummies = st.dummies.filter(keep); st.spawners = st.spawners.filter(keep); st.neighbors = st.neighbors.filter(keep); st.buttons = st.buttons.filter(keep);
   }
   function spawnAt(st, x, y, ch) {
     if (!LIVE(ch)) return;
     const px = x * 16 + 8, py = y * 16 + 12;
+    if (ch === '|') { G.placeEnemy(st, (st.def.kinds || {})[x + ',' + y], px, py).tile = x + ',' + y; return; } // a placed enemy (asleep till it's on screen)
     const e = ch === '$' ? new G.SpawnButton(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'T' ? new G.Dummy(px, py) : ch === 'Z' ? new G.Spawner(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'N' ? G.makeNeighbor(st.room, x, y, st.def.kinds)
       : new G.Pickup(G.PICKUP_CHARS[ch], px, py, { respawn: st.test, color: G.cardColor(st.room, x, y) });
     e.tile = x + ',' + y;
@@ -11302,18 +11385,19 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     msg(labelAt(st, c.x, c.y));
     return true;
   }
-  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'locked'], // a garden gate: one-way latch, or locked (a house key) // an inside wall: something hung on it
+  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'north', 'south', 'locked'], // a garden gate: one-way latch (opens from the side you can't reach from the start, or the side you pick), or locked (a house key) // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
+    '|': () => Object.keys(G.ENEMY_TYPES), // an enemy placed in the map: which one
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : ch === '|' ? 'phoneTeen' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
     let a = x; while ((ch === 'O' || ch === 'G') && R.at(a - 1, y) === ch) a--;
     const cells = []; if (ch === 'O' || ch === 'G') for (let b = a; R.at(b, y) === ch; b++) cells.push(b); else cells.push(x); // (a door or a gate: all of it together)
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
-    if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
+    if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z' || ch === '|') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
     if (ch === 'g' || ch === 'W') G.rebuildUpright(R, x, y);
     if (varied(st, ch)) { for (const [a, b] of K.pieceCells(R, x, y)) G.rebuildUpright(R, a, b); G.redrawRoomTiles(R, x - 1, y - 1, x + 2, y + 2); } // a new look
@@ -11405,7 +11489,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (G.lootable(st.room.theme, ch)) return label.replace(/ \(.*\)$/, '') + ' (' + lootName(lootState(st, x, y)) + ')';
     if (varied(st, ch)) { const v = kindAt(st, x, y); return label.replace(/ \(.*\)$/, '') + ' (LOOK ' + (v === 'auto' ? 'AUTO' : +v.slice(1) + 1 + '/' + st.room.theme.variety[ch]) + ')'; }
     if (!VARIANTS[ch]) return label;
-    return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : ch === 'Z' && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
+    if (ch === 'G') return 'GARDEN GATE (' + { latch: 'LATCH: OPENS FROM THE SIDE YOU CAN\'T REACH FROM THE START', north: 'LATCH: OPENS FROM THE NORTH', south: 'LATCH: OPENS FROM THE SOUTH', locked: 'LOCKED: A HOUSE KEY OPENS IT' }[kindAt(st, x, y)] + ')';
+    return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : (ch === 'Z' || ch === '|') && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
   };
   function paintLine(st, a, b) {
     const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -11619,7 +11704,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
             break;
           case 'T': this.dummies.push(tag(new G.Dummy(s.x, s.y))); break;
           case '&': this.mowers.push(tag(new G.Mower(s.x, s.y))); break; // a lawn mower to push (mower.js)
-          case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // enemies rise here, again and again (a typed one: only its type)
+          case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break;
+          case '|': if (!this.remote) tag(G.placeEnemy(this, (def.kinds || {})[s.tx + ',' + s.ty], s.x, s.y)); break; // an enemy that stays put, asleep till you see it // enemies rise here, again and again (a typed one: only its type)
           case '$': this.buttons.push(tag(new G.SpawnButton(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // step on it: an enemy rises (practice.js)
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
           case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || 'ammo'))); break;
@@ -12382,6 +12468,18 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       const v = p.hp - i * 2, h = G.art.heart, img = v >= 2 ? h.full : v === 1 ? h.half : h.empty;
       ctx.drawImage(p.healFlash > 0 && (p.healFlash >> 2) & 1 && v > 0 ? G.tinted(img, '#ffffff') : img, x + i * gap, y);
     }
+    // The full-health perk lives in the hearts: while it charges, they fill with its color left to right; when it's
+    // ready they pulse with it (gold: the charged dart, rapid fire, pierce; cyan: the guard). Lose a heart and it's off.
+    const perk = G.perkOf(p);
+    if (perk === 'off') return;
+    const k = perk === 'charged' ? Math.min(1, p.sinceShot / G.PERK.recharge) : perk === 'guard' ? 1 - Math.max(0, p.guardCd || 0) / G.PERK.guardCd : 1;
+    const ready = k >= 1 && (perk !== 'charged' || p.perkReady()), col = perk === 'guard' ? '#7ff0ff' : '#ffd23a', n = p.maxHp / 2;
+    const w = Math.round(((n - 1) * gap + 8) * k);
+    if (w <= 0) return;
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y - 1, w, 10); ctx.clip();
+    ctx.globalAlpha = ready ? 0.45 + 0.35 * Math.sin(G.tick / 6) : 0.55;
+    for (let i = 0; i < n; i++) ctx.drawImage(G.tinted(G.art.heart.full, ready && (G.tick >> 3) & 1 ? '#ffffff' : col), x + i * gap, y);
+    ctx.restore();
   }
   // Inventory strip: pops up under the HUD whenever you swap or pick something up (under slot x)
   function invStrip(ctx, p, x, blink) {
@@ -12452,13 +12550,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     portrait(ctx, p, 2, blink);
     hearts(ctx, p, 21, 3, 8);
     G.text(String(st.score).padStart(6, '0'), 21, 12, '#ffd23a');
-    // Full-health perk: a thin bar under the hearts while it's on (bright when the charged dart or the guard is ready)
-    const perk = G.perkOf(p);
-    if (perk !== 'off') {
-      const ready = perk === 'charged' ? p.perkReady() : perk === 'guard' ? !(p.guardCd > 0) : true;
-      ctx.fillStyle = !ready ? '#5a4a20' : perk === 'guard' ? '#7ff0ff' : blink && perk === 'charged' ? '#ffffff' : '#ffd23a';
-      ctx.fillRect(21, 10, HW - 2, 1);
-    }
+    // (the full-health perk shows in the hearts: see hearts())
     // weapon
     const w = p.weapon, wd = G.WEAPONS[w.id], WX = PW + 3;
     let ammo, acol = '#ffffff';
@@ -13905,7 +13997,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const G = window.G, I = G.input, N = G.net;
   const HIST = 120; // snapshots the host remembers (as diff bases), about 4 s
   // Never sent: links to other objects, art, brains, and AI bookkeeping the guest never draws
-  const SKIP = new Set(['def', 'ctrl', 'sprites', 'kd', 'brain', 'tune', 'target', 'bumpedDoor', 'grip', 'hits', 'spr', 'tile', 'nid', 'goal',
+  const SKIP = new Set(['def', 'ctrl', 'sprites', 'kd', 'brain', 'tune', 'target', 'bumpedDoor', 'grip', 'hits', 'spr', 'tile', 'nid', 'goal', 'skipN', 'nStep', 'dormant', 'placed',
     'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)

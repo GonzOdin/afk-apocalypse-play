@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 21:21 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 21:53 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -9879,20 +9879,34 @@ body.mouseaim #screen { cursor: none; }
     for (const [a, b] of cells) put(a, b, ch);
     return out;
   };
-  // A see-through preview of a stamp at cell (x, y), drawn into ctx at `scale` px per world px, world origin at
-  // (ox, oy) on screen: the piece itself, plus an outline of its footprint
+  // A see-through preview of what the brush places at cell (x, y), at its full height (a tall wall shows its whole
+  // face, a lamppost its pole, a car or trampoline the whole piece; a marker its sprite standing in the cell), drawn
+  // into ctx at `scale` px per world px with the world origin at (ox, oy) on screen, plus an outline of its footprint
   const ghosts = new Map();
   K.drawGhost = (ctx, theme, ch, x, y, scale, ox, oy) => {
-    const size = K.stampSize(theme, ch);
-    if (!size) return false;
-    if (!ghosts.has(theme.label + ch)) ghosts.set(theme.label + ch, K.tilePreview(theme, ch));
-    const img = ghosts.get(theme.label + ch), up = theme.up && theme.up[ch], lift = up ? up.rise : 0, wd = up && up.wide ? up.wide : 0;
-    ctx.globalAlpha = 0.55;
-    ctx.drawImage(img, ox + (x * 16 - wd) * scale, oy + (y * 16 - lift) * scale, img.width * scale, img.height * scale);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 1;
+    const size = K.stampSize(theme, ch) || [1, 1], key = theme.label + ch;
+    if (ch !== K.DEL && !ghosts.has(key)) ghosts.set(key, K.MARK.has(ch) ? K.markerSprite(ch) : K.tilePreview(theme, ch));
+    const img = ghosts.get(key);
+    if (img) {
+      let dx = x * 16, dy = y * 16;
+      if (K.MARK.has(ch)) { dx += (16 - img.width) / 2; dy += 16 - img.height; } // standing in the cell, feet at its bottom
+      else { const up = theme.up && theme.up[ch]; dx -= up && up.wide ? up.wide : 0; dy -= up ? up.rise : 0; }
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(img, ox + dx * scale, oy + dy * scale, img.width * scale, img.height * scale);
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = ch === K.DEL ? '#ff3a5a' : '#ffd23a'; ctx.lineWidth = 1;
     ctx.strokeRect(ox + x * 16 * scale + 0.5, oy + y * 16 * scale + 0.5, size[0] * 16 * scale - 1, size[1] * 16 * scale - 1);
     return true;
+  };
+  // The same for the top layer: a roof, leaf canopy or hedge fill drawn as high as the game draws it (lift px up),
+  // with its footprint cell outlined faintly underneath. img is the brush's full sprite (null for Delete).
+  K.drawTopGhost = (ctx, img, lift, x, y, scale, ox, oy) => {
+    if (img) { ctx.globalAlpha = 0.6; ctx.drawImage(img, ox + x * 16 * scale, oy + (y * 16 - lift) * scale, img.width * scale, img.height * scale); ctx.globalAlpha = 1; }
+    ctx.strokeStyle = img ? '#ffd23a' : '#ff3a5a'; ctx.lineWidth = 1;
+    ctx.strokeRect(ox + x * 16 * scale + 0.5, oy + (y * 16 - lift) * scale + 0.5, 16 * scale - 1, 16 * scale - 1);
+    ctx.strokeStyle = 'rgba(255,210,58,.35)';
+    ctx.strokeRect(ox + x * 16 * scale + 0.5, oy + y * 16 * scale + 0.5, 16 * scale - 1, 16 * scale - 1);
   };
   K.DEL = 'DEL'; // the Delete tool: clears a cell back to the theme's ground (removes objects and markers)
   K.resolve = (theme, ch) => (ch === K.DEL ? theme.ground : ch);
@@ -10650,6 +10664,23 @@ body.mouseaim #screen { cursor: none; }
     hoverText(c.x + ',' + c.y + '  ' + labelAt(st, c.x, c.y) + (top !== '.' && tl ? '  ·  TOP: ' + tl[1] : ''));
   }
   const TOP_PALETTE = [['.', 'DELETE (TOP LAYER)'], ['R', 'ROOF'], ['L', 'LEAF CANOPY (WALK UNDER, GAPS = SECRET)'], ['M', 'SOLID HEDGE FILL (BLOCKS)']];
+  // How far up the game draws a top-layer piece (roofs sit on the walls, canopies rise like tall hedges), so clicks
+  // and the ghost line up with what you see rather than with the cell underneath
+  function topLift(theme, ch) { return ch === 'R' ? theme.roofLift || 0 : theme.canopyTile ? theme.canopyRise || 16 : 0; }
+  const topSprites = new Map();
+  function topSprite(theme, ch) { // the brush's whole sprite (a canopy cell is 16 x 16+rise), for the ghost
+    if (ch === '.') return null;
+    const key = theme.label + ch;
+    if (!topSprites.has(key)) {
+      if (ch === 'R' || !theme.canopyTile) topSprites.set(key, K.tilePreview(theme, 'R'));
+      else {
+        const b = G.makeCanvas(16, 16 + topLift(theme, ch)), bx = b.getContext('2d');
+        theme.canopyTile((a, y, w, h, col) => { bx.fillStyle = col; bx.fillRect(a, y, w, h); }, 0, 0, null, ch === 'M');
+        topSprites.set(key, b);
+      }
+    }
+    return topSprites.get(key);
+  }
   function topIcon(theme, ch) {
     const c = G.makeCanvas(16, 16), x = c.getContext('2d');
     const r = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
@@ -10690,7 +10721,13 @@ body.mouseaim #screen { cursor: none; }
   function worldCell(st, e) {
     const g = G.screenToGame(e.clientX, e.clientY);
     if (!g) return null;
-    const z = st.edit.zoom, x = Math.floor((st.edit.cx + g.x / z) / 16), y = Math.floor((st.edit.cy + g.y / z) / 16);
+    const z = st.edit.zoom, wx = st.edit.cx + g.x / z, wy = st.edit.cy + g.y / z, x = Math.floor(wx / 16);
+    let y = Math.floor(wy / 16);
+    if (st.edit.layer === 'top') { // the top layer is drawn raised: aim at the raised piece, not the ground under it
+      const th = st.room.theme, tool = st.edit.topTool || 'L';
+      y = Math.floor((wy + topLift(th, tool)) / 16);
+      if (tool === '.' && st.room.overAt(x, Math.floor((wy + (th.roofLift || 0)) / 16)) === 'R') y = Math.floor((wy + (th.roofLift || 0)) / 16); // deleting a roof
+    }
     return x >= 0 && y >= 0 && x < st.room.w && y < st.room.h ? { x, y } : null;
   }
   function paint(st, c) {
@@ -10966,12 +11003,11 @@ body.mouseaim #screen { cursor: none; }
       o.fillStyle = 'rgba(255,255,255,.08)';
       for (let gx = Math.ceil(v.x / 16) * 16; gx < v.x + VW; gx += 16) o.fillRect(gx - v.x, 0, 1, VH);
       for (let gy = Math.ceil(v.y / 16) * 16; gy < v.y + VH; gy += 16) o.fillRect(0, gy - v.y, VW, 1);
-      if (E.hover && E.layer !== 'top' && K.drawGhost(o, st.room.theme, E.tool, E.hover.x, E.hover.y, 1, -v.x, -v.y)) { /* a stamp's ghost */ }
-      else if (E.hover) {
-        const hx = E.hover.x * 16 - v.x, hy = E.hover.y * 16 - v.y;
-        o.fillStyle = (G.tick >> 3) & 1 ? '#ffd23a' : '#ff5ab0';
-        o.fillRect(hx, hy, 16, 1); o.fillRect(hx, hy + 15, 16, 1); o.fillRect(hx, hy, 1, 16); o.fillRect(hx + 15, hy, 1, 16);
-      }
+      // the ghost: what the brush places, at its full height (a tall wall's whole face, a raised canopy)
+      if (E.hover && E.layer === 'top') {
+        const th = st.room.theme, t = E.topTool || 'L', del = t === '.' && st.room.overAt(E.hover.x, E.hover.y) === 'R';
+        K.drawTopGhost(o, topSprite(th, t), topLift(th, del ? 'R' : t), E.hover.x, E.hover.y, 1, -v.x, -v.y);
+      } else if (E.hover) K.drawGhost(o, st.room.theme, E.tool, E.hover.x, E.hover.y, 1, -v.x, -v.y);
       const p = st.players[0];
       o.globalAlpha = 0.6; o.drawImage(p.frame(), Math.round(p.x - v.x) - 8, Math.round(p.y - v.y) - G.PERSON_Y); o.globalAlpha = 1;
       G.textCtx = null;

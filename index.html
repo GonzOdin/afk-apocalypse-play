@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-08 02:40 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-08 12:17 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2364,6 +2364,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       r(0, 15, 16, 1, '#1a1028');
     };
     T.diner = {
+      place: { D: [2, 1] }, // a keycard door goes in 2 wide (one keycard opens it)
       label: 'DINER',
       palette: [['.', 'FLOOR'], ['#', 'WALL'], ['D', 'KEYCARD DOOR (CLICK ONE AGAIN: COLOR)'], ['c', 'COUNTER'], ['b', 'BOOTH'], ['a', 'TABLE'], ['s', 'STOOL'], ['j', 'JUKEBOX']],
       groups: [['FLOOR & WALLS', '.#D'], ['FURNITURE', 'cbas'], ['DECORATION', 'j']],
@@ -3585,9 +3586,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (!L) bag(1, 4, 4);
     };
     const barricadeUp = (r, tx, ty, room) => {
-      const B = (x, y) => room && room.at(x, y) === ')', N = B(tx, ty - 1), S = B(tx, ty + 1);
-      if ((N || S) && !B(tx - 1, ty) && !B(tx + 1, ty)) { // a north-south run: one long striped rail, seen end-on, no gaps
-        const y0 = N ? -6 : 0, y1 = S ? 10 : 6;
+      const B = (x, y) => room && room.at(x, y) === ')', N = B(tx, ty - 1), S = B(tx, ty + 1), solo = !N && !S && !B(tx - 1, ty) && !B(tx + 1, ty);
+      if (((N || S) && !B(tx - 1, ty) && !B(tx + 1, ty)) || (solo && G.cellKind(room, tx, ty) === 'ns')) { // a north-south run (or one on its own, turned in the editor: O): one long striped rail, seen end-on, no gaps
+        const y0 = N ? -6 : solo ? -4 : 0, y1 = S ? 10 : solo ? 12 : 6;
         r(6, y0, 4, y1 - y0 + 1, '#2a1a10');
         for (let y = y0; y < y1; y += 4) { const k = ((y - y0) >> 2) & 1; r(7, y, 2, 2, k ? '#f0f0f0' : '#ff7a20'); r(7, y + 2, 2, 2, k ? '#ff7a20' : '#f0f0f0'); }
         r(7, y0, 1, y1 - y0, 'rgba(255,255,255,.3)');
@@ -3668,7 +3669,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         case '[': return [1, 4, 14, 12];
         case '%': return [0, 4, 16, 10];
         case '(': return [0, 4, 16, 10];
-        case ')': { const B = (x, y) => room && room.at(x, y) === ')'; return (B(tx, ty - 1) || B(tx, ty + 1)) && !B(tx - 1, ty) && !B(tx + 1, ty) ? [5, 0, 6, 16] : [0, 7, 16, 5]; }
+        case ')': { const B = (x, y) => room && room.at(x, y) === ')', side = !B(tx - 1, ty) && !B(tx + 1, ty); return side && (B(tx, ty - 1) || B(tx, ty + 1) || G.cellKind(room, tx, ty) === 'ns') ? [5, 0, 6, 16] : [0, 7, 16, 5]; }
         case '/': return [0, 4, 16, 8];
         case '{': return [3, 7, 10, 9];
         case '}': return [6, 11, 4, 5];
@@ -3694,7 +3695,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       bounce: new Set(['o']), // trampolines: walk on and you're launched
       variety: { t: 7, Y: 5, '*': 5, '<': 4 }, // looks you step through in the editor (click one again): kinds 'v0'.. (G.variant)
       stamps: { o: [2, 1], Y: [2, 2] }, // multi-tile pieces: the editors place the whole [w, h] footprint with one click
-      place: { c: [3, 2] }, blocks: new Set(['c']), // the car brush places a 3x2 car; any connected block of car is one car
+      place: { c: [3, 2], D: [2, 1] }, blocks: new Set(['c']), // the car brush places a 3x2 car (any connected block of car is one car); a keycard gate goes in 2 wide
       searchable: new Set(['g', 'm', '%', 'k', '[']),
       // a car's trunk: face the back end of a car (not a pile-up) and search it; it's the car's top-left cell that
       // counts as searched (the lid then shows open)
@@ -4076,6 +4077,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     water: new Set(['p']), bounce: new Set(['o']), stamps: { o: [2, 1] },
     poolLiquid: 'coolant', // its pools are coolant: a puddle rising out of one is cyan (G.drawPuddle)
     seeThrough: new Set(['i', 'e']), // glass: you see who's behind it (the hidden-neighbor check)
+    place: { D: [2, 1] }, // a security door goes in 2 wide (one keycard opens it)
     searchable: new Set(['m', '%']), // lockers and junk piles (what's in them: the map's loot); desks are just desks
     // who works here: mostly night-shift techs, a delivery driver at the loading dock, a cat that got in somewhere
     people: (R, tx, ty, pick) => (R.at(tx, ty) === '=' ? pick(['delivery', 'teacher', 'tech']) : pick(['tech', 'tech', 'tech', 'cat', 'driver'])),
@@ -5072,7 +5074,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#....T.................a..a..a.#",
         "#..........#####.......b..b..b.#",
         "#..........#...#...............#",
-        "#..........##D##...............#",
+        "#..........##DD#...............#",
         "#.......7.............2........#",
         "#..U......................T....#",
         "#..............P.........T.T...#",
@@ -5083,12 +5085,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#.....T.............#.3...6.#..#",
         "#...................#...8...#..#",
         "#...................#.......#..#",
-        "#...................####D####..#",
+        "#...................####DD###..#",
         "#..b.b.b.......................#",
         "#..a.a.a...................j...#",
         "################################",
       ],
-      kinds: { "13,9": "blue", "24,18": "blue" },
+      kinds: { "13,9": "blue", "14,9": "blue", "24,18": "blue" },
     },
     "range": {
       name: "WEAPON PRACTICE", theme: "suburb",
@@ -5163,7 +5165,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "JJJJWnaynnnnzWJJJJJJJJJJJJJJJJJJJJJJ.......::======::.....cc........::::::::::::::::::::::::::.J",
         "J...Wjnnnnnn[W.........Zh...........h.Z..h.::==-===::.....cc...cc..............................J",
         "J...HHHHOOHHHH..........h...........h.t..h.::cc====::..........cc.....Z.........l..t....Z....g.J",
-        "J...I.5I..dddd......................h....hm::cc-===::.h..Z...wDwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
+        "J...I.5I..dddd......................h....hm::cc-===::.h..Z...wDDwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
         "J..mI..I..l.........................h....h.::======::.h......w.................................J",
         "J...IIVI..........Z.....~~~.......t.hfffff.::==-===Z:lh......w.::::::::::::::::::.WWWWWWWWWWW..J",
         "J..........hhhh......~YY~...........hf4..f.::======::.h......w.:::::cc::cc:::::::.Wqqnnn<kksW..J",
@@ -5291,11 +5293,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "w:WnannnnannnnnnannW??????g??w.N.....h............h.......w...t...............g..h.....w",
         "w:WjnnnnnnnnnnnnnnsW?????????w.......h.....g......h.......w........l..uuuu.............w",
         "w:KKKKKKKKKKKOOKKKKK?????????w............................w............................w",
-        "wwwwwwwwwwwww::wwwwwwwwwwwwwwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwDwwwwwwwwwwww",
+        "wwwwwwwwwwwww::wwwwwwwwwwwwwwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwDDwwwwwwwwwww",
         "w::::::::::::::::::::::::::::h:::::::::::::::::::::::::::::::::wwwwwwwwwww::::wwwwwwwwww",
         "wg::::::::::::::::::::::Z::g:h:::::::::::::::::::::::::::::::::wwwwwwwwwww::::wwwwwwwwww",
         "wZ:ccc:ccc:ccc:cccccc:ccc::::h:hhhhhh::::::::::::::hhhhhh::::::wwwwwwwwwww:::Zwwwwwwwwww",
-        "w::ccc:ccc:ccc:cccccc:ccc::::h:hhhhhh:::::::::Z::::hhhhhh:wwwDwwwwwwwwwwww::::wwwwwwwwww",
+        "w::ccc:ccc:ccc:cccccc:ccc::::h:hhhhhh:::::::::Z::::hhhhhh:wwwDDwwwwwwwwwww::::wwwwwwwwww",
         "w:::::::::::::::::::::::0::::h:hhhhhh::::::::::::::hhhhhh:w::::::::::Z:::::::::::::::::w",
         "w:l::::::::Z:l::::::::::::l::h::::::::::::::::::::::::::::w:l:::::::::::::::::::::::::lw",
         "w::::::::::::::Z:::::::::::::h:::::JJ:J:::::::::::::::::N:w::::::::::::::::::::::::::::w",
@@ -5386,7 +5388,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "........................................................................................",
         "........................................................................................",
       ],
-      kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "43,28": "locked", "44,28": "locked", "75,28": "blue", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "72,52": "blue", "82,52": "up//burnt/shut" },
+      kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "43,28": "locked", "44,28": "locked", "75,28": "blue", "76,28": "blue", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "72,52": "blue", "82,52": "up//burnt/shut" },
       floors: { "65,9": "n", "10,20": "n" },
       loot: { "3,6": "i:pie", "63,9": "w:plates", "26,12": "i:coffee", "77,16": "w:plates", "13,20": "w:plates", "66,24": "teen", "1,30": "burger", "84,37": "ammo", "9,44": "i:pie", "77,56": "w:squirt" },
     },
@@ -5423,7 +5425,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "JJJJJJJJJJJJJ..JJJJJJJJJJ..J..w...........lZ::.l...........w::h::::::::::::::::t::::N::::J",
         "J.............................w..t..........::..........t.Zw::h:::::::Z::::::::::::::::::J",
         "J.Z.........................Z.w.............::.............w::h::::::::::::::::::::::::::J",
-        "JJJJJJJJJJJJJJeeJJJJJJJJJJJGGJJJJJJJJJJJJJJJDJJJJJJJJJJJJJJJGGJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+        "JJJJJJJJJJJJJJeeJJJJJJJJJJJGGJJJJJJJJJJJJJJJDDJJJJJJJJJJJJJJGGJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
         "J.............................J.........................::::::w..........................J",
         "J.l...............Z.........l.J.........................::::::w..........................J",
         "J..hh.hh..hh.hh..hh.hh..hh.hh.J..l.hhhhhh.......hhhhhh..::::::w..........................J",
@@ -5516,7 +5518,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "..........................................................................................",
         "..........................................................................................",
       ],
-      kinds: { "49,1": "drone", "88,3": "robodog", "36,6": "photo", "43,6": "painting", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "65,48": "photo", "68,48": "painting", "53,53": "photo", "78,55": "left//burnt/shut" },
+      kinds: { "49,1": "drone", "88,3": "robodog", "36,6": "photo", "43,6": "painting", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "45,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "65,48": "photo", "68,48": "painting", "53,53": "photo", "78,55": "left//burnt/shut" },
       floors: { "44,7": "n", "71,49": "n", "51,54": "n" },
       loot: { "32,1": "teen", "62,3": "i:pie", "48,4": "burger", "39,13": "w:plates", "57,19": "teen", "86,20": "ammo", "32,26": "ammo", "4,46": "i:coffee", "87,49": "ammo", "73,57": "i:pie" },
     },
@@ -5553,7 +5555,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#.....N....::::::::.........%.#l.......%....::......u...Uu.#:::::::::::l:::::::::::::::::#",
         "#..........::::Z:::...........#......Z......::......uoo..u.#::::%:::::::::::::::::::::::m#",
         "#.............................#.............::......uuuuuu.#:::::::Z:::::::::::::::::::::#",
-        "####v#########ee############################D#############################D###############",
+        "####v#########ee############################DD############################DD##############",
         "#.............................#=============::=============#..............::.............#",
         "#.B...........c.....%.........#=====j===j===::===j===j=====#l.............::............l#",
         "#.............................#==l==========::==========l==#...Z..........::.............#",
@@ -5584,7 +5586,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#..9.x........l...............#=====i===========================#............==Z=========#",
         "##########################################################################################",
       ],
-      kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "3,35": "clone", "81,38": "robodog" },
+      kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "75,30": "blue", "3,35": "clone", "81,38": "robodog" },
       loot: { "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "w:squirt", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo" },
     },
     "core": {
@@ -5621,7 +5623,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#m....i..........Z.........l..#=============::::==c==============Z#........::.........%....#",
         "#.....i....%................B.#=======Z===c=::::==================#........::..............#",
         "#.........................Z...#=============::::============Z=====#........::..............#",
-        "###############D############################::::############################D###############",
+        "###############DD###########################::::############################DD##############",
         "#...Z.........:::.............#..............................#.............::..............#",
         "#m............:::.............#...............l............B.#.B...........::.......Z.....l#",
         "#.............:::............l#..............................#.......Z.....::..............#",
@@ -5655,7 +5657,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#..9#.......m..Z.............Z#.........................i...9#............................B#",
         "############################################################################################",
       ],
-      kinds: { "2,1": "clone", "89,7": "mopbot", "81,21": "blue", "17,28": "clone", "15,31": "blue", "84,33": "robodog", "3,47": "drone", "54,56": "clone", "72,56": "drone", "38,57": "robodog" },
+      kinds: { "2,1": "clone", "89,7": "mopbot", "81,21": "blue", "17,28": "clone", "15,31": "blue", "16,31": "blue", "84,33": "robodog", "3,47": "drone", "54,56": "clone", "72,56": "drone", "38,57": "robodog" },
       loot: { "90,22": "ammo", "1,33": "burger", "70,39": "teen", "35,49": "i:coffee", "90,49": "teen", "83,59": "i:coffee", "52,61": "i:pie", "12,62": "ammo" },
     },
     "root": {
@@ -5689,7 +5691,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#::::::Z::::::::::::::::#........N.............#................c......#",
         "#m::::::l:::::::::::::::#......................#.....................BZ#",
         "#:::::::::::::::::::::::#.................Z....#............Z..........#",
-        "###########SS######################D########################D###########",
+        "###########SS######################DD#######################DD##########",
         "#...........Z...........#=========:::==========#.......................#",
         "#.....................B.#=l=j=====:::======j=l=#.......................#",
         "#......................Z#=========:::==========#..iiiiii.iiiiii.iiiiii.#",
@@ -5718,7 +5720,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "#..4.x..................#================i=====#......................B#",
         "########################################################################",
       ],
-      kinds: { "3,1": "clone", "61,1": "clone", "26,8": "drone", "45,17": "robodog", "14,20": "mopbot", "36,22": "blue", "1,23": "clone", "70,23": "clone", "60,28": "blue", "2,42": "robodog", "69,43": "drone" },
+      kinds: { "3,1": "clone", "61,1": "clone", "26,8": "drone", "45,17": "robodog", "14,20": "mopbot", "36,22": "blue", "1,23": "clone", "70,23": "clone", "60,28": "blue", "61,28": "blue", "2,42": "robodog", "69,43": "drone" },
       loot: { "23,2": "ammo", "48,3": "teen", "30,21": "i:pie", "70,22": "burger", "1,26": "ammo", "3,44": "i:coffee" },
     },
   };
@@ -7032,7 +7034,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           else if (this.lockCd <= 0) { this.lockCd = 90; G.sfx.play('deny'); this.say('LATCHED ON THE OTHER SIDE', '#ffd23a'); }
           continue;
         }
-        if (this.cards[d.color] > 0) { this.cards[d.color]--; st.openDoor(d); this.say('ACCESS GRANTED', '#38f0a0'); }
+        if (this.cards[d.color] > 0) { // one keycard opens the whole gate (side-by-side keycard tiles: a 2-wide gate)
+          this.cards[d.color]--;
+          const row = st.room.doors.filter((o) => !o.latch && !o.open && o.ty === d.ty);
+          let a = d.tx, b = d.tx;
+          while (row.some((o) => o.tx === a - 1)) a--;
+          while (row.some((o) => o.tx === b + 1)) b++;
+          for (const o of row) if (o.tx >= a && o.tx <= b) st.openDoor(o);
+          this.say('ACCESS GRANTED', '#38f0a0');
+        }
         else if (this.lockCd <= 0) { this.lockCd = 90; G.sfx.play('deny'); this.say('NEED A ' + d.color.toUpperCase() + ' KEYCARD', G.CARD_COLORS[d.color][0]); }
       }
     }
@@ -8735,8 +8745,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (!this.flying) { G.moveEntity(st.room, this, dx, dy); return; }
       this.x = G.clamp(this.x + dx, 8, st.room.pw - 8); this.y = G.clamp(this.y + dy, 12, st.room.ph - 4);
     }
-    hittable() { return !this.dead && this.rise < this.riseMax * 0.5 && (this.sink === 0 || this.sink > SINK / 2); }
+    hittable() { return !this.dead && !(this.turnT > 0) && this.rise < this.riseMax * 0.5 && (this.sink === 0 || this.sink > SINK / 2); } // (a neighbor still turning into it: not yet)
     update(st) {
+      if (this.turnT > 0) { this.turnT--; this.moving = false; return; } // a neighbor still turning into it (Stage.convert): frozen
       if (this.dormant) { // placed in the map (|): stands there doing nothing until it comes on screen, then it's awake for good
         if (!st.onScreen(this.x, this.y, -8)) { this.moving = false; return; }
         this.dormant = false; this.alert = 20;
@@ -8885,6 +8896,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (G.desperate(st.nearestPlayer(this.x, this.y)) && G.chance(G.LOOT_CHANCE.desperate / 100)) st.dropLoot(this.x, this.y, 'ammo');
     }
     draw(ctx, v) {
+      if (this.turnT > 0) return; // the transformation draws it (Stage.drawTurn)
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
       if (this.bot) { G.drawBot(this, ctx, sx, sy); if (this.ally > 0) G.drawHacked(this, ctx, sx, sy); return; } // robots: art-bots.js
       if (this.liquid) { G.drawPuddle(this, ctx, sx, sy, this.sink > 0 ? this.sink / SINK : null); return; } // living water: art-bots.js
@@ -10065,7 +10077,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       use(p, st) {
         let best = null, bd = this.reach;
         for (const e of st.enemies) {
-          if (!e.hittable() || e.liquid) continue; // (a puddle has no phone to unplug)
+          if ((!e.hittable() && !(e.turnT > 0)) || e.liquid) continue; // (a puddle has no phone to unplug; one still turning she can catch in time)
           const d = Math.hypot(e.x - p.x, e.y - p.y) - ((e.x - p.x) * p.fx + (e.y - p.y) * p.fy) * 0.3; // in front counts as closer
           if (d < bd) { bd = d; best = e; }
         }
@@ -10581,7 +10593,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const pk = count('B'), pkgs = level ? (level.packages || []).slice(0, pk) : [], starts = count('P');
     // keycards and gates by color (the map's kinds: G.cardColor); plain keys and locked house doors
     const colorOf = (x, y) => (room ? G.cardColor(room, x, y) : 'red'), gates = {}, cards = {}, pkgCards = {};
-    grid.forEach((row, y) => row.forEach((c, x) => { if (c === 'D') gates[colorOf(x, y)] = (gates[colorOf(x, y)] || 0) + 1; if (c === '8') cards[colorOf(x, y)] = (cards[colorOf(x, y)] || 0) + 1; }));
+    // (a gate is a run of keycard tiles side by side: one card opens it)
+    grid.forEach((row, y) => row.forEach((c, x) => { if (c === 'D' && row[x - 1] !== 'D') gates[colorOf(x, y)] = (gates[colorOf(x, y)] || 0) + 1; if (c === '8') cards[colorOf(x, y)] = (cards[colorOf(x, y)] || 0) + 1; }));
     for (const k of pkgs) if (k.split(':')[0] === 'key') { const c = k.split(':')[1] || 'red'; cards[c] = (cards[c] || 0) + 1; pkgCards[c] = (pkgCards[c] || 0) + 1; }
     let locked = 0;
     if (room) grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'O' || c === 'G') && row[x - 1] !== c && (c === 'O' ? G.doorLocked(room, x, y) : G.gateLocked(room, x, y))) locked++; })); // locked house doors and garden gates
@@ -10874,7 +10887,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
           const j = ny * W + nx, c = R.at(nx, ny);
           if (nx < 0 || ny < 0 || nx >= W || ny >= H || opened.has(j)) continue;
-          if (c === 'D' && has.cards[G.cardColor(R, nx, ny)] > 0) { gate = { cells: [j], color: G.cardColor(R, nx, ny) }; break; }
+          if (c === 'D' && has.cards[G.cardColor(R, nx, ny)] > 0) { // the whole gate opens with one card
+            let a = nx; while (R.at(a - 1, ny) === 'D') a--;
+            const cells = []; for (let b = a; R.at(b, ny) === 'D'; b++) cells.push(ny * W + b);
+            gate = { cells, color: G.cardColor(R, nx, ny) }; break;
+          }
           if (c === 'O' && has.hkeys > 0 && G.doorLocked(R, nx, ny)) { // the whole door opens
             let a = nx; while (R.at(a - 1, ny) === 'O') a--;
             const cells = []; for (let b = a; R.at(b, ny) === 'O'; b++) cells.push(ny * W + b);
@@ -11119,7 +11136,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<|'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<|)'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -11446,17 +11463,18 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     '|': () => Object.keys(G.ENEMY_TYPES), // an enemy placed in the map: which one
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : ch === '|' ? 'phoneTeen' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : ch === ')' ? (k === 'ns' ? 'ns' : 'ew') : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : ch === '|' ? 'phoneTeen' : ch === ')' ? 'ew' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
-    let a = x; while ((ch === 'O' || ch === 'G') && R.at(a - 1, y) === ch) a--;
-    const cells = []; if (ch === 'O' || ch === 'G') for (let b = a; R.at(b, y) === ch; b++) cells.push(b); else cells.push(x); // (a door or a gate: all of it together)
+    const whole = ch === 'O' || ch === 'G' || ch === 'D';
+    let a = x; while (whole && R.at(a - 1, y) === ch) a--;
+    const cells = []; if (whole) for (let b = a; R.at(b, y) === ch; b++) cells.push(b); else cells.push(x); // (a door or a gate: all of it together)
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
     if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z' || ch === '|') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
-    if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
-    if (ch === 'g' || ch === 'W') G.rebuildUpright(R, x, y);
+    if (ch === 'D') for (const cx of cells) { const d = R.doors.find((q) => q.tx === cx && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, cx, y, cx, y); G.rebuildUpright(R, cx, y); }
+    if (ch === 'g' || ch === 'W' || ch === ')') G.rebuildUpright(R, x, y);
     if (varied(st, ch)) { for (const [a, b] of K.pieceCells(R, x, y)) G.rebuildUpright(R, a, b); G.redrawRoomTiles(R, x - 1, y - 1, x + 2, y + 2); } // a new look
     if (ch === 'G') { for (const cx of cells) { const d = R.doors.find((q) => q.tx === cx && q.ty === y); if (d) d.locked = kind === 'locked'; G.rebuildUpright(R, cx, y); } }
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
@@ -11529,7 +11547,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // o turns what's under the cursor: a car to its next facing (its footprint turns with it when it goes end-on)
   function turnAt(st, c) {
     const ch = st.raw[c.y][c.x];
-    if (ch !== 'c') { msg('NOTHING TO TURN THERE (O TURNS CARS)', 'bad'); return; }
+    if (ch === ')') { // a barricade on its own turns between east-west and north-south (in a run, the run decides)
+      const R = st.room, B = (x, y) => st.raw[y] && st.raw[y][x] === ')';
+      if (B(c.x - 1, c.y) || B(c.x + 1, c.y) || B(c.x, c.y - 1) || B(c.x, c.y + 1)) { msg('A BARRICADE IN A RUN FOLLOWS ITS RUN', 'bad'); return; }
+      const from = kindAt(st, c.x, c.y), to = from === 'ns' ? 'ew' : 'ns';
+      setKind(st, c.x, c.y, to); st.edit.undo.push([{ x: c.x, y: c.y, kind: true, from, to }]); st.edit.redo = []; setDirty(true); commit(st);
+      msg('BARRICADE ' + (to === 'ns' ? 'NORTH-SOUTH' : 'EAST-WEST'));
+      return;
+    }
+    if (ch !== 'c') { msg('NOTHING TO TURN THERE (O TURNS CARS AND BARRICADES)', 'bad'); return; }
     st.edit.car = G.pieceAnchor(st.room, c.x, c.y);
     changeCar(st, 'facing', 1);
     showCar(st, st.edit.car);
@@ -11723,6 +11749,18 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   const MAX_PARTS = 700; // most particles alive at once
   const BEAM_T = 40;     // ticks a rescue beam lasts
+  // A sprite in fat pixels (block x block), drawn through one of a few reused scratch canvases (slot)
+  const SCRATCH = [], BIG = [];
+  const pixelate = (spr, block, slot) => {
+    if (block <= 1) return spr;
+    const w = Math.ceil(spr.width / block), h = Math.ceil(spr.height / block);
+    const s = SCRATCH[slot] || (SCRATCH[slot] = G.makeCanvas(32, 48)), b = BIG[slot] || (BIG[slot] = G.makeCanvas(48, 64));
+    const sx = s.getContext('2d'), bx = b.getContext('2d');
+    sx.clearRect(0, 0, s.width, s.height); sx.imageSmoothingEnabled = false; sx.drawImage(spr, 0, 0, w, h);
+    b.width = spr.width; b.height = spr.height; bx.imageSmoothingEnabled = false; bx.drawImage(s, 0, 0, w, h, 0, 0, w * block, h * block);
+    return b;
+  };
+  const TURN_T = 66;     // ticks a lost neighbor takes to turn (the glitchy transformation; the teen is frozen meanwhile)
   const NEIGHBOR_MARKERS = 3; // edge arrows for at most this many off-screen neighbors (nearest first)
   const ARROW = [[0, 0], [-1, -1], [-1, 1], [-2, -2], [-2, 2], [-3, -3], [-3, 3]]; // a chevron pointing along +x
 
@@ -11741,7 +11779,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.practice = !!def.practice; // the weapon practice range (practice.js): everything, never running out
       this.enemyCfg = { ...G.ENEMY_DEFAULTS, ...(def.enemies || {}) };
       this.overT = 0; // ticks since everyone ran out of lives
-      this.saved = 0; this.lost = 0; this.beams = []; this.tallyFlash = 0; // neighbors beamed out / turned
+      this.saved = 0; this.lost = 0; this.beams = []; this.turns = []; this.tallyFlash = 0; // neighbors beamed out / turned
       this.spawnT = this.enemyCfg.grace; // ticks until the next enemy rises
       this.parts = []; this.floaters = []; this.ghosts = []; this.rings = []; this.props = []; // props: looks-only debris (dropped phones)
       this.score = 0; this.targetsDown = 0; this.shakeT = 0; this.shakeA = 0; this.t = 0; this.pda = false;
@@ -12108,6 +12146,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       G.updateLife(this); // smoke and critters
       for (const b of this.beams) b.t++;
       G.compact(this.beams, (b) => b.t < BEAM_T);
+      for (const tr of this.turns) { // a lost neighbor's transformation: at the end, the teen breaks out in a burst
+        if (++tr.t === TURN_T && !this.remote) { this.burst(tr.x, tr.y - 14, 20, ['#ff3ab0', '#3ad0ff', '#140c1c', '#ffffff', '#a8c49a'], 2, 12, 30, true); G.sfx.play('zap'); } // (a guest gets the burst from the host)
+      }
+      G.compact(this.turns, (tr) => tr.t < TURN_T + 4);
       if (this.tallyFlash > 0) this.tallyFlash--;
 
       for (const q of this.parts) {
@@ -12170,6 +12212,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       G.drawSmoke(ctx, this, v); // smoke from wrecks and burning drums
       this.drawLocks(ctx, v); // locks shimmer now and then
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
+      for (const tr of this.turns) this.drawTurn(ctx, tr, cx, cy);
       // shots and sparks under the roofs; roofs on top of everything in the world; then x-ray and hints
       for (const o of this.props) if (o.dart) this.drawDart(ctx, o, cx, cy); else this.drawPhone(ctx, o, cx, cy);
       G.drawEnemyFx(ctx, this, v); // swing arcs, chat bubbles, !/? on top of the world
@@ -12290,24 +12333,73 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.checkAllAccounted();
     }
     // An enemy got to a neighbor first: they turn into a phone teen on the spot
+    // The opposite of being saved: a tight red beam drills down onto them, and they glitch into a teen in fat pixels
+    // (the teen is frozen and can't be hit until it's done: TURN_T)
     convert(n) {
       if (n.gone || n.safeT > 0) return; // just unplugged: a moment's grace
       n.gone = true; this.lost++; this.tallyFlash = 60;
+      let teen = null;
       for (let i = 0; i < (n.kd.people || 1); i++) { // tourists: both of them turn
         const e = new G.Enemy('phoneTeen', n.x + i * 10, n.y);
-        e.rise = 0; e.flash = 10;
-        if (i === 0) e.wasNeighbor = n.kind; // June can unplug them back
+        e.rise = 0; e.turnT = TURN_T;
+        if (i === 0) { e.wasNeighbor = n.kind; teen = e; } // June can unplug them back
         this.enemies.push(e);
       }
-      this.burst(n.x, n.y - 10, 14, ['#7ff0ff', '#1a1a28', '#ff3a5a', '#ffffff'], 1.6, 10, 26, true);
-      this.floater(n.x, n.y - 30, 'LOST!', '#ff3a5a');
+      this.turns.push({ x: n.x, y: n.y, spr: n.frame(), teen: teen && teen.sprites ? teen.sprites.down[0] : null, t: 0 });
+      if (this.out) this.out.push(['L', Math.round(n.x), Math.round(n.y), n.nid || 0]);
+      this.burst(n.x, n.y - 10, 10, ['#ff3ab0', '#140c1c', '#ff3a5a'], 1.2, 10, 20, true);
+      this.floater(n.x, n.y - 44, 'LOST!', '#ff3a5a');
+      this.shake(4, 2);
       G.sfx.play('lost');
       this.checkAllAccounted();
+    }
+    // The transformation: a narrow red-and-black beam stabs down from the sky, and the neighbor strobes between who
+    // they were and the teen they're becoming, in big chunky pixels with the colors split, faster and faster
+    drawTurn(ctx, tr, cx, cy) {
+      const t = tr.t, x = Math.round(tr.x - cx), y = Math.round(tr.y - cy);
+      if (t < TURN_T - 6 && !(t > TURN_T - 16 && (t >> 1) & 1)) { // the beam: drills down, holds, flickers off
+        const bot = Math.round((y + 2) * Math.min(1, t / 8));
+        ctx.fillStyle = '#ff3ab0'; ctx.fillRect(x - 2, 0, 5, bot);
+        ctx.fillStyle = '#140c1c'; ctx.fillRect(x - 1, 0, 3, bot);
+        ctx.fillStyle = '#ff3a5a'; ctx.fillRect(x, 0, 1, bot);
+        if (t >= 8) { ctx.fillStyle = 'rgba(255,58,176,.35)'; ctx.fillRect(x - 10, y - 1, 21, 3); } // where it hits the ground
+      }
+      if (t >= TURN_T) return;
+      const teen = tr.teen || G.art.people.teen1.down[0], who = tr.spr || teen;
+      const m = (t - 14) / 34, period = Math.max(2, Math.round(9 - 7 * Math.max(0, m))); // strobing faster and faster
+      const spr = t < 14 ? who : t >= 48 ? teen : Math.floor((t - 14) / period) & 1 ? teen : who;
+      const block = t < 6 ? 1 : t < 12 ? 2 : t < 52 ? 4 : t < 58 ? 2 : 1; // fat pixels in the middle of it
+      const lift = Math.round(Math.sin(Math.min(1, t / 40) * Math.PI) * 4), dx = x - Math.floor(spr.width / 2), dy = y - spr.height + 2 - lift;
+      const split = t >= 10 && t < 56 ? 2 : 0;
+      if (split) { // the colors pulled apart
+        ctx.globalAlpha = 0.6;
+        ctx.drawImage(pixelate(G.tinted(spr, '#ff3ab0'), block, 1), dx - split, dy);
+        ctx.drawImage(pixelate(G.tinted(spr, '#3ad0ff'), block, 2), dx + split, dy);
+        ctx.globalAlpha = 1;
+      }
+      const img = pixelate(spr, block, 0);
+      const slice = (t * 7) % 23; // a band of it slipping sideways now and then
+      if (t >= 10 && t < 56 && t % 5 < 2) {
+        ctx.drawImage(img, 0, 0, img.width, slice, dx, dy, img.width, slice);
+        ctx.drawImage(img, 0, slice, img.width, 6, dx + ((t & 2) ? 3 : -3), dy + slice, img.width, 6);
+        ctx.drawImage(img, 0, slice + 6, img.width, img.height - slice - 6, dx, dy + slice + 6, img.width, img.height - slice - 6);
+      } else ctx.drawImage(img, dx, dy);
+      if (t >= 10 && t < 56) { ctx.fillStyle = 'rgba(20,12,28,.45)'; ctx.fillRect(dx, dy + ((t * 3) % spr.height), spr.width, 2); } // a dark scanline running down
+      if (t >= 46 && t < 50) ctx.drawImage(G.tinted(spr, '#ffffff'), dx, dy); // the flash as they flip for good
+      if (t >= 8 && t < 60) { // a ring of pixel sparkles spinning round them, climbing as it goes (their transformation sequence, gone wrong)
+        const cyc = y - 8 - Math.min(24, (t - 8) * 0.6);
+        for (let i = 0; i < 8; i++) {
+          const a = t * 0.22 + (i * Math.PI) / 4, r = 11 - Math.max(0, t - 44) * 0.4, px = Math.round(x + Math.cos(a) * r), py = Math.round(cyc + Math.sin(a) * r * 0.45);
+          ctx.fillStyle = i & 1 ? '#3ad0ff' : '#ff3ab0'; ctx.fillRect(px - 1, py - 1, 2, 2);
+          if ((t + i) % 6 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(px, py, 1, 1); }
+        }
+      }
     }
     // June's Unplug: a teen turns back into a neighbor where it stands. One that was a neighbor before comes back
     // as who they were (and isn't lost any more); any other teen becomes a bonus neighbor of the kind that fits there.
     unplug(e) {
       e.dead = true;
+      if (e.turnT > 0) G.compact(this.turns, (tr) => Math.hypot(tr.x - e.x, tr.y - e.y) > 12); // caught mid-transformation: it stops
       const R = this.room, tx = G.clamp(Math.floor(e.x / 16), 0, R.w - 1), ty = G.clamp(Math.floor((e.y - 2) / 16), 0, R.h - 1);
       const n = new G.Neighbor(e.x, e.y, e.wasNeighbor || G.neighborKind(R, tx, ty, this.def.kinds));
       n.safeT = 120; // teens can't grab them straight back (2 s)
@@ -14230,6 +14322,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       case 'j': st.stickDart(e[1], e[2], { ux: e[3] / 100, uy: e[4] / 100, kind: e[5], on: e[6] && st.mirrors && st.mirrors.e ? st.mirrors.e.get(String(e[6])) : null, cling: e[7], bounce: e[8], suction: e[9] }); break; // a spent dart
       case 'r': st.rings.push({ x: e[1], y: e[2], max: e[3], life: 14, col: e[4] }); break;
       case 'g': { const p = st.players.find((q) => q.num === e[1]); if (p) st.ghosts.push({ spr: p.frame(), x: e[2], y: e[3], life: 14 }); break; }
+      case 'L': { const n = st.mirrors && st.mirrors.n && st.mirrors.n.get(String(e[3])); st.turns.push({ x: e[1], y: e[2], spr: n ? n.frame() : null, teen: null, t: 0 }); break; } // a neighbor lost: their transformation
       case 'm': { const n = st.mirrors && st.mirrors.n && st.mirrors.n.get(String(e[3])); st.beams.push({ x: e[1], y: e[2], spr: n ? n.frame() : null, t: 0 }); break; }
       case 'a': G.sfx.play(e[1]); break;
     }

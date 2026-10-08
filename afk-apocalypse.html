@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 17:49 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 18:26 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1931,6 +1931,14 @@ body.mouseaim #screen { cursor: none; }
     for (let b = a; R.at(b, y) === 'O'; b++) if (R.kinds[b + ',' + y] === 'locked') return true;
     return false;
   };
+  // Is the garden gate at (x, y) a locked one (kinds 'locked' on any of its side-by-side cells)? A locked gate opens
+  // from either side with a plain house key (ZAMN-style), instead of only from the locked side like a latch gate
+  G.gateLocked = (R, x, y) => {
+    if (!R.kinds) return false;
+    let a = x; while (R.at(a - 1, y) === 'G') a--;
+    for (let b = a; R.at(b, y) === 'G'; b++) if (R.kinds[b + ',' + y] === 'locked') return true;
+    return false;
+  };
   // Multi-tile pieces (theme.stamps { ch: [w, h] }: a 2x1 trampoline, a 2x2 big tree) are painted as blocks of the
   // same tile. The top-left cell of the block that (tx, ty) belongs to: runs of the tile split into pieces from their
   // start, so two pieces side by side still come apart correctly.
@@ -2954,6 +2962,12 @@ body.mouseaim #screen { cursor: none; }
       if (L && !hingeRight) r(0, 2, 2, 4, '#e0c060');
       if (L && hingeRight) r(0, 2, 3, 4, '#e0c060');          // the latch's other half (right half)
       if (!L && !R) { r(11, 2, 4, 4, '#e0c060'); r(12, 3, 1, 1, '#fff6c0'); } // a lone gate: latch on the right
+      if (room && G.gateLocked(room, tx, ty) && (R || (!L && !R))) { // locked (a house key opens it): a chain and a padlock where it latches
+        const px = R ? 12 : 10;
+        r(px - 3, 1, 10, 1, '#8a8aa0'); r(px - 3, 2, 10, 1, '#5a5a6a'); // the chain across the seam
+        r(px + 1, 2, 4, 2, '#b8b8c8'); r(px + 1, 2, 1, 3, '#b8b8c8'); r(px + 4, 2, 1, 3, '#b8b8c8'); // the shackle
+        r(px, 5, 6, 5, '#e0c060'); r(px, 5, 6, 1, '#fff6c0'); r(px + 2, 7, 2, 2, '#4a3a20'); // the brass body, keyhole
+      }
     };
     // Trees: three kinds, picked per tile (round leafy trees, tall pines, white-barked birches), each a little
     // different in size, lean and shade. Drawn like SNES-era trees (ZAMN's Level 5 is the reference): the crown is
@@ -3508,7 +3522,7 @@ body.mouseaim #screen { cursor: none; }
         ['n', 'WOOD FLOOR'], ['y', 'RUG'], ['q', 'COUCH'], ['k', 'KITCHEN COUNTER'], ['z', 'BED'], ['a', 'COFFEE TABLE'], ['s', 'BOOKSHELF'], ['j', 'TV'], ['[', 'CABINET'], ['<', 'POTTED PLANT'], ['f', 'PICKET FENCE'], ['I', 'PLANK FENCE (TALL, WOOD)'], ['V', 'BROKEN PLANK FENCE (A FEW WHACKS BREAK IT: A SMALL SECRET)'], ['h', 'SHORT HEDGE (FULL TILE, SHOOT OVER)'], ['J', 'TALL HEDGE (FULL TILE, 1 TALL)'], ['i', 'SPARSE HEDGE (WALK/SEE THROUGH)'], ['b', 'BRICK HEDGE (HEDGE OVER BRICK, UNBREAKABLE)'], ['r', 'BUSTED HEDGE (BLOWN OPEN, WALKABLE)'],
         ['S', 'SECRET TALL HEDGE (BOMB IT)'], ['e', 'PATCHY TALL HEDGE (ROCKETS/BOMBS BREAK IT)'], ['t', 'TREE'], ['Y', 'BIG TREE (2X2 OBSTACLE: ONE CLICK PLACES IT)'], ['l', 'STREETLIGHT (CLICK ONE AGAIN: BUSTED)'], ['m', 'MAILBOX'], ['g', 'TRASH CAN (CLICK ONE AGAIN: KNOCKED OVER)'], ['%', 'JUNK PILE (SEARCH IT)'], ['*', 'SPORTS GEAR (WALK OVER IT)'],
         ['(', 'SANDBAGS (LOW WALL: SHOOT OVER IT)'], [')', 'BARRICADE (STRIPED SAWHORSE)'], ['/', 'RAZOR WIRE (BLOCKS YOU AND THE POGO)'], ['{', 'BURNING OIL DRUM (SMOKES, LIGHTS THE GROUND)'], ['}', 'PROPAGANDA SIGN (STAY ONLINE)'], ['?', 'RUBBLE (WALKABLE)'],
-        ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'LATCH GATE (OPENS ONLY FROM THE LOCKED SIDE)'],
+        ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'GARDEN GATE (LATCH: OPENS FROM THE LOCKED SIDE; CLICK ONE AGAIN: LOCKED, A HOUSE KEY OPENS IT)'],
       ],
       groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj[<'], ['HEDGES & WALLS', 'hJbiSerfIVwuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*'], ['DYSTOPIA', '()/{}?']],
       // border: what's past the map edge: a tall hedge, fully solid (a tree would only block at its trunk)
@@ -4935,35 +4949,35 @@ body.mouseaim #screen { cursor: none; }
         "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
         "J4...hZ..........f...............Z.J...b..........bZ.h.......J........J...........J...........JJ",
         "J..%.h...www...g.f.........YY...B..J...b.t......t.b..h.....g.J.B......J...........J.........N.JJ",
-        "J....h.oowww..*..f.......h.YY......J.t.b.........Zb..h...9...J..J..J..JJJJJJJJJJ..J..JJJJJJJ..JJ",
+        "J....h.oowww..*..f.......h.YY......J.t.b.........Zb..h...9...J..J..J..JJJJeeJJJJ..J..JJJJJJJ..JJ",
         "J.oo.h...wwwww...f.......h.........J...b....U.....b..h.......J..J..J...........JZ.J..J.....J..JJ",
         "Jhhhhh......ww...f....Z..h...t.....J...b..........b..h...YY..J..Jg.J...........J..J..J.....J..JJ",
         "J................f.......h.........J...b..........b..h...YY..J..J..JJJJJJJJJJ..J..J..JJJJ..J..JJ",
         "J................f.......h.........J...b..........b..h.......J..JZ....J.......Z......Z.....J..JJ",
-        "J...YY.........oof..3....h.........JZ..b..........b..h.......J..J.....J....................J..JJ",
-        "J...YY...........fhhhhh..h..hhhhhh.J...bWWWWOOWWWWb..h.......J..JJJJ..J..JJJJJJJJJJJJJJJJJJJ..JJ",
-        "J.t..............f.......h.........J....Wqq<nnkksW...h.......J..J..J..J...............g..Z....JJ",
-        "J........t.......f.......h.........J....WnaynnNnzW...h.......J..J..J..J.......................JJ",
-        "J................f.......h........ZJ.t..Wjnnnnnn[W...........J..J..J..JJJJJJJJJJJJJJJJJJJJJJ..JJ",
-        "J.Z..............f..t............g.J....KKKKOOKKKK..........tJ..J..J...N........6.J........J..JJ",
+        "J...YY.........oof..C....h.........JZ..b..........b..h.IIIII.J..J.....J....................J..JJ",
+        "J...YY...........fhhhhh..h..hhhhhh.J...bWWWWOOWWWWb..h.I.5.I.J..JJJJ..J..JJJJJJJJJJJJJJeeJJJ..JJ",
+        "J.t..............f.......h.........J....Wqq<nnkksW...h.I...I.J..J..J..J...............g..Z....JJ",
+        "J........t.......f.......h.........J....WnaynnNnzW...h.IIVII.J..J..J..J.......................JJ",
+        "J................f.......h........ZJ.t..Wjnnnnnn[W...........J..J..J..JJJJJJJJeeJJJJJJJJJJJJ..JJ",
+        "J.Z..............f..t............g.J....KKKKOOKKKK..........tJ..J..J...N........2.J........J..JJ",
         "J...pppppppp.....f.................J....dddd..dddd...........J..J..J.........pp...J........J..JJ",
-        "J...pppNppppZ....f........oo.......J.....~~~l.......fffffff..J..J..JJJJJJJ...pp...JJJJJJJ..J..JJ",
+        "J...pppNppppZ....f........oo.......J.....~~~l.......fffffff..J..J..JJJJJJJ...pp...JJJeeJJ..J..JJ",
         "J...pppppppp.....ffffffffffffffffffJ.g.~~YY~~...Z...f,,,,,fZ.J...........J...pp.Z.......J..J..JJ",
         "J...pppppppp.....f............h....J...~~YY~~.Z.....f,,,,,f..J...........J..............J..JZ.JJ",
         "Jfffppppppppffffff.g..........h....J....~~~.........foo,,,f..JJJJ..JJJJ..J..J..JJJJJJJZ.J..J..JJ",
-        "J...pppppppp.....f....Z.t.....h....J......hhhhhhh...,,,,,,,..e...........J..J..J.....J........JJ",
-        "JZ..pppppppp.....f............h....J..N.............,,,,oo,..e...........J..J..J.....J........JJ",
-        "J...pppppppp.....f............h....J...........~~~~.,,,,,,,..J..JJJJJJJJJJ..J..JJJJ..J..JJJJJJJJ",
+        "J...pppppppp.....f....Z.t.....h....J......hhhhhhh...,,,,,,,..i...........J..J..J.....J........JJ",
+        "JZ..pppppppp.....f............h....J..N.............,,,,oo,..i...........J..J..J.....J........JJ",
+        "J...pppppppp.....f............h....J...........~~~~.,,,,,,,..J..JJJJeeJJJJ..J..JJJJ..J..JJJJJJJJ",
         "J...pppppppp..Z..f............h....J..........~.YY~~......Z..J..J...........J........J...1....JJ",
         "J.g..............fhhhhhhhhhhh......Jhhhhhhhhh.~~YY~~.........J.ZJ.........Z.J........J........JJ",
-        "J.........Z....t.f.................J...........~~.~.hhhhhhhhhJ..J..JJJJJJJ..JJJJJJJ..JJJJJJJ..JJ",
+        "J.........Z....t.f.................J...........~~.~.hhhhhhhhhJ..J..JJJJJJJ..JJeeJJJ..JJJJJJJ..JJ",
         "J................f.................J.........t..........l.Z..J........J....................J..JJ",
         "Jhhhhhhh...fffffff........h.....g..J.............g.t.........J........J............N.......J..JJ",
         "J..........f.....f.....N..h......Z.J......................t..J..JJJJ..JJJJJJJ..JJJJ..J..J..J..JJ",
-        "J..........fA....f........h........J.........................J8....J..............J.....J.....JJ",
-        "J..N.......f.....f........h........JJJGGJJJJccccccccJJJJJJJJJJ.....J..............J.....J.....JJ",
-        "J..........f..oo.f........h........h........cccccccc.........JGGJJJJJJJJJJJJJJJJJJJJJJJJJeeJJJJJ",
-        "J..........fffffff........h........h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
+        "J....IIIII.fA....f........h........J.........................J8....J..............J.....J.....JJ",
+        "J..N.I.4.I.f.....f........h........JJJGGJJJJccccccccJJJJJJJJJJ.....J..............J.....J.....JJ",
+        "J....I...I.f..oo.f........h........h........cccccccc.........JGGJJJJJJJJJJJJJJJJJJJJJJJJJGGJJJJJ",
+        "J....IIVII.fffffff........h........h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
         "J..t.......Z.....f........h.t....ooh......l::==-===::.::::::::::::::::.....cc.........cc.......J",
         "J...WWWWOOWWWW...f........h........h.......::======::.::::::::::::::::.....cc.........cc.......J",
         "J...Wqq<nnkksW...f........h........J::::::.::==-===::...............::::::::::::::::::::::::::.J",
@@ -4972,12 +4986,12 @@ body.mouseaim #screen { cursor: none; }
         "J...HHHHOOHHHH..........h...........h.t..h.::cc====::..........cc.....Z.........l..t....Z....g.J",
         "J...dddd..dddt..........h.g.........h....hm::cc-===::.h..Z...wDwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
         "J..m......Z.l.........m.h..hhthh....h....h.::======::.h......w.................................J",
-        "J...............g...*~~~h...........hfffff.::==-===Z:lh......w.::::::::::::::::::.WWWWWWWWWWW..J",
-        "J..........h.......~~YY~h...........hf4..f.::======::.h......w.:::::cc::cc:::::::.Wqqnnn<kksW..J",
-        "J....~~.~..h.......~~YY~h...........hf...f.::==-===::.h..t...w.:::::cc::cc:::::::.WnaynBnnnzW..J",
-        "J...~~YY.g.h........~~~.............hf.oof.::====cc::.h......w.::::::::::::::::::.Wjnnnnnnn[W.ZJ",
-        "J..N.~YY~..h........0....l..........hfffff.::==-=cc::m....g..w.:::::::Z::::::::::.KKKKOOKKKKK..J",
-        "J.....~~~..h................hhhhhhh.h....h.::======::........w.:cc::cc::::::cc:Z:.dddd..dddd...J",
+        "J...............g...*~~~h...........hfffff.::==-===Z:lh......w.::::::::::::IIIII:.WWWWWWWWWWW..J",
+        "J..........h.......~~YY~h...........hf4..f.::======::.h......w.:::::cc::cc:I.A.I:.Wqqnnn<kksW..J",
+        "J....~~.~..h.IIIII.~~YY~h...........hf...f.::==-===::.h..t...w.:::::cc::cc:I...I:.WnaynBnnnzW..J",
+        "J...~~YY.g.h.I.9.I..~~~.............hf.oof.::====cc::.h......w.::::::::::::IIVII:.Wjnnnnnnn[W.ZJ",
+        "J..N.~YY~..h.I...I..0....l..........hfffff.::==-=cc::m....g..w.:::::::Z::::::::::.KKKKOOKKKKK..J",
+        "J.....~~~..h.IIVII..........hhhhhhh.h....h.::======::........w.:cc::cc::::::cc:Z:.dddd..dddd...J",
         "J..........h................I..7..I.h....hl::==-===::.h.JJJ.Jw.:cc::cc::::::cc:::..........wwwwJ",
         "J.t...........ffffffff..h...I.+..tI.h....h.::======::.htJ....w.::::::::::::::::::..........v.A.J",
         "J.........*...f......f..h.Z.IIIVIII........::==-===::.h.J.1..w.::::::::::::::::::......N...w...J",
@@ -4987,9 +5001,9 @@ body.mouseaim #screen { cursor: none; }
         "J.....Z.h..h..f.........h.....Z..........::==========::......w.::::::::::::::::::..wwwwwwwwwwwwJ",
         "J.......t..h............h...............:=====hthh=====:.....w.:::::::::Z::::::::..w...........J",
         "J.....Z.h..h...........................::=====hhth=====::....w.....................w..t........J",
-        "J.......h..h...............eeeeeeeeJ...t================:....wuuuuuuuuu...uuuuuuuuuw........t..J",
-        "J..thhhhht.h...hhhhhhhhh...J.......J...:================:m...w.....................x......Z....J",
-        "J...,,,,,..h...............J.......J...:================:....wt.......l............x.....X.....J",
+        "J.......h..h...............IIIIVIIIJ...t================:....wuuuuuuuuu...uuuuuuuuuw........t..J",
+        "J..thhhhht.h...hhhhhhhhh...J.......J...:================:m...w.....................V......Z....J",
+        "J...,,,,,..h...............J.......J...:================:....wt.......l............I.....F.....J",
         "J...,,,,,..h..............tJ.......Jhg.::==============:Z....w...N..........g......w...........J",
         "J...,,,,,..h.....N.........J...B...Jh...:==============:..g..w......Q..........Z...w.uuuuuu....J",
         "J...,,,,,..h...............J.......Jh.l..::==========::......w.....................w........9..J",
@@ -5063,7 +5077,7 @@ body.mouseaim #screen { cursor: none; }
         "................................................................................................",
         "................................................................................................",
       ],
-      kinds: { "92,2": "dog", "42,9": "painting", "71,13": "jacks", "37,16": "knocked", "38,20": "mower", "2,23": "knocked", "56,25": "busted", "83,26": "teacher", "23,27": "baby", "3,29": "stretch", "44,29": "left/red/wreck/shut", "86,32": "left/green/sedan/open", "6,33": "photo", "85,40": "photo", "72,41": "left/blue/wreck/open", "3,44": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "65,58": "dog", "17,59": "gnome" },
+      kinds: { "92,2": "dog", "42,9": "painting", "71,13": "jacks", "37,16": "knocked", "38,20": "mower", "2,23": "knocked", "56,25": "busted", "83,26": "teacher", "23,27": "baby", "3,29": "stretch", "44,29": "left/red/wreck/shut", "89,30": "locked", "90,30": "locked", "86,32": "left/green/sedan/open", "6,33": "photo", "85,40": "photo", "72,41": "left/blue/wreck/open", "3,44": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "65,58": "dog", "17,59": "gnome" },
       floors: { "3,2": ".", "14,3": ".", "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "20,40": ".", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "10,48": ".", "30,50": ".", "68,61": ".", "88,61": "." },
       loot: { "3,2": "ammo", "59,2": "i:pie", "46,10": "w:plates", "86,10": "empty", "19,18": "i:coffee", "32,26": "ammo", "72,31": "i:pie", "93,37": "burger", "3,39": "ammo", "88,61": "teen" },
     },
@@ -5748,6 +5762,7 @@ body.mouseaim #screen { cursor: none; }
           this.grid[y * this.w + x] = ch;
         });
       });
+      for (const d of this.doors) if (d.latch && G.gateLocked(this, d.tx, d.ty)) d.locked = true; // a locked garden gate: a house key opens it
       // Markers become whatever ground surrounds them
       for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
         const ch = this.at(x, y);
@@ -5908,6 +5923,8 @@ body.mouseaim #screen { cursor: none; }
   // and max health in half-hearts (HP 3 = 4 hearts, HP 5 = 6)
   G.crewSpeed = (def) => WALK_SPEED + ((def.stats ? def.stats.SPD : 5) - 5) * 0.06;
   G.crewHp = (def) => ((def.stats ? def.stats.HP : 3) + 1) * 2;
+  // The closed garden-gate tiles side by side with gate tile d (a gate opens as one)
+  const gateRow = (R, d) => { const row = R.doors.filter((o) => o.latch && !o.open && o.ty === d.ty); let a = d.tx, b = d.tx; while (row.some((o) => o.tx === a - 1)) a--; while (row.some((o) => o.tx === b + 1)) b++; return row.filter((o) => o.tx >= a && o.tx <= b); };
   class Player {
     constructor(def, ctrl, x, y, o = {}) {
       Object.assign(this, {
@@ -6463,6 +6480,14 @@ body.mouseaim #screen { cursor: none; }
         const L = d.tx * 16, T = d.ty * 16;
         const gx = Math.max(L - r, l - (L + 16), 0), gy = Math.max(T - b, t - (T + 16), 0);
         if (gx > 1.5 || gy > 1.5) continue;
+        if (d.latch && d.locked) { // a locked garden gate: a house key opens it, from either side (the whole gate)
+          if (this.keys > 0) {
+            this.keys--;
+            for (const o of gateRow(st.room, d)) { o.locked = false; st.openDoor(o); }
+            this.say('UNLOCKED', '#38f0a0');
+          } else if (this.lockCd <= 0) { this.lockCd = 90; G.sfx.play('deny'); this.say('LOCKED - NEED A KEY', '#e0c060'); }
+          continue;
+        }
         if (d.latch) {
           const R = st.room, inside = R.outside && !R.outside[Math.floor((this.y - 4) / 16) * R.w + Math.floor(this.x / 16)];
           if (inside) { // the whole gate swings open: every latch tile side by side with this one
@@ -9874,7 +9899,7 @@ body.mouseaim #screen { cursor: none; }
     grid.forEach((row, y) => row.forEach((c, x) => { if (c === 'D') gates[colorOf(x, y)] = (gates[colorOf(x, y)] || 0) + 1; if (c === '8') cards[colorOf(x, y)] = (cards[colorOf(x, y)] || 0) + 1; }));
     for (const k of pkgs) if (k.split(':')[0] === 'key') { const c = k.split(':')[1] || 'red'; cards[c] = (cards[c] || 0) + 1; pkgCards[c] = (pkgCards[c] || 0) + 1; }
     let locked = 0;
-    if (room) grid.forEach((row, y) => row.forEach((c, x) => { if (c === 'O' && row[x - 1] !== 'O' && G.doorLocked(room, x, y)) locked++; }));
+    if (room) grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'O' || c === 'G') && row[x - 1] !== c && (c === 'O' ? G.doorLocked(room, x, y) : G.gateLocked(room, x, y))) locked++; })); // locked house doors and garden gates
     const hkeys = count('C') + pkgs.filter((k) => k === 'hkey').length;
     const out = [];
     const line = (cls, t) => out.push(`<div class="${cls}">${cls === 'ok' ? '✓' : cls === 'warn' ? '!' : '✗'} ${t}</div>`);
@@ -9889,7 +9914,7 @@ body.mouseaim #screen { cursor: none; }
       if (!d && !k) continue;
       line(k === d ? 'ok' : k < d ? 'bad' : 'warn', `${C} gates: ${d} · ${C.toLowerCase()} keycards: ${k}` + (pkgCards[col] ? ` (${pkgCards[col]} in packages)` : '') + (k < d ? ` — not enough ${col} keycards!` : k > d ? ` — more ${col} keycards than ${col} gates` : ''));
     }
-    if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked ? 'bad' : 'warn', `Locked house doors: ${locked} · keys: ${hkeys}` + (hkeys < locked ? ' — not enough keys!' : hkeys > locked ? ' — more keys than locked doors' : ''));
+    if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked ? 'bad' : 'warn', `Locked doors and gates: ${locked} · keys: ${hkeys}` + (hkeys < locked ? ' — not enough keys!' : hkeys > locked ? ' — more keys than locked doors' : ''));
     if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras hold a dart box)`);
     line(count('Q') <= 1 ? 'ok' : 'warn', `PDA: ${count('Q')}`);
     if (level && G.DISK_LEVELS().includes(mapId)) line(count('+') === 1 ? 'ok' : 'warn', `Data disk: ${count('+')} (one per level, behind a secret)`);
@@ -10000,7 +10025,7 @@ body.mouseaim #screen { cursor: none; }
         for (const [nx, ny] of next) {
           const j = ny * W + nx;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen[j] || sealed.has(j)) continue;
-          if (walkableCell(R, nx, ny) || opens(R.at(nx, ny)) || (R.at(nx, ny) === 'G' && !foot[i])) { seen[j] = 1; q.push(j); }
+          if (walkableCell(R, nx, ny) || opens(R.at(nx, ny)) || (R.at(nx, ny) === 'G' && (!foot[i] || G.gateLocked(R, nx, ny)))) { seen[j] = 1; q.push(j); }
         }
       }
       return seen;
@@ -10098,7 +10123,7 @@ body.mouseaim #screen { cursor: none; }
       if (sealed && sealed.has(y * W + x)) return false;
       if (walkableCell(R, x, y)) return true;
       const ch = R.at(x, y), i = y * W + x;
-      if (ch === 'D' || ch === 'O') return opened.has(i); // a gate opened with its keycard, a locked door with a key
+      if (ch === 'D' || ch === 'O' || ch === 'G') return opened.has(i); // a gate opened with its keycard, a locked door or garden gate with a key (a latch gate: see explore)
       if (T.breakable && T.breakable.has(ch)) return has.rockets || has.bomb || (has.machete && !!T.chop && T.chop.has(ch)); // the machete: hedges only
       if (T.melee && T.melee.has(ch)) return true; // loose boards: anyone can whack through
       if (T.bombable && T.bombable.has(ch)) return has.bomb; // cracked plaster: a soda bomb
@@ -10130,7 +10155,7 @@ body.mouseaim #screen { cursor: none; }
         if (has.pogo) next.push(...jumpLandings(R, x, y));
         if (T.bounce && T.bounce.has(R.at(x, y))) next.push(...trampLandings(R, x, y));
         for (const [nx, ny] of next) {
-          const j = ny * W + nx, latch = !foot[i] && R.at(nx, ny) === 'G';
+          const j = ny * W + nx, latch = !foot[i] && R.at(nx, ny) === 'G' && !G.gateLocked(R, nx, ny);
           if (!out.has(j) && (passable(nx, ny) || latch)) { out.add(j); q.push(j); }
         }
       }
@@ -10153,6 +10178,11 @@ body.mouseaim #screen { cursor: none; }
           if (c === 'O' && has.hkeys > 0 && G.doorLocked(R, nx, ny)) { // the whole door opens
             let a = nx; while (R.at(a - 1, ny) === 'O') a--;
             const cells = []; for (let b = a; R.at(b, ny) === 'O'; b++) cells.push(ny * W + b);
+            gate = { cells, key: true }; break;
+          }
+          if (c === 'G' && has.hkeys > 0 && G.gateLocked(R, nx, ny)) { // a locked garden gate: the whole gate opens
+            let a = nx; while (R.at(a - 1, ny) === 'G') a--;
+            const cells = []; for (let b = a; R.at(b, ny) === 'G'; b++) cells.push(ny * W + b);
             gate = { cells, key: true }; break;
           }
         }
@@ -10229,7 +10259,14 @@ body.mouseaim #screen { cursor: none; }
   const LOCKS = [
     { what: 'keycard gate', is: (T, c) => c === 'D', opens: (T, c) => !!((T.breakable && T.breakable.has(c)) || (T.bombable && T.bombable.has(c))) },
     { what: 'breakable wall', is: (T, c) => !!((T.breakable && T.breakable.has(c)) || (T.bombable && T.bombable.has(c))), opens: (T, c) => c === 'D' }, // rockets and bombs open them all
+    { what: 'locked gate', is: (T, c, R, x, y) => c === 'G' && G.gateLocked(R, x, y), opens: (T, c) => c === 'D' || !!((T.breakable && T.breakable.has(c)) || (T.bombable && T.bombable.has(c))) }, // a garden gate a house key opens
   ];
+  // Are all these cells in one piece you can walk around (no jumps, nothing opened)?
+  const walkTogether = (R, cells) => {
+    const W = R.w, seen = new Set([cells[0]]), q = [cells[0]];
+    while (q.length) { const i = q.pop(), x = i % W, y = (i - x) / W; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < R.h && !seen.has(j) && walkableCell(R, nx, ny)) { seen.add(j); q.push(j); } } }
+    return cells.every((c) => seen.has(c));
+  };
   K.leakyLocks = (R, grid) => {
     const W = R.w, H = R.h, T = R.theme, N = W * H;
     const sy = grid.findIndex((r) => r.includes('P'));
@@ -10238,7 +10275,7 @@ body.mouseaim #screen { cursor: none; }
     const out = [], seen = new Set();
     for (const L of LOCKS) {
       const cells = [];
-      for (let i = 0; i < N; i++) if (L.is(T, R.at(i % W, (i - (i % W)) / W))) cells.push(i);
+      for (let i = 0; i < N; i++) if (L.is(T, R.at(i % W, (i - (i % W)) / W), R, i % W, (i - (i % W)) / W)) cells.push(i);
       if (!cells.length) continue;
       const reach = new Uint8Array(N), q = [start];
       reach[start] = 1;
@@ -10249,7 +10286,7 @@ body.mouseaim #screen { cursor: none; }
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const j = ny * W + nx, c = R.at(nx, ny);
           if (reach[j]) continue;
-          if (walkableCell(R, nx, ny) || L.opens(T, c) || (c === 'G' && !foot[i])) { reach[j] = 1; q.push(j); }
+          if (walkableCell(R, nx, ny) || L.opens(T, c) || (c === 'G' && (G.gateLocked(R, nx, ny) ? L.what !== 'locked gate' : !foot[i]))) { reach[j] = 1; q.push(j); }
         }
       }
       for (const i of cells) {
@@ -10270,6 +10307,7 @@ body.mouseaim #screen { cursor: none; }
             if (nx >= 0 && ny >= 0 && nx < W && ny < H && R.at(nx, ny) !== c && walkableCell(R, nx, ny)) sides.push(ny * W + nx);
           }
         }
+        if (L.what === 'breakable wall' && sides.length >= 2 && walkTogether(R, sides)) continue; // both sides already joined on foot: a patchy hedge for looks (James: "alternative hedge coloring"), not a lock
         if (sides.length >= 2 && sides.every((s) => reach[s])) out.push({ x, y, ch: c, what: L.what });
       }
     }
@@ -10341,7 +10379,7 @@ body.mouseaim #screen { cursor: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZW'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWG'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -10415,7 +10453,7 @@ body.mouseaim #screen { cursor: none; }
     if (K.MARK.has(ch)) spawnAt(st, x, y, ch);
     if (from === 'D' || from === 'G') st.room.doors = st.room.doors.filter((d) => !(d.tx === x && d.ty === y));
     if (ch === 'D') st.room.doors.push({ tx: x, ty: y, open: false, color: G.cardColor(st.room, x, y) });
-    if (ch === 'G') st.room.doors.push({ tx: x, ty: y, open: false, latch: true });
+    if (ch === 'G') st.room.doors.push({ tx: x, ty: y, open: false, latch: true, locked: G.gateLocked(st.room, x, y) });
     const start = st.room.spawns.find((s) => s.ch === 'P'); // walls moved: which side latch gates open from
     if (start) st.room.outside = G.footReach(st.room, start.tx, start.ty);
     st.mapChanged();
@@ -10601,20 +10639,21 @@ body.mouseaim #screen { cursor: none; }
   // Per-cell variants: the level's { "x,y": value } (G.MAPS[id].kinds, saved with the map). Click a cell again with
   // the same brush to step it: a neighbor's kind (else picked from where it stands, G.neighborKind), a gate's or
   // keycard's color (else red), a house door locked or not (every cell of the door together).
-  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], // an inside wall: something hung on it
+  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'locked'], // a garden gate: one-way latch, or locked (a house key) // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
-    let a = x; while (ch === 'O' && R.at(a - 1, y) === 'O') a--;
-    const cells = []; if (ch === 'O') for (let b = a; R.at(b, y) === 'O'; b++) cells.push(b); else cells.push(x);
+    let a = x; while ((ch === 'O' || ch === 'G') && R.at(a - 1, y) === ch) a--;
+    const cells = []; if (ch === 'O' || ch === 'G') for (let b = a; R.at(b, y) === ch; b++) cells.push(b); else cells.push(x); // (a door or a gate: all of it together)
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
     if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
     if (ch === 'g' || ch === 'W') G.rebuildUpright(R, x, y);
+    if (ch === 'G') { for (const cx of cells) { const d = R.doors.find((q) => q.tx === cx && q.ty === y); if (d) d.locked = kind === 'locked'; G.rebuildUpright(R, cx, y); } }
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
     if (ch === 'O') {
       const d = R.hdoorAt(x, y); if (d) d.locked = kind === 'locked';

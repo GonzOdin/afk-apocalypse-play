@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 17:40 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 17:49 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1485,6 +1485,10 @@ body.mouseaim #screen { cursor: none; }
       r(3, 1, 6, 10, '#d02838'); r(4, 0, 4, 1, '#c8d0e0'); r(3, 1, 6, 1, '#c8d0e0'); r(3, 10, 6, 1, '#9098b0');
       r(3, 5, 6, 2, '#ffffff'); r(5, 5, 2, 1, '#d02838'); r(4, 2, 1, 3, '#ff6a78'); r(4, 7, 1, 3, '#ff6a78');
     },
+    squirt(r) { // the water gun: an orange pump squirter with a blue tank on top
+      r(1, 5, 9, 3, '#ff8a2a'); r(1, 5, 9, 1, '#ffb070'); r(10, 6, 2, 1, '#ffd23a'); r(2, 8, 2, 3, '#ff8a2a'); r(2, 10, 2, 1, '#c05a10');
+      r(3, 1, 5, 4, '#3ad0ff'); r(3, 1, 5, 1, '#bff0ff'); r(4, 2, 1, 2, '#ffffff'); r(6, 8, 3, 1, '#3a3a48'); r(11, 4, 1, 1, '#6ac8ff');
+    },
     blower(r) {
       r(1, 4, 6, 5, '#ffd23a'); r(1, 8, 6, 1, '#c09010'); r(2, 4, 4, 1, '#fff0a0');
       r(7, 5, 5, 2, '#9098b0'); r(7, 5, 5, 1, '#c8d0e0');
@@ -1745,6 +1749,29 @@ body.mouseaim #screen { cursor: none; }
   // A deepfake clone: the copied crew member's own sprite, glitching. Magenta and cyan ghosts split either side, a
   // slice of it slips sideways now and then, and a dark scanline runs down it, so it never passes for the real one.
   // Rising: it glitches in, flickering. sx, sy: its feet on screen.
+  // Living water (the puddle enemy): a wobbling dome of water sitting up out of its puddle, two eyes, a highlight.
+  // Its color is its source's (G.PUDDLE_COLS: pool water, coffee, coolant). Rising, it grows up out of the puddle;
+  // sinking (sink: 1 -> 0), it settles back down into it. Drawn directly (it's mostly a shape), outlined dark.
+  G.drawPuddle = (e, ctx, sx, sy, sink) => {
+    const C = e.flash ? ['#ffffff', '#ffffff', '#ffffff'] : G.PUDDLE_COLS[e.liquid] || G.PUDDLE_COLS.water;
+    const f = sink !== null && sink !== undefined ? sink : e.rise > 0 ? 1 - e.rise / e.riseMax : 1;
+    const r = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(sx + x, sy + y, w, h); };
+    r(-8, -2, 16, 3, C[0]); r(-6, -3, 12, 1, C[0]); r(-5, -2, 4, 1, C[1]); r(3, 0, 2, 1, C[2]); // its puddle on the floor
+    const H = Math.round(2 + 11 * f);
+    if (H <= 3) return;
+    const wob = e.moving ? Math.round(Math.sin((e.anim >> 2) * 0.9)) : Math.round(Math.sin(G.tick / 14) * 0.6), W = 12 + wob, top = -H - 1;
+    const hw = (i) => Math.max(1, Math.round((W / 2) * Math.sqrt(Math.min(1, ((i + 0.5) / H) * 1.7))));
+    for (let i = 0; i < H; i++) r(-hw(i) - 1, top + i, hw(i) * 2 + 2, 1, '#140c1c'); // the outline
+    r(-hw(0), top - 1, hw(0) * 2, 1, '#140c1c');
+    for (let i = 0; i < H; i++) { const w = hw(i); r(-w, top + i, w * 2, 1, i < 1 ? C[0] : C[1]); r(w - 2, top + i, 2, 1, C[0]); } // body, darker on the right
+    r(-hw(2) + 2, top + 2, 2, 1, C[2]); r(-hw(3) + 2, top + 3, 1, 2, C[2]); // the highlight
+    if (f > 0.6) { // eyes, looking where it's going
+      const ex = Math.round((e.fx || 0) * 2), ey = top + Math.min(4, H - 4);
+      r(-4 + ex, ey, 3, 3, '#ffffff'); r(1 + ex, ey, 3, 3, '#ffffff');
+      const px = (e.fx || 0) > 0.3 ? 1 : (e.fx || 0) < -0.3 ? -1 : 0, py = (e.fy || 0) > 0.3 ? 1 : 0;
+      r(-3 + ex + px, ey + 1 + py, 1, 1, '#140c1c'); r(2 + ex + px, ey + 1 + py, 1, 1, '#140c1c');
+    }
+  };
   G.drawClone = (e, ctx, sx, sy) => {
     const set = G.art.crew[e.crew] || G.art.crew.pixel, f = e.moving ? [1, 0, 2, 0][(e.anim >> e.animShift) & 3] : 0;
     const spr = (set[e.dir] || set.down)[f], x = sx - 8, y = sy - G.PERSON_Y, t = G.tick + e.anim * 7;
@@ -1866,7 +1893,7 @@ body.mouseaim #screen { cursor: none; }
   //   solid, shots (blocks shots), breakable (rockets and soda bombs clear them), chop (the machete cuts them),
   //   patchy (the obvious breakables, for the NEEDS ROCKETS hint), secret (PDA shimmer),
   //   vent (crew with the vent gate can pass), rubble { ch: leftover tile }
-  //   seeThrough (uprights you see people through: glass, sparse hedge), water, bounce, searchable, jumpBlock, road (street tiles, for the editors' layout checks)
+  //   seeThrough (uprights you see people through: glass, sparse hedge), poolLiquid ('water' or 'coolant': puddle color), water, bounce, searchable, jumpBlock, road (street tiles, for the editors' layout checks)
   //   stamps { ch: [w, h] }       multi-tile pieces the editors place whole (a 2x1 trampoline)
   //   heights { ch: px, over: { ch: px } }  how tall solid things stand (the debug overlay's height view)
   //   tile(r, ch, tx, ty, room)       ground art for one cell, drawn with r(x, y, w, h, color)
@@ -3870,6 +3897,7 @@ body.mouseaim #screen { cursor: none; }
     groups: [['GROUND', '.,:=p'], ['WALLS', '#sieSxvDG'], ['GET AROUND', 'o'], ['THINGS', 'cukmjl%()']],
     border: '#', ground: '.', solid: SOLID, shots: new Set([...'#sexSvDGmj']),
     water: new Set(['p']), bounce: new Set(['o']), stamps: { o: [2, 1] },
+    poolLiquid: 'coolant', // its pools are coolant: a puddle rising out of one is cyan (G.drawPuddle)
     seeThrough: new Set(['i', 'e']), // glass: you see who's behind it (the hidden-neighbor check)
     searchable: new Set(['m', '%']), // lockers and junk piles (what's in them: the map's loot); desks are just desks
     // who works here: mostly night-shift techs, a delivery driver at the loading dock, a cat that got in somewhere
@@ -4180,6 +4208,19 @@ body.mouseaim #screen { cursor: none; }
     },
     // Melee pickups: swing (fire) to hit everyone in an arc in front of you. Ammo is durability: a swing that connects
     // wears it down one, a miss doesn't; at 0 it breaks. hit: { dmg, reach (px), cd (ticks), knock (shove multiplier) }
+    // The water gun (a pump-action squirter): a long, steady stream. Weak on teens, but it shorts out robots (x bot,
+    // and a little zap), puts out fires, and a puddle just drinks it (GULP).
+    squirt: {
+      name: 'WATER GUN', icon: 'squirt',
+      held: { len: 8, thick: 2, butt: '#3ad0ff', body: '#ff8a2a', tip: '#ffd23a', tipLen: 2 }, // a water tank, an orange body
+      ammo: 120, max: 240, dmg: 0.4, rate: 4, range: 26, bot: 2.5, zap: 18, // tunable: damage per squirt, fire delay, ticks a squirt flies; x against robots and deepfakes, ticks it shorts them out
+      cd() { return this.rate; },
+      fire(p, st, dx, dy) {
+        const a = Math.atan2(dy, dx) + G.rand(-0.06, 0.06), sp = 3.6;
+        st.shots.push({ kind: 'water', owner: p, x: p.x + dx * 8, y: p.y + dy * 5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, z: G.HAND_Z, vz: 0.35, life: this.range, dmg: this.dmg });
+        if (st.t % 10 === 0) G.sfx.play('blow');
+      },
+    },
     bat: {
       name: 'BAT', icon: 'bat', melee: true, breaks: 'BAT BROKE!', spin: true,
       ammo: 15, max: 30, hit: { dmg: 1.5, reach: 18, cd: 22, knock: 2.2, col: '#e0c090' }, // tunable: weak, big shove, breaks fast
@@ -4295,8 +4336,8 @@ body.mouseaim #screen { cursor: none; }
   // ===== Loot is placed, never random (ZAMN-style): what a trash can, cabinet, car trunk or pile of leaves holds is
   // written in the map's `loot` { "x,y": key } (a car: its top-left cell). Only those open; the rest is scenery.
   // Keys: anything a package can hold, plus 'teen' (one jumps out) and 'empty' (a decoy). Keycards are never loot.
-  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'teen', 'empty'];
-  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', teen: '!', empty: '-' }; // the editor's short labels
+  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'w:squirt', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'teen', 'empty'];
+  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'w:squirt': 'WG', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', teen: '!', empty: '-' }; // the editor's short labels
   G.lootAt = (room, tx, ty) => (room.loot && room.loot[tx + ',' + ty]) || null;
   // Can this cell hold loot? Searchables (theme.searchable), leaves (theme.leaves) and a car (at its top-left cell)
   G.lootable = (theme, ch) => !!((theme.searchable && theme.searchable.has(ch)) || (theme.leaves && theme.leaves.has(ch)) || (theme.blocks && theme.blocks.has(ch)));
@@ -4356,6 +4397,10 @@ body.mouseaim #screen { cursor: none; }
     { group: 'SODA', label: 'FIRE DELAY', o: W.soda, k: 'rate', min: 4, max: 90, step: 2, note: (v) => perSec(v) },
     { group: 'SODA', label: 'AMMO/PICKUP', o: W.soda, k: 'ammo', min: 1, max: 30, step: 1 },
     { group: 'SODA', label: 'MAX AMMO', o: W.soda, k: 'max', min: 1, max: 99, step: 1 },
+    { group: 'WATER GUN', label: 'DAMAGE', o: W.squirt, k: 'dmg', min: 0.05, max: 3, step: 0.05 },
+    { group: 'WATER GUN', label: 'FIRE DELAY', o: W.squirt, k: 'rate', min: 1, max: 20, step: 1, note: (v) => perSec(v) },
+    { group: 'WATER GUN', label: 'RANGE', o: W.squirt, k: 'range', min: 6, max: 60, step: 2 },
+    { group: 'WATER GUN', label: 'VS ROBOTS', o: W.squirt, k: 'bot', min: 1, max: 6, step: 0.25, note: () => 'X' },
     { group: 'BLOWER', label: 'DAMAGE', o: W.blower, k: 'dmg', min: 0.05, max: 3, step: 0.05 },
     { group: 'BLOWER', label: 'FIRE DELAY', o: W.blower, k: 'rate', min: 1, max: 10, step: 1 },
     { group: 'BLOWER', label: 'SHOVE', o: W.blower, k: 'push', min: 0, max: 3, step: 0.1 },
@@ -4734,6 +4779,34 @@ body.mouseaim #screen { cursor: none; }
       },
     },
     // Dot's coffee: drops in a short arc that splash where they land
+    water: { // a squirt from the water gun
+      update(s, st) {
+        s.x += s.vx; s.y += s.vy; s.z += s.vz; s.vz -= 0.03;
+        const R = st.room, T = R.theme, tx = Math.floor(s.x / 16), ty = Math.floor((s.y - 2) / 16), W = G.WEAPONS.squirt;
+        const splash = () => st.burst(s.x, s.y, 2, ['#6ac8ff', '#d8f4ff'], 0.6, 2, 10, true);
+        if (T.douse && T.douse.has(R.at(tx, ty))) { st.breakWalls(tx * 16 + 8, ty * 16 + 8, 4, T.douse, true); return false; } // puts out a fire
+        if (R.blocksShot(s.x, s.y)) { splash(); return false; }
+        if (--s.life <= 0 || s.z <= 0) { splash(); return false; }
+        const t = hitTarget(st, s.x, s.y, 7);
+        if (!t) return true;
+        if (t.liquid) { // a puddle drinks it
+          t.hp = Math.min(t.tune ? t.tune.hp * 1.5 : t.hp + 1, t.hp + s.dmg * 0.5);
+          if (!t.gulpT || st.t - t.gulpT > 40) { t.gulpT = st.t; st.floater(t.x, t.y - 24, 'GULP!', '#6ac8ff'); }
+          return false;
+        }
+        const tech = !!(t.bot || t.glitch);
+        t.hit(st, s.dmg * (tech ? W.bot : 1), s.x, s.y);
+        if (tech && !t.dead && t.stun) { t.stun(st, W.zap, 'zap'); if (st.t % 6 === 0) st.burst(t.x, t.y - 12, 3, ['#7ff0ff', '#ffffff'], 1, 12, 8); } // water in the works
+        splash();
+        return false;
+      },
+      draw(ctx, s, v) {
+        const x = Math.round(s.x - v.x), y = Math.round(s.y - v.y - s.z);
+        ctx.fillStyle = '#1a3a6a'; ctx.fillRect(x - 1, y - 1, 3, 3);
+        ctx.fillStyle = '#6ac8ff'; ctx.fillRect(x, y, 2, 1); ctx.fillStyle = '#d8f4ff'; ctx.fillRect(x, y, 1, 1);
+        ctx.fillStyle = 'rgba(10,4,24,.3)'; ctx.fillRect(Math.round(s.x - v.x), Math.round(s.y - v.y), 2, 1); // its shadow
+      },
+    },
     drop: {
       update(s, st) {
         s.x += s.vx; s.y += s.vy; s.z += s.vz; s.vz -= 0.18; s.vx *= 0.97; s.vy *= 0.97;
@@ -5122,7 +5195,7 @@ body.mouseaim #screen { cursor: none; }
       ],
       kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
       floors: { "65,9": "n", "10,20": "n" },
-      loot: { "3,6": "i:pie", "63,9": "w:plates", "26,12": "i:coffee", "77,16": "w:plates", "13,20": "w:plates", "66,24": "teen", "1,30": "burger", "84,37": "ammo", "9,44": "i:pie", "77,56": "ammo" },
+      loot: { "3,6": "i:pie", "63,9": "w:plates", "26,12": "i:coffee", "77,16": "w:plates", "13,20": "w:plates", "66,24": "teen", "1,30": "burger", "84,37": "ammo", "9,44": "i:pie", "77,56": "w:squirt" },
     },
     "mansion": {
       name: "FOUNDER'S MANSION", theme: "suburb",
@@ -5319,7 +5392,7 @@ body.mouseaim #screen { cursor: none; }
         "##########################################################################################",
       ],
       kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "3,35": "clone", "81,38": "robodog" },
-      loot: { "47,3": "i:pie", "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "ammo", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo", "10,57": "ammo" },
+      loot: { "47,3": "i:pie", "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "w:squirt", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo", "10,57": "ammo" },
     },
     "core": {
       name: "THE CORE", theme: "servers",
@@ -5504,7 +5577,8 @@ body.mouseaim #screen { cursor: none; }
  *   rest    ticks a spawn point waits after sending one up
  *   hunt    true (10 s) or ticks: a fresh riser comes for you that long, whatever its give-up range
  *   linger  ticks without chasing before an enemy sinks back into the ground
- *   types   { enemyType: weight } which enemies rise, by weight */
+ *   types   { enemyType: weight } which enemies rise, by weight
+ *   water   { every: [min, max] ticks, max } puddles that rise out of water (pools, wet floor, coffee spills) */
 (function () {
   window.G.ENEMY_TUNING = {
     shambler: { hp: 3, speed: 0.34, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { pace: 0.55, chance: 0.01 }, hurry: { chance: 0.25, mul: 1.6 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
@@ -5512,15 +5586,16 @@ body.mouseaim #screen { cursor: none; }
     flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 240, radius: 16, dmg: 2, lead: 0.4, red: 5, blue: 3, green: 2, fuse: 150, fuseRadius: 26, fuseDmg: 3, open: 40, pool: 'level' } },
     hound: { hp: 3, speed: 0.9, sight: { notice: 100, giveUp: 150, cone: 70, feel: 30, neighbors: 0 }, grip: { drag: 0.15 }, mosey: { pace: 0.5, chance: 0.012 }, lunge: { range: 64, speed: 2.6, windup: 18, cooldown: 110, dmg: 1 }, circle: { dist: 44 }, retreat: { time: 36 }, bark: { radius: 130, cooldown: 360, hunt: 240 }, fetch: { range: 120 } },
     mimic: { hp: 4, speed: 0.7, sight: { notice: 130, giveUp: 200, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, keep: { min: 50, max: 100 }, shoot: { range: 120, windup: 24, cooldown: 70, dmg: 1 }, blink: { chance: 0.35, dist: 40, cooldown: 90 } },
+    oozer: { hp: 3, speed: 0.4, sight: { notice: 90, giveUp: 130, neighbors: 0 }, mosey: { pace: 0.5, chance: 0.01 }, contact: { dmg: 1 } },
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
   };
   window.G.ENEMY_SPAWN = {
     culdesac: { cap: 6, every: [150, 260], near: [40, 140], rest: 320, hunt: 300, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
-    mansion: { cap: 7, every: [140, 240], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
-    root: { cap: 9, every: [120, 210], near: [40, 140], rest: 280, hunt: 300, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
-    core: { cap: 8, every: [125, 220], near: [40, 140], rest: 280, hunt: 320, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
-    serverfarm: { cap: 8, every: [130, 230], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
-    galleria: { cap: 7, every: [140, 240], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
+    mansion: { water: { every: [600, 1000], max: 2 }, cap: 7, every: [140, 240], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
+    root: { water: { every: [600, 1000], max: 2 }, cap: 9, every: [120, 210], near: [40, 140], rest: 280, hunt: 300, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
+    core: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [125, 220], near: [40, 140], rest: 280, hunt: 320, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
+    serverfarm: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [130, 230], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
+    galleria: { water: { every: [600, 1000], max: 1 }, cap: 7, every: [140, 240], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
   };
 })();
 </script>
@@ -7166,7 +7241,8 @@ body.mouseaim #screen { cursor: none; }
     update(e, st) {
       if (e.rise <= 0) return false;
       e.rise--;
-      if (!e.bot && !e.glitch && e.rise % 4 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y, 1, ['#3a2a20', '#5a4a30', '#7ff0ff'], 0.6, 1, 14, true); // (robots beam in: G.drawBot)
+      if (e.liquid) { if (e.rise % 5 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y - 1, 1, G.PUDDLE_COLS[e.liquid] || G.PUDDLE_COLS.water, 0.5, 3, 12, true); } // a puddle bubbles up
+      else if (!e.bot && !e.glitch && e.rise % 4 === 0) st.burst(e.x + G.fx.rand(-5, 5), e.y, 1, ['#3a2a20', '#5a4a30', '#7ff0ff'], 0.6, 1, 14, true); // (robots beam in: G.drawBot)
       return true;
     },
   };
@@ -7951,6 +8027,12 @@ body.mouseaim #screen { cursor: none; }
       brain: [['mimic', {}], ['rise', { time: 40 }], ['knockback', {}], ['target', TU.mimic.sight], ['blink', TU.mimic.blink], ['shoot', TU.mimic.shoot],
         ['keepAway', TU.mimic.keep], ['chase', {}], ['wander', TU.mimic.mosey], ['separate', {}]],
     },
+    // Living water: a puddle that sits up and slides after you (from a pool, a mop bot's wet trail or a coffee spill:
+    // G.waterTick). Slow, hurts by touch, leaves neighbors alone. liquid: drawn by G.drawPuddle in its source's color
+    oozer: {
+      stats: { score: 60, anim: 3, liquid: true },
+      brain: [['rise', { time: 40 }], ['knockback', {}], ['target', TU.oozer.sight], ['contactDamage', TU.oozer.contact], ['chase', {}], ['wander', TU.oozer.mosey], ['separate', {}]],
+    },
     sweeper: {
       stats: { score: 150, anim: 2, bot: true, noLinger: true },
       brain: [['rise', { time: 30 }], ['knockback', {}], ['trail', TU.sweeper.trail], ['vacuum', TU.sweeper.vacuum], ['bump', TU.sweeper.bump], ['roam', TU.sweeper.roam]],
@@ -7966,6 +8048,7 @@ body.mouseaim #screen { cursor: none; }
     robodog: { name: 'ROBO DOG', archetype: 'hound', looks: ['robodog'], tier: 'mid' },
     mopbot: { name: 'MOP BOT', archetype: 'sweeper', looks: ['mopbot'], tier: 'low' },
     clone: { name: 'DEEPFAKE', archetype: 'mimic', looks: ['clone'], tier: 'high' },
+    puddle: { name: 'PUDDLE', archetype: 'oozer', looks: ['puddle'], tier: 'low', water: true }, // water: only rises from water (G.waterTick), never from a pool of enemies
   };
   // Enemy pools: which enemies something may bring in. 'level': the level's own spawn mix (its weights); a tier
   // ('low', 'mid', 'high', 'boss') or tiers joined with '+'; 'robots'; 'any'. An array of type ids works too.
@@ -7978,6 +8061,7 @@ body.mouseaim #screen { cursor: none; }
     for (const part of String(pool).split('+')) {
       for (const t of ids) {
         const bot = !!G.ARCHETYPES[T[t].archetype].stats.bot;
+        if (T[t].water) continue; // (puddles come from water, not out of a box)
         if (part === 'any' || (part === 'robots' && bot) || T[t].tier === part) out[t] = 1;
       }
       if (part === 'boss' && !ids.some((t) => T[t].tier === 'boss')) for (const t of ids) if (T[t].tier === 'high') out[t] = 1; // no bosses yet: the toughest
@@ -7994,7 +8078,7 @@ body.mouseaim #screen { cursor: none; }
       const T = G.ENEMY_TYPES[type], A = G.ARCHETYPES[T.archetype], S = { ...A.stats, ...T.stats };
       this.tune = TU[T.archetype]; // hp, speed, grip... (live: the debug panel can change them mid-game)
       Object.assign(this, {
-        type, x, y, hw: 4, hh: 4, hp: this.tune.hp, isEnemy: true, canTramp: !!S.canTramp, bot: !!S.bot, glitch: !!S.glitch, flying: !!S.flying, noLinger: !!S.noLinger, z: 0, jitter: G.rand(0.9, 1.15), score: S.score, animShift: S.anim,
+        type, x, y, hw: 4, hh: 4, hp: this.tune.hp, isEnemy: true, canTramp: !!S.canTramp, bot: !!S.bot, glitch: !!S.glitch, liquid: S.liquid ? 'water' : null, flying: !!S.flying, noLinger: !!S.noLinger, z: 0, jitter: G.rand(0.9, 1.15), score: S.score, animShift: S.anim,
         flash: 0, kx: 0, ky: 0, anim: G.randi(0, 31), dir: 'down', fx: 0, fy: 1, moving: false, dead: false,
         rise: 0, riseMax: 1, sink: 0, calmT: 0, target: null, targetDist: Infinity, steerX: 0, steerY: 0, speedMul: 1, stuck: 0, alert: 0, farT: 0,
       });
@@ -8021,7 +8105,7 @@ body.mouseaim #screen { cursor: none; }
       if (this.alert > 0) this.alert--;
       if (this.sink > 0) { // going back underground (lost interest for too long): no brain, just sink and vanish
         if (--this.sink === 0) this.dead = true;
-        if (!this.bot && !this.glitch && this.sink % 4 === 0) st.burst(this.x + G.fx.rand(-5, 5), this.y, 1, ['#3a2a20', '#5a4a30'], 0.6, 1, 14, true);
+        if (!this.bot && !this.glitch && !this.liquid && this.sink % 4 === 0) st.burst(this.x + G.fx.rand(-5, 5), this.y, 1, ['#3a2a20', '#5a4a30'], 0.6, 1, 14, true);
         return;
       }
       if (this.stunT > 0 && !this.tj) { // asleep (tranq darts) or fried (EMP): no brain, it just gets shoved about
@@ -8038,7 +8122,7 @@ body.mouseaim #screen { cursor: none; }
       this.steerX = this.steerY = 0; this.speedMul = 1;
       let held = false;
       for (const [name, o] of this.brain) if (B[name].update(this, st, o)) { held = true; break; }
-      if (!this.bot && !this.flying && G.spillAt(st, this.x, this.y)) { // sticky, hot coffee underfoot: slows them, and a little burn now and then
+      if (!this.bot && !this.flying && !this.liquid && G.spillAt(st, this.x, this.y)) { // sticky, hot coffee underfoot: slows them, and a little burn now and then
         this.speedMul *= G.WEAPONS.splash.spillSlow;
         if ((this.burnT = (this.burnT || 0) + 1) >= G.WEAPONS.splash.spillEvery) { this.burnT = 0; this.scald(st); if (this.dead) return; }
       } else this.burnT = 0;
@@ -8138,6 +8222,10 @@ body.mouseaim #screen { cursor: none; }
         st.burst(this.x, this.y - 10, 18, ['#ff3ab0', '#3ad0ff', '#ffffff', '#140c1c'], 1.8, 12, 26);
         st.floater(this.x, this.y - 36, 'FAKE!', '#ff3ab0');
         G.sfx.play('zap');
+      } else if (this.liquid) { // a puddle bursts and soaks away
+        st.burst(this.x, this.y - 4, 16, G.PUDDLE_COLS[this.liquid] || G.PUDDLE_COLS.water, 1.6, 6, 22, true);
+        st.floater(this.x, this.y - 26, 'SPLOOSH!', (G.PUDDLE_COLS[this.liquid] || G.PUDDLE_COLS.water)[1]);
+        G.sfx.play('fizz');
       } else if (this.bot) { // robots go out in a shower of sparks and bits
         st.burst(this.x, this.y - 6 - (this.z || 0), 16, ['#ffd23a', '#ff8a2a', '#b8bcc8', '#3a3a48', '#ffffff'], 2, 10, 30, true);
         G.sfx.play('zap');
@@ -8153,6 +8241,7 @@ body.mouseaim #screen { cursor: none; }
     draw(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
       if (this.bot) { G.drawBot(this, ctx, sx, sy); if (this.ally > 0) G.drawHacked(this, ctx, sx, sy); return; } // robots: art-bots.js
+      if (this.liquid) { G.drawPuddle(this, ctx, sx, sy, this.sink > 0 ? this.sink / SINK : null); return; } // living water: art-bots.js
       if (this.glitch) { G.drawClone(this, ctx, sx, sy); for (const [name] of this.brain) if (B[name].draw) B[name].draw(this, ctx, sx, sy); return; } // deepfakes: art-bots.js
       const f = this.moving ? [1, 0, 2, 0][(this.anim >> this.animShift) & 3] : 0;
       const spr = this.sprites[this.dir][f];
@@ -8309,7 +8398,7 @@ body.mouseaim #screen { cursor: none; }
   };
   G.DIFF_ORDER = Object.keys(G.DIFFICULTY);
   G.diff = () => G.DIFFICULTY[G.opts().diff] || G.DIFFICULTY.normal;
-  G.ENEMY_DEFAULTS = { cap: 6, every: [140, 240], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, types: { phoneTeen: 1 } };
+  G.ENEMY_DEFAULTS = { water: { every: [600, 1000], max: 0 }, cap: 6, every: [140, 240], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, types: { phoneTeen: 1 } };
   class Spawner {
     constructor(x, y, type) { this.x = x; this.y = y; this.rest = 0; this.type = G.ENEMY_TYPES[type] ? type : null; } // type: a typed spawner (only that type)
     // A typed spawner shows on the floor, so you learn where they come from: robots beam down onto a charging pad
@@ -8431,6 +8520,7 @@ body.mouseaim #screen { cursor: none; }
     if (!st.flow) { st.flow = new FlowField(st.room); st.flowJump = new FlowField(st.room, true); }
     if (st.t % 15 === 0) { st.flow.rebuild(st.players); st.flowJump.rebuild(st.players); }
     spawnTick(st, cfg);
+    G.waterTick(st, cfg);
     for (const e of st.enemies) {
       if (G.Debug && G.Debug.drag && G.Debug.sel === e) continue; // held still while you drag its ring in the debug overlay
       e.update(st);
@@ -8451,6 +8541,42 @@ body.mouseaim #screen { cursor: none; }
     resolveBodies(st);
     if (st.wet) for (const [i, t] of st.wet) if (t <= 1) st.wet.delete(i); else st.wet.set(i, t - 1); // wet floor dries
     if (st.spill) for (const [i, t] of st.spill) if (t <= 1) st.spill.delete(i); else st.spill.set(i, t - 1); // and so do coffee spills
+  };
+
+  // ===== Living water: puddles rise out of water near a player (a pool's edge, a mop bot's wet trail, a coffee
+  // spill), now and then, never more than cfg.water.max at once. Off unless the level's spawn config has `water`. =====
+  G.PUDDLE_COLS = { water: ['#2a6ab0', '#6ac8ff', '#d8f4ff'], coffee: ['#4a2410', '#a8683a', '#f0d0a8'], coolant: ['#0a5a7a', '#3ad0ff', '#c8f8ff'] };
+  G.waterSources = (st) => { // [{ x, y, liquid }]: where a puddle could rise right now
+    const R = st.room, T = R.theme, out = [];
+    if (!R.poolEdge) { // floor cells beside a pool (pools don't move)
+      R.poolEdge = [];
+      if (T.water) for (let y = 0; y < R.h; y++) for (let x = 0; x < R.w; x++) {
+        if (T.water.has(R.at(x, y)) || !G.walkableCell(R, x, y) || T.solid.has(R.at(x, y))) continue;
+        if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => T.water.has(R.at(x + a, y + b)))) R.poolEdge.push([x, y]);
+      }
+    }
+    const pool = T.poolLiquid || 'water'; // (the server farm's pools are coolant)
+    for (const [x, y] of R.poolEdge) out.push({ x: x * 16 + 8, y: y * 16 + 12, liquid: pool });
+    for (const [map, liquid] of [[st.wet, 'water'], [st.spill, 'coffee']]) if (map) for (const i of map.keys()) out.push({ x: (i % R.w) * 16 + 8, y: Math.floor(i / R.w) * 16 + 12, liquid });
+    return out;
+  };
+  G.waterTick = (st, cfg) => {
+    const W = cfg.water;
+    if (!W || !(W.max > 0)) return;
+    if (st.waterT === undefined) st.waterT = G.randi(W.every[0], W.every[1]); // (not right at the start)
+    if (st.waterT > 0) { st.waterT--; return; }
+    st.waterT = G.randi(W.every[0], W.every[1]);
+    if (st.enemies.filter((e) => e.liquid && !e.dead).length >= W.max || st.enemies.length >= (cfg.cap || 0) + W.max) return;
+    const ok = G.waterSources(st).filter((s) => {
+      if (st.inSafeZone(s.x, s.y, 24) || st.room.boxHits(s.x, s.y, 4, 4)) return false;
+      const d = Math.min(...st.players.filter((p) => !p.dead).map((p) => Math.hypot(p.x - s.x, p.y - s.y)));
+      return d >= (W.near ? W.near[0] : 40) && d <= (W.near ? W.near[1] : 120);
+    });
+    if (!ok.length) return;
+    const s = G.pick(ok), e = new Enemy('puddle', s.x, s.y);
+    e.liquid = s.liquid; e.provoked = true; e.huntT = 300; // it rose for you: it comes for you
+    st.enemies.push(e);
+    if (st.onScreen(s.x, s.y)) G.sfx.play('fizz');
   };
 
   // Put one enemy of `type` near player p (debug panel and test room): a free spot 48-80 px away it can walk to,
@@ -9262,7 +9388,7 @@ body.mouseaim #screen { cursor: none; }
       use(p, st) {
         let best = null, bd = this.reach;
         for (const e of st.enemies) {
-          if (!e.hittable()) continue;
+          if (!e.hittable() || e.liquid) continue; // (a puddle has no phone to unplug)
           const d = Math.hypot(e.x - p.x, e.y - p.y) - ((e.x - p.x) * p.fx + (e.y - p.y) * p.fy) * 0.3; // in front counts as closer
           if (d < bd) { bd = d; best = e; }
         }
@@ -9992,7 +10118,7 @@ body.mouseaim #screen { cursor: none; }
       else if (what === 'i:bomb') has.bomb = true;
       else if (what === 'i:pogo') has.pogo = true;
       else if (what === 'w:machete') has.machete = true;
-      else if (what === 'w:soda') has.soda = true;
+      else if (what === 'w:soda' || what === 'w:squirt') has.soda = true; // (soda or the water gun puts out a fire)
     };
     // Flood out from the start with what you have now; with pickUp, collect things as you go (abilities apply at once)
     const explore = (pickUp) => {

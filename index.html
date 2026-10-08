@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 23:02 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 23:09 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1965,6 +1965,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   G.CARD_COLORS = { red: ['#ff3a5a', '#ffc0c8'], blue: ['#3a8aff', '#c0e0ff'], yellow: ['#ffd23a', '#fff4c0'] }; // [color, light]
   G.CARDS = Object.keys(G.CARD_COLORS);
   G.cellKind = (R, x, y) => (R.kinds && R.kinds[x + ',' + y]) || null;
+  // Which look a varied object was given in the editor (its kinds 'v0', 'v1', ...; theme.variety says how many), or
+  // null to pick one from where it stands (the hash, as always)
+  G.variant = (R, x, y) => { const k = R && G.cellKind(R, x, y), m = k && /^v(\d+)$/.exec(k); return m ? +m[1] : null; };
   G.cardColor = (R, x, y) => (G.CARD_COLORS[G.cellKind(R, x, y)] ? G.cellKind(R, x, y) : 'red'); // a gate's or keycard's color
   // Is the house door at (x, y) locked? Side-by-side door cells are one door: locked if any of them is marked
   G.doorLocked = (R, x, y) => {
@@ -2782,8 +2785,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       r(x + (w >> 1), y - 2, 1, 2, '#3a2a30'); // the nail
     };
     // A potted plant: a terracotta pot and a leafy fern (inside houses, on porches). Solid at its pot.
-    const plantUp = (r, tx, ty) => {
-      const k = G.hash(tx * 5, ty * 3);
+    const plantUp = (r, tx, ty, room) => {
+      const v = G.variant(room, tx, ty), k = v !== null ? (v % 4) / 4 + 0.1 : G.hash(tx * 5, ty * 3);
       r(4, 7, 8, 7, '#b0583a'); r(4, 7, 8, 1, '#d07850'); r(5, 13, 6, 1, '#7a3a24'); r(4, 9, 8, 1, '#8a4430'); // the pot
       const leaf = ['#2e8a44', '#4fae5a', '#1f6a34', '#6ac46a'];
       for (let i = 0; i < 9; i++) { const a = -2.4 + i * 0.6 + k * 0.3, len = 5 + ((i * 7 + Math.floor(k * 10)) % 4); for (let d = 1; d <= len; d++) r(8 + Math.round(Math.cos(a) * d * 0.9) - 1, 7 + Math.round(Math.sin(a) * d * 0.8) - (d >> 1) - 1, 2, 1, leaf[(i + d) % 4]); }
@@ -3199,9 +3202,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         }
       }
     };
-    const treeUp = (r, tx, ty) => {
-      const k = G.hash(tx * 3 + 1, ty * 5 + 2), kind = k < 0.55 ? 'round' : k < 0.85 ? 'pine' : 'birch';
-      const pals = TREE_LOOKS[kind], pal = pals[Math.floor(G.hash(tx * 9, ty) * pals.length)];
+    // A tree's look: [kind, palette index] picked from where it stands, or set in the editor (theme.variety: click a
+    // tree again to step through every kind and color)
+    const TREE_VARIANTS = [['round', 0], ['round', 1], ['round', 2], ['pine', 0], ['pine', 1], ['birch', 0], ['birch', 1]];
+    const treeUp = (r, tx, ty, room) => {
+      const v = G.variant(room, tx, ty), k = G.hash(tx * 3 + 1, ty * 5 + 2);
+      const kind = v !== null ? TREE_VARIANTS[v % TREE_VARIANTS.length][0] : k < 0.55 ? 'round' : k < 0.85 ? 'pine' : 'birch';
+      const pals = TREE_LOOKS[kind], pal = pals[v !== null ? TREE_VARIANTS[v % TREE_VARIANTS.length][1] % pals.length : Math.floor(G.hash(tx * 9, ty) * pals.length)];
       const lean = Math.round((G.hash(tx, ty * 7) - 0.5) * 3), size = G.hash(ty * 3, tx * 11), L = treeLayer();
       const B = kind === 'birch' ? BARK.birch : BARK.oak, roots = [[-4, 1, 2], [4, 1, 2], [-1, 2, 1.5]];
       if (kind === 'pine') {
@@ -3223,8 +3230,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const bigTreeUp = (r, tx, ty, room) => {
       const [ax, ay] = G.pieceAnchor(room, tx, ty);
       if (tx !== ax || ty !== ay + 1) return;
-      const k = G.hash(ax * 7 + 3, ay * 13 + 1), pine = k > 0.5, pals = pine ? TREE_LOOKS.pine : TREE_LOOKS.round;
-      const pal = pals[Math.floor(G.hash(ax, ay * 3) * pals.length)], L = treeLayer();
+      const v = G.variant(room, ax, ay), k = G.hash(ax * 7 + 3, ay * 13 + 1), pine = v !== null ? v >= 3 : k > 0.5, pals = pine ? TREE_LOOKS.pine : TREE_LOOKS.round; // variants 0-2 oaks, 3-4 pines
+      const pal = pals[v !== null ? (pine ? v - 3 : v) % pals.length : Math.floor(G.hash(ax, ay * 3) * pals.length)], L = treeLayer();
       const roots = [[-12, 3, 4], [12, 3, 4], [-7, 4, 3], [8, 4, 3], [-15, 1, 2.5], [15, 0, 2.5]]; // spreading into the grass
       if (pine) { // four tiers, 8 tiles up
         trunk(L, ax, ay, 16, 28, -20, 9, 6, 0, [], BARK.oak, roots);
@@ -3367,9 +3374,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     // Sports gear lying on the lawn (flat, walk over it): a ball, a skateboard, a frisbee, a glove, from the cell's hash
     // Which piece of sports gear lies on a '*' cell (from the cell's hash): 0 basketball, 1 soccer ball, 2 skateboard,
     // 3 frisbee, 4 glove. The balls can be blown or batted away (G.launchBall).
-    const gearKind = (tx, ty) => Math.floor(G.hash(tx * 13 + 1, ty * 7 + 2) * 5);
-    const sportsGear = (r, tx, ty) => {
-      const k = gearKind(tx, ty), x = 3 + Math.floor(G.hash(tx, ty * 3) * 6), y = 4 + Math.floor(G.hash(ty, tx * 5) * 6);
+    const gearKind = (tx, ty, room) => { const v = G.variant(room, tx, ty); return v !== null ? v % 5 : Math.floor(G.hash(tx * 13 + 1, ty * 7 + 2) * 5); };
+    const sportsGear = (r, tx, ty, room) => {
+      const k = gearKind(tx, ty, room), x = 3 + Math.floor(G.hash(tx, ty * 3) * 6), y = 4 + Math.floor(G.hash(ty, tx * 5) * 6);
       if (k === 0) { r(x, y, 5, 5, '#e07030'); r(x + 1, y - 1, 3, 7, '#e07030'); r(x - 1, y + 1, 7, 3, '#e07030'); r(x + 2, y - 1, 1, 7, '#3a1a10'); r(x - 1, y + 2, 7, 1, '#3a1a10'); r(x + 1, y, 1, 1, '#ffb070'); } // basketball
       else if (k === 1) { r(x, y, 5, 5, '#f0f0f8'); r(x + 1, y - 1, 3, 7, '#f0f0f8'); r(x - 1, y + 1, 7, 3, '#f0f0f8'); r(x + 2, y + 2, 2, 2, '#1a1a20'); r(x, y, 1, 1, '#1a1a20'); r(x + 4, y + 4, 1, 1, '#1a1a20'); } // soccer ball
       else if (k === 2) { r(x - 2, y + 1, 10, 2, '#e03048'); r(x - 2, y + 1, 10, 1, '#ff6a78'); r(x - 1, y + 3, 2, 2, '#f0e0a0'); r(x + 5, y + 3, 2, 2, '#f0e0a0'); } // skateboard
@@ -3651,6 +3658,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       water: new Set(['p']), // players swim in it; enemies and pickups treat it as a wall
       critters: true, // birds and squirrels (critters.js)
       bounce: new Set(['o']), // trampolines: walk on and you're launched
+      variety: { t: 7, Y: 5, '*': 5, '<': 4 }, // looks you step through in the editor (click one again): kinds 'v0'.. (G.variant)
       stamps: { o: [2, 1], Y: [2, 2] }, // multi-tile pieces: the editors place the whole [w, h] footprint with one click
       place: { c: [3, 2] }, blocks: new Set(['c']), // the car brush places a 3x2 car; any connected block of car is one car
       searchable: new Set(['g', 'm', '%', 'k', '[']),
@@ -3663,7 +3671,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         const trunk = b.w >= b.h ? (p.facing === 'left' ? cx === cw - 1 : cx === 0) : p.facing === 'up' ? cy === chh - 1 : cy === 0;
         return trunk ? [b.x0, b.y0] : null;
       },
-      ballAt: (room, tx, ty) => (room.at(tx, ty) === '*' ? ['basket', 'soccer'][gearKind(tx, ty)] || null : null), // a ball on the lawn (G.launchBall)
+      ballAt: (room, tx, ty) => (room.at(tx, ty) === '*' ? ['basket', 'soccer'][gearKind(tx, ty, room)] || null : null), // a ball on the lawn (G.launchBall)
       leaves: new Set(['~']), leafBare: '.', // fallen leaves: a blower gust blows them off, leaving grass // a knocked-over can (kinds 'knocked') can't be searched
       // objects sit on a floor (the map's `floors` remembers which; deleting one in the editor puts that floor back)
       objects: new Set([...'otYlmgcqkzasj[%*@!(){}/<_']), floors: new Set([...'.,d:=-nyr~?']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
@@ -3769,7 +3777,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           case '<': floorUnder(r, tx, ty, room); return shadow(r, 4, 13, 9, 2);
           case '%': floorUnder(r, tx, ty, room); return shadow(r, 1, 12, 15, 3);
           case '@': case '!': return floorUnder(r, tx, ty, room);
-          case '*': floorUnder(r, tx, ty, room); return sportsGear(r, tx, ty);
+          case '*': floorUnder(r, tx, ty, room); return sportsGear(r, tx, ty, room);
           case '_': floorUnder(r, tx, ty, room); return brokenFence(r, tx, ty, room);
           case 'c': { // a car cell: the ground the car is parked on (look past the car to either side), plus its shadow
             floorUnder(r, tx, ty, room);
@@ -4471,8 +4479,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // ===== Loot is placed, never random (ZAMN-style): what a trash can, cabinet, car trunk or pile of leaves holds is
   // written in the map's `loot` { "x,y": key } (a car: its top-left cell). Only those open; the rest is scenery.
   // Keys: anything a package can hold, plus 'teen' (one jumps out) and 'empty' (a decoy). Keycards are never loot.
-  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'w:squirt', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'teen', 'empty'];
-  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'w:squirt': 'WG', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', teen: '!', empty: '-' }; // the editor's short labels
+  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'w:squirt', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'hkey', 'teen', 'empty'];
+  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'w:squirt': 'WG', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', hkey: 'KY', teen: '!', empty: '-' }; // the editor's short labels
   G.lootAt = (room, tx, ty) => (room.loot && room.loot[tx + ',' + ty]) || null;
   // Can this cell hold loot? Searchables (theme.searchable), leaves (theme.leaves) and a car (at its top-left cell)
   G.lootable = (theme, ch) => !!((theme.searchable && theme.searchable.has(ch)) || (theme.leaves && theme.leaves.has(ch)) || (theme.blocks && theme.blocks.has(ch)));
@@ -10303,7 +10311,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // A preview of one tile (or a whole car, or a whole 2x2 piece) with whatever rises above it and spills past its sides
   K.tilePreview = (theme, ch) => {
     const car = ch === 'c', piece = (theme.stamps && theme.stamps[ch]) || null, W = 5, H = 5; // a piece (trampoline, big tree): [w, h]
-    const isCh = (x, y) => (car ? x >= 1 && x <= 3 && y >= 2 && y <= 3 : piece ? x >= 1 && x <= piece[0] && y >= 1 && y <= piece[1] : x >= 1 && x <= 3 && y >= 1 && y <= 3);
+    const isCh = (x, y) => (car ? x >= 1 && x <= 3 && y >= 2 && y <= 3 : piece ? x >= 1 && x <= piece[0] && y >= 1 && y <= piece[1] : x === 2 && y === 2); // a plain tile alone: what one click puts down (not a patch of it repeating)
     const fake = { theme, w: W, h: H, at: (x, y) => (isCh(x, y) ? ch : theme.ground), overAt: () => '.', hdoorAt: () => null };
     const up = theme.up && theme.up[ch], lift = up ? up.rise : 0, wd = up && up.wide ? up.wide : 0; // wd: spills past its tile
     const big = G.makeCanvas(W * 16 + 2 * wd, H * 16 + lift), bx = big.getContext('2d');
@@ -10334,14 +10342,25 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     for (const [a, b] of cells) put(a, b, ch);
     return out;
   };
+  // What one cell looks like with `ch` put at (x, y) among its real neighbors (a hedge joins the hedges beside it, a
+  // fence its fence line): the tile and its upright, rising above the cell. For the editor's ghost: what you'd get.
+  K.cellPreview = (room, ch, x, y) => {
+    const T = room.theme, up = T.up && T.up[ch], lift = up ? up.rise : 0, wd = up && up.wide ? up.wide : 0;
+    const fake = { theme: T, w: room.w, h: room.h, kinds: room.kinds, floors: room.floors, loot: room.loot, searched: new Set(), at: (a, b) => (a === x && b === y ? ch : room.at(a, b)), overAt: (a, b) => (room.overAt ? room.overAt(a, b) : '.'), hdoorAt: () => null };
+    const c = G.makeCanvas(16 + 2 * wd, 16 + lift), cx = c.getContext('2d');
+    const paint = (a, b, w, h, col) => { cx.fillStyle = col; cx.fillRect(wd + a, lift + b, w, h); };
+    try { T.tile(paint, ch, x, y, fake); if (up) up.draw(paint, x, y, fake); } catch (e) { return null; } // (something it needs from a live room: no ghost)
+    return c;
+  };
   // A see-through preview of what the brush places at cell (x, y), at its full height (a tall wall shows its whole
   // face, a lamppost its pole, a car or trampoline the whole piece; a marker its sprite standing in the cell), drawn
   // into ctx at `scale` px per world px with the world origin at (ox, oy) on screen, plus an outline of its footprint
   const ghosts = new Map();
-  K.drawGhost = (ctx, theme, ch, x, y, scale, ox, oy) => {
-    const size = K.stampSize(theme, ch) || [1, 1], key = theme.label + ch;
-    if (ch !== K.DEL && !ghosts.has(key)) ghosts.set(key, K.MARK.has(ch) ? K.markerSprite(ch) : K.tilePreview(theme, ch));
-    const img = ghosts.get(key);
+  // room (optional): draw a plain tile among its real neighbors (K.cellPreview), so it shows what you'd get
+  K.drawGhost = (ctx, theme, ch, x, y, scale, ox, oy, room) => {
+    const size = K.stampSize(theme, ch) || [1, 1], key = theme.label + ch, plain = room && !K.stampSize(theme, ch) && !K.MARK.has(ch) && ch !== K.DEL;
+    if (!plain && ch !== K.DEL && !ghosts.has(key)) ghosts.set(key, K.MARK.has(ch) ? K.markerSprite(ch) : K.tilePreview(theme, ch));
+    const img = plain ? K.cellPreview(room, ch, x, y) : ghosts.get(key);
     if (img) {
       let dx = x * 16, dy = y * 16;
       if (K.MARK.has(ch)) { dx += (16 - img.width) / 2; dy += 16 - img.height; } // standing in the cell, feet at its bottom
@@ -10428,7 +10447,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     for (const k of pkgs) if (k.split(':')[0] === 'key') { const c = k.split(':')[1] || 'red'; cards[c] = (cards[c] || 0) + 1; pkgCards[c] = (pkgCards[c] || 0) + 1; }
     let locked = 0;
     if (room) grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'O' || c === 'G') && row[x - 1] !== c && (c === 'O' ? G.doorLocked(room, x, y) : G.gateLocked(room, x, y))) locked++; })); // locked house doors and garden gates
-    const hkeys = count('C') + pkgs.filter((k) => k === 'hkey').length;
+    const hkeys = count('C') + pkgs.filter((k) => k === 'hkey').length + Object.values((room && room.loot) || {}).filter((k) => k === 'hkey').length; // (a key can be hidden in a container)
     const out = [];
     const line = (cls, t) => out.push(`<div class="${cls}">${cls === 'ok' ? '✓' : cls === 'warn' ? '!' : '✗'} ${t}</div>`);
     line(starts === 1 ? 'ok' : 'bad', `Player start: ${starts} (need exactly 1)`);
@@ -10670,7 +10689,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const take = (i) => {
       if (taken.has(i)) return;
       taken.add(i);
-      const x = i % W, y = Math.floor(i / W), c = grid[y][x], what = c === 'B' ? contents.get(i) : { 8: 'key:' + G.cardColor(R, x, y), C: 'hkey', 1: 'w:soda', 3: 'w:rockets', 6: 'i:bomb', 0: 'i:pogo', X: 'w:machete' }[c];
+      const x = i % W, y = Math.floor(i / W), c = grid[y][x];
+      gain(c === 'B' ? contents.get(i) : { 8: 'key:' + G.cardColor(R, x, y), C: 'hkey', 1: 'w:soda', 3: 'w:rockets', 6: 'i:bomb', 0: 'i:pogo', X: 'w:machete' }[c]);
+      // a container next to here (a trash can, a cabinet, a trunk): you search it and get what it holds
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        const k = R.loot && R.loot[nx + ',' + ny], j = ny * W + nx;
+        if (k && !taken.has(-1 - j) && G.lootable(T, R.at(nx, ny))) { taken.add(-1 - j); gain(k); }
+      }
+    };
+    const gain = (what) => {
       if (what && what.split(':')[0] === 'key') has.cards[what.split(':')[1] || 'red']++;
       else if (what === 'hkey') has.hkeys++;
       else if (what === 'w:rockets') has.rockets = true;
@@ -10953,7 +10980,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWG'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -11084,6 +11111,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           WASD / arrows: fly around (through walls)<br>
           - / + : zoom out / in<br>
           Click or drag: place · Right-click: copy<br>
+          Click a tree, door, gate... again: its next look<br>
+          A pickup onto a can, cabinet or trunk: it holds it<br>
+          A key onto a door or gate: locked · O: turn a car<br>
           Delete / Backspace: pick the Delete tool<br>
           Ctrl/Cmd+Z: undo · Shift+Ctrl/Cmd+Z: redo<br>
           \` : back to playing, right where you are
@@ -11213,6 +11243,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       }
       return;
     }
+    if (!top && E.tool !== K.DEL && dropOnto(st, c, to)) return; // a pickup onto a container, a key onto a door, a keycard onto a gate
     if (!top && to !== 'c' && G.lootable(st.room.theme, to) && st.raw[c.y][c.x] === to) { // clicking a trash can, cabinet, junk pile or leaves again: what it holds (the map's loot)
       if (E.cycled) return;
       E.cycled = true;
@@ -11222,10 +11253,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       msg(labelAt(st, c.x, c.y));
       return;
     }
-    if (!top && VARIANTS[to] && st.raw[c.y][c.x] === to) { // clicking a neighbor, gate, keycard or door again: its next variant (once per click)
+    if (!top && variantsOf(st, to) && st.raw[c.y][c.x] === to) { // clicking a neighbor, gate, keycard, door or tree again: its next variant (once per click)
       if (E.cycled) return;
       E.cycled = true;
-      const from = kindAt(st, c.x, c.y), L = VARIANTS[to](), next = L[(L.indexOf(from) + 1) % L.length];
+      if (st.room.theme.stamps && st.room.theme.stamps[to]) [c.x, c.y] = G.pieceAnchor(st.room, c.x, c.y); // a big tree: its look lives at its top-left cell
+      const from = kindAt(st, c.x, c.y), L = variantsOf(st, to), next = L[(L.indexOf(from) + 1) % L.length];
       setKind(st, c.x, c.y, next);
       E.stroke.push({ x: c.x, y: c.y, kind: true, from, to: next }); setDirty(true);
       msg(labelAt(st, c.x, c.y) + (to === 'N' ? ' +' + G.NEIGHBOR_KINDS[next].score : ''));
@@ -11242,11 +11274,39 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // Per-cell variants: the level's { "x,y": value } (G.MAPS[id].kinds, saved with the map). Click a cell again with
   // the same brush to step it: a neighbor's kind (else picked from where it stands, G.neighborKind), a gate's or
   // keycard's color (else red), a house door locked or not (every cell of the door together).
+  // Things with looks to choose from (theme.variety: trees, big trees, sports gear, plants): 'auto' (picked from where
+  // it stands) then each look in turn ('v0', 'v1', ... G.variant)
+  const variantsOf = (st, ch) => (VARIANTS[ch] ? VARIANTS[ch]() : st.room.theme.variety && st.room.theme.variety[ch] ? ['auto', ...Array.from({ length: st.room.theme.variety[ch] }, (_, i) => 'v' + i)] : null);
+  const varied = (st, ch) => !VARIANTS[ch] && !!(st.room.theme.variety && st.room.theme.variety[ch]);
+  // Drop something onto what can take it, instead of painting over it: a pickup onto a container (it holds it), a
+  // house key onto a door or garden gate (locked), a keycard onto a keycard gate (its next color). True if it did.
+  const LOOT_OF = (ch) => { const k = ch === 'C' ? 'hkey' : G.PICKUP_CHARS[ch]; return G.LOOT_KINDS.includes(k) ? k : null; };
+  function dropOnto(st, c, to) {
+    const E = st.edit, at = st.raw[c.y][c.x], T = st.room.theme;
+    if (at === to || !K.MARK.has(to)) return false;
+    const once = () => { if (E.cycled) return false; E.cycled = true; return true; };
+    if (G.lootable(T, at) && (G.PICKUP_CHARS[to] || to === 'C')) { // into a trash can, cabinet, junk pile, leaves or a car's trunk
+      if (!once()) return true;
+      const [x, y] = at === 'c' ? G.pieceAnchor(st.room, c.x, c.y) : [c.x, c.y], k = LOOT_OF(to);
+      if (!k) { msg(K.labelOf(T, at).replace(/ \(.*\)$/, '') + " CAN'T HOLD THAT", 'bad'); return true; }
+      const from = lootState(st, x, y);
+      setLootState(st, x, y, k); E.stroke.push({ x, y, lootc: true, from, to: k }); setDirty(true);
+      msg(labelAt(st, x, y));
+      return true;
+    }
+    const lockable = (to === 'C' && (at === 'O' || at === 'G')) || (to === '8' && at === 'D');
+    if (!lockable) return false;
+    if (!once()) return true;
+    const from = kindAt(st, c.x, c.y), next = to === 'C' ? (from === 'locked' ? (at === 'O' ? 'open' : 'latch') : 'locked') : G.CARDS[(G.CARDS.indexOf(from) + 1) % G.CARDS.length];
+    setKind(st, c.x, c.y, next); E.stroke.push({ x: c.x, y: c.y, kind: true, from, to: next }); setDirty(true);
+    msg(labelAt(st, c.x, c.y));
+    return true;
+  }
   const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'locked'], // a garden gate: one-way latch, or locked (a house key) // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
@@ -11256,6 +11316,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
     if (ch === 'g' || ch === 'W') G.rebuildUpright(R, x, y);
+    if (varied(st, ch)) { for (const [a, b] of K.pieceCells(R, x, y)) G.rebuildUpright(R, a, b); G.redrawRoomTiles(R, x - 1, y - 1, x + 2, y + 2); } // a new look
     if (ch === 'G') { for (const cx of cells) { const d = R.doors.find((q) => q.tx === cx && q.ty === y); if (d) d.locked = kind === 'locked'; G.rebuildUpright(R, cx, y); } }
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
     if (ch === 'O') {
@@ -11324,6 +11385,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     stroke.push({ x: ax, y: ay, car: true, from: fromKey, to: carKey(np) });
     E.undo.push(stroke); E.redo = []; setDirty(true); commit(st);
   }
+  // o turns what's under the cursor: a car to its next facing (its footprint turns with it when it goes end-on)
+  function turnAt(st, c) {
+    const ch = st.raw[c.y][c.x];
+    if (ch !== 'c') { msg('NOTHING TO TURN THERE (O TURNS CARS)', 'bad'); return; }
+    st.edit.car = G.pieceAnchor(st.room, c.x, c.y);
+    changeCar(st, 'facing', 1);
+    showCar(st, st.edit.car);
+    msg(labelAt(st, st.edit.car[0], st.edit.car[1]));
+  }
   function setFloor(st, x, y, f) { // the floor under the object at (x, y); null = guess it from the neighbors
     const F = floorsOf(st);
     if (f) F[x + ',' + y] = f; else delete F[x + ',' + y];
@@ -11333,6 +11403,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const ch = st.raw[y][x], label = K.labelOf(st.room.theme, ch);
     if (ch === 'c') { const [ax, ay] = G.pieceAnchor(st.room, x, y), { props: p } = G.carAt(st.room, x, y), l = G.lootAt(st.room, ax, ay); return 'CAR (' + [p.color, p.style, 'facing ' + p.facing, p.trunk === 'open' ? 'trunk open' : '', l ? 'trunk: ' + l.replace(/^[wi]:/, '') : ''].filter(Boolean).join(', ').toUpperCase() + ')'; }
     if (G.lootable(st.room.theme, ch)) return label.replace(/ \(.*\)$/, '') + ' (' + lootName(lootState(st, x, y)) + ')';
+    if (varied(st, ch)) { const v = kindAt(st, x, y); return label.replace(/ \(.*\)$/, '') + ' (LOOK ' + (v === 'auto' ? 'AUTO' : +v.slice(1) + 1 + '/' + st.room.theme.variety[ch]) + ')'; }
     if (!VARIANTS[ch]) return label;
     return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : ch === 'Z' && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
   };
@@ -11378,6 +11449,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (st.edit.layer === 'top') pickTop(st, '.'); else pick(st, K.DEL);
       return;
     }
+    if (st && e.code === 'KeyO' && !e.metaKey && !e.ctrlKey && st.edit.hover && st.edit.layer !== 'top') { turnAt(st, st.edit.hover); return; } // o: turn the doodad under the cursor
     if (!st || !(e.metaKey || e.ctrlKey)) return;
     if (e.code === 'KeyZ' || e.code === 'KeyY') {
       e.preventDefault();
@@ -11470,7 +11542,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (E.hover && E.layer === 'top') {
         const th = st.room.theme, t = E.topTool || 'L', del = t === '.' && st.room.overAt(E.hover.x, E.hover.y) === 'R';
         K.drawTopGhost(o, topSprite(th, t), topLift(th, del ? 'R' : t), E.hover.x, E.hover.y, 1, -v.x, -v.y);
-      } else if (E.hover) K.drawGhost(o, st.room.theme, E.tool, E.hover.x, E.hover.y, 1, -v.x, -v.y);
+      } else if (E.hover) K.drawGhost(o, st.room.theme, K.resolve(st.room.theme, E.tool) === E.tool ? E.tool : K.DEL, E.hover.x, E.hover.y, 1, -v.x, -v.y, st.room);
       const p = st.players[0];
       o.globalAlpha = 0.6; o.drawImage(p.frame(), Math.round(p.x - v.x) - 8, Math.round(p.y - v.y) - G.PERSON_Y); o.globalAlpha = 1;
       G.textCtx = null;
@@ -12030,8 +12102,6 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       } else if (!what || what === 'empty') this.floater(x, y - 26, 'EMPTY', '#9a8ec0');
       else { const [lx, ly] = out(12); this.dropLoot(lx, ly, what); }
     }
-    // The tell for placed loot: every few seconds a glint on each unopened thing that holds something (a trash can, a
-    // cabinet, a car's trunk, a pile of leaves), so players learn which ones to open. Looks only.
     // Locks shimmer so you can tell them from a plain door: a glint sweeps across every padlock (a locked garden gate)
     // and lock plate (a locked house door) now and then. (Containers don't glint: you search to find out.)
     drawLocks(ctx, v) {

@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-08 12:17 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-08 12:27 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1597,6 +1597,26 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       r(2, 0, 8, 12, '#8a8aa8'); r(2, 0, 8, 1, '#b0b0c8'); r(3, 1, 6, 6, '#1e4a30');
       r(4, 2, 4, 1, '#7ff0a0'); r(4, 4, 2, 1, '#7ff0a0'); r(6, 5, 1, 1, '#7ff0a0');
       r(3, 8, 2, 2, '#3a3a50'); r(7, 8, 2, 2, '#3a3a50'); r(10, 1, 1, 9, '#d8d8e8');
+    },
+    decoy(r) { // a holo projector puck with a little cyan figure standing in its beam
+      r(1, 9, 10, 3, '#3a3a50'); r(2, 9, 8, 1, '#8a8aa8'); r(5, 10, 2, 1, '#3ad0ff');
+      r(3, 1, 6, 8, '#1e5a70'); r(5, 1, 2, 2, '#7ff0ff'); r(4, 3, 4, 3, '#7ff0ff'); r(4, 6, 1, 3, '#7ff0ff'); r(7, 6, 1, 3, '#7ff0ff');
+      r(4, 4, 4, 1, '#3ad0ff'); r(4, 7, 4, 1, '#3ad0ff');
+    },
+    godmode(r) { // a rainbow shield
+      const C = ['#ff3a5a', '#ff8a2a', '#ffd23a', '#38f0a0', '#3ad0ff', '#c070ff'];
+      for (let y = 0; y < 12; y++) { const hw = y < 7 ? 5 : 5 - (y - 6); if (hw > 0) r(6 - hw, y, hw * 2, 1, C[Math.floor(y / 2)]); }
+      r(5, 2, 2, 6, '#ffffff'); r(3, 4, 6, 2, '#ffffff');
+    },
+    thorns(r) { // a spiky green vest
+      r(3, 2, 6, 9, '#2a7a2a'); r(4, 2, 4, 1, '#58d040'); r(5, 3, 2, 8, '#1e4a1e');
+      for (const [a, b] of [[1, 3], [1, 6], [1, 9], [10, 3], [10, 6], [10, 9], [4, 0], [7, 0]]) r(a, b, 1, 1, '#a8f070');
+      for (const [a, b] of [[2, 3], [2, 6], [2, 9], [9, 3], [9, 6], [9, 9]]) r(a, b, 1, 1, '#58d040');
+    },
+    pandora(r) { // an old box, light spilling from under the lid
+      r(1, 5, 10, 7, '#6a3a20'); r(1, 5, 10, 1, '#a86a30'); r(5, 7, 2, 2, '#ffd23a');
+      r(0, 2, 12, 3, '#8a4a28'); r(0, 2, 12, 1, '#c88a40');
+      r(1, 1, 1, 1, '#ffffff'); r(4, 0, 1, 1, '#ffd23a'); r(7, 0, 1, 1, '#ffffff'); r(10, 1, 1, 1, '#ffd23a');
     },
     quarter(r) {
       for (let y = 0; y < 12; y++) for (let x = 0; x < 12; x++) {
@@ -4497,7 +4517,67 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         return true;
       },
     },
+    // A hologram of you where you stand: enemies that can see it go for it instead of you, and their hits pop it
+    // (st.decoys: plain data, drawn by G.drawDecoy, so guests see it too)
+    decoy: {
+      name: 'HOLO DECOY', icon: 'decoy',
+      life: 8, hp: 4, pull: 160, // tunable: seconds, hits it takes (half-hearts), px it pulls enemies from
+      use(p, st) {
+        if (p.swimming) return 'NOT IN WATER';
+        st.decoys.push({ decoy: true, x: p.x, y: p.y, crew: p.def.id, fx: p.fx, fy: p.fy, t: Math.round(this.life * 60), hp: this.hp, max: Math.round(this.life * 60), owner: p.num || 0 });
+        st.floater(p.x, p.y - 36, 'HOLO DECOY!', '#7ff0ff');
+        st.burst(p.x, p.y - 14, 14, ['#7ff0ff', '#3ad0ff', '#ffffff'], 1.2, 12, 20);
+        G.sfx.play('zap');
+        return true;
+      },
+    },
+    // God mode: nothing hurts you for a while, and enemies you touch get bowled over (a rainbow shimmer)
+    godmode: {
+      name: 'GOD MODE', icon: 'godmode',
+      dur: 10, dmg: 4, // tunable: seconds; damage to an enemy you touch (every half second)
+      use(p, st) {
+        p.god = Math.max(p.god || 0, Math.round(this.dur * 60));
+        st.floater(p.x, p.y - 36, 'GOD MODE!', '#ffd23a');
+        st.burst(p.x, p.y - 14, 20, ['#ff3a5a', '#ffd23a', '#38f0a0', '#3ad0ff', '#c070ff'], 1.6, 12, 26);
+        G.sfx.play('secret');
+        return true;
+      },
+    },
+    // Thorns: whoever hits you takes damage back and is thrown off (you still take the hit)
+    thorns: {
+      name: 'THORNS', icon: 'thorns',
+      dur: 15, dmg: 6, // tunable: seconds; damage back to whoever hits you
+      use(p, st) {
+        p.thorns = Math.max(p.thorns || 0, Math.round(this.dur * 60));
+        st.floater(p.x, p.y - 36, 'THORNS!', '#58d040');
+        st.burst(p.x, p.y - 12, 14, ['#58d040', '#2a7a2a', '#ffffff'], 1.4, 10, 20);
+        G.sfx.play('crack');
+        return true;
+      },
+    },
+    // Pandora's box: everything on screen is wiped out in a blinding flash
+    pandora: {
+      name: "PANDORA'S BOX", icon: 'pandora',
+      dmg: 999, // tunable: damage to every enemy on screen
+      use(p, st) {
+        let n = 0;
+        for (const e of st.enemies) { // (a screen's worth round you: online every player has their own screen)
+          if (e.dead || !e.hittable() || Math.abs(e.x - p.x) > G.W / 2 + 8 || Math.abs(e.y - p.y) > G.H / 2 + 16) continue;
+          e.hit(st, this.dmg, p.x, p.y); n++;
+          st.burst(e.x, e.y - 12, 8, ['#ffffff', '#ffd23a', '#c070ff'], 1.6, 10, 22);
+        }
+        st.flash(30);
+        st.shake(16, 4);
+        st.floater(p.x, p.y - 36, n ? "PANDORA'S BOX!" : 'NOTHING HERE...', '#ffd23a');
+        st.burst(p.x, p.y - 10, 30, ['#ffffff', '#ffd23a', '#c070ff', '#3ad0ff'], 2.6, 12, 34);
+        G.sfx.play('boom');
+        return true;
+      },
+    },
   };
+  // The new items have one map marker between them (';'): which one is the map's kinds entry (default the first)
+  G.MAP_ITEMS = ['decoy', 'godmode', 'thorns', 'pandora'];
+  G.itemMarker = (room, tx, ty) => { const k = room && room.kinds && room.kinds[tx + ',' + ty]; return 'i:' + (G.MAP_ITEMS.includes(k) ? k : G.MAP_ITEMS[0]); };
   // ===== Full-health perk (a prototype: James wants to try a few versions) =====
   // While you're at full health something extra is switched on. Which version is a pause-menu option (saved in opts).
   G.PERKS = {
@@ -4516,8 +4596,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // ===== Loot is placed, never random (ZAMN-style): what a trash can, cabinet, car trunk or pile of leaves holds is
   // written in the map's `loot` { "x,y": key } (a car: its top-left cell). Only those open; the rest is scenery.
   // Keys: anything a package can hold, plus 'teen' (one jumps out) and 'empty' (a decoy). Keycards are never loot.
-  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'w:squirt', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'hkey', 'teen', 'empty'];
-  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'w:squirt': 'WG', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', hkey: 'KY', teen: '!', empty: '-' }; // the editor's short labels
+  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'w:squirt', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'i:decoy', 'i:godmode', 'i:thorns', 'i:pandora', 'hkey', 'teen', 'empty'];
+  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'w:squirt': 'WG', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', 'i:decoy': 'HD', 'i:godmode': 'GM', 'i:thorns': 'TH', 'i:pandora': 'PB', hkey: 'KY', teen: '!', empty: '-' }; // the editor's short labels
   G.lootAt = (room, tx, ty) => (room.loot && room.loot[tx + ',' + ty]) || null;
   // Can this cell hold loot? Searchables (theme.searchable), leaves (theme.leaves) and a car (at its top-left cell)
   G.lootable = (theme, ch) => !!((theme.searchable && theme.searchable.has(ch)) || (theme.leaves && theme.leaves.has(ch)) || (theme.blocks && theme.blocks.has(ch)));
@@ -4612,6 +4692,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     { group: 'POGO', label: 'STOMP DAMAGE', o: IT.pogo, k: 'stomp', min: 1, max: 30, step: 1 },
     { group: 'POGO', label: 'STOMP REACH', o: IT.pogo, k: 'stompR', min: 6, max: 40, step: 2 },
     { group: 'POGO', label: 'JUMPS/PICKUP', o: IT.pogo, k: 'per', min: 1, max: 9, step: 1 },
+    { group: 'HOLO DECOY', label: 'LASTS', o: IT.decoy, k: 'life', min: 1, max: 30, step: 1, note: () => 'SEC' },
+    { group: 'HOLO DECOY', label: 'HITS IT TAKES', o: IT.decoy, k: 'hp', min: 1, max: 20, step: 1, note: (v) => v / 2 + ' HRT' },
+    { group: 'HOLO DECOY', label: 'PULLS FROM', o: IT.decoy, k: 'pull', min: 32, max: 320, step: 8, unit: 'ft' },
+    { group: 'GOD MODE', label: 'LASTS', o: IT.godmode, k: 'dur', min: 1, max: 30, step: 1, note: () => 'SEC' },
+    { group: 'GOD MODE', label: 'TOUCH DAMAGE', o: IT.godmode, k: 'dmg', min: 0, max: 20, step: 1 },
+    { group: 'THORNS', label: 'LASTS', o: IT.thorns, k: 'dur', min: 1, max: 60, step: 1, note: () => 'SEC' },
+    { group: 'THORNS', label: 'DAMAGE BACK', o: IT.thorns, k: 'dmg', min: 0, max: 30, step: 1 },
     { group: 'VEGGIE BURGER', label: 'HEAL', o: G.PICKUP_STATS.burger, k: 'heal', min: 1, max: 8, step: 1, note: (v) => v / 2 + ' HRT' },
     { group: 'ZOMBIES', label: 'DARTS WHEN OUT', o: G.LOOT_CHANCE, k: 'desperate', min: 0, max: 100, step: 5, note: () => '%' },
     { group: 'PLATES', label: 'DAMAGE', o: W.plates, k: 'dmg', min: 0.5, max: 20, step: 0.5 },
@@ -6254,7 +6341,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const G = window.G;
 
   // ===== Room =====
-  G.PICKUP_CHARS = { '+': 'disk', ']': 'ticket', A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
+  G.PICKUP_CHARS = { '+': 'disk', ']': 'ticket', A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey', ';': 'i:decoy' }; // ;: one of the new items (which: the map's kinds, G.itemMarker) // 8: a keycard (its color from the map), C: a house key
   const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', '$', '|', ...Object.keys(G.PICKUP_CHARS)]); // |: an enemy placed in the map (G.placeEnemy) // &: a lawn mower (mower.js), $: a spawn button (practice.js)
 
   class Room {
@@ -6447,6 +6534,44 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   G.crewHp = (def) => ((def.stats ? def.stats.HP : 3) + 1) * 2;
   // The closed garden-gate tiles side by side with gate tile d (a gate opens as one)
   const gateRow = (R, d) => { const row = R.doors.filter((o) => o.latch && !o.open && o.ty === d.ty); let a = d.tx, b = d.tx; while (row.some((o) => o.tx === a - 1)) a--; while (row.some((o) => o.tx === b + 1)) b++; return row.filter((o) => o.tx >= a && o.tx <= b); };
+  // ---- Holo decoys (G.ITEMS.decoy): plain data in st.decoys { x, y, crew, fx, fy, t, max, hp }, so guests draw them too ----
+  // Draw one: the crew member it copies, see-through cyan, with scanlines, a flicker and a projector puck at its feet
+  G.drawDecoy = (ctx, d, v) => {
+    const sx = Math.round(d.x - v.x), sy = Math.round(d.y - v.y), set = G.art.crew[d.crew] || G.art.crew.pixel;
+    const dir = Math.abs(d.fx) > Math.abs(d.fy) ? (d.fx > 0 ? 'right' : 'left') : d.fy < 0 ? 'up' : 'down';
+    const spr = (set[dir] || set.down)[0], dying = d.t < 90 && (d.t >> 2) & 1, hit = d.hitT > 0 && G.tick - d.hitT < 6;
+    ctx.fillStyle = '#140c1c'; ctx.fillRect(sx - 4, sy - 1, 8, 3); ctx.fillStyle = '#3ad0ff'; ctx.fillRect(sx - 3, sy - 1, 6, 1); // the puck
+    if (dying) return;
+    const jx = (G.tick % 23) < 2 ? G.fx.randi(-2, 2) : 0; // now and then the picture slips
+    ctx.globalAlpha = 0.3; ctx.drawImage(G.tinted(spr, '#ff3ab0'), sx - 9 + jx, sy - G.PERSON_Y); // a magenta fringe
+    ctx.globalAlpha = 0.7; ctx.drawImage(spr, sx - 8 + jx, sy - G.PERSON_Y); // you, see-through...
+    ctx.globalAlpha = hit ? 0.8 : 0.4; ctx.drawImage(G.tinted(spr, hit ? '#ffffff' : '#7ff0ff'), sx - 8 + jx, sy - G.PERSON_Y); // ...washed cyan
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(11,6,20,.45)'; // scanlines rolling down it
+    for (let y = sy - G.PERSON_Y + ((G.tick >> 1) & 1); y < sy; y += 2) ctx.fillRect(sx - 8 + jx, y, 16, 1);
+    ctx.fillStyle = 'rgba(127,240,255,.25)'; ctx.fillRect(sx - 5, sy - G.PERSON_Y, 10, G.PERSON_Y); // the beam from the puck
+  };
+  // Hits on decoys round (x, y) within (rx, ry) px: each one there takes dmg. Returns how many it hit.
+  G.hurtDecoys = (st, x, y, rx, ry, dmg) => {
+    let n = 0;
+    for (const d of st.decoys || []) {
+      if (d.t <= 0 || Math.abs(d.x - x) >= rx || Math.abs(d.y - y) >= ry) continue;
+      d.hp -= dmg; d.hitT = G.tick; n++;
+      st.burst(d.x, d.y - 14, 6, ['#7ff0ff', '#ffffff'], 1.2, 10, 12); G.sfx.play('spark');
+    }
+    return n;
+  };
+  // The decoy enemy e goes for instead of anyone (the nearest it can see within the decoy's pull), or null
+  G.lureFor = (st, e) => {
+    let best = null, bd = G.ITEMS.decoy.pull;
+    for (const d of st.decoys || []) {
+      const dd = Math.hypot(d.x - e.x, d.y - e.y);
+      if (d.t > 0 && dd < bd && G.sightLine(st.room, e.x, e.y, d.x, d.y)) { bd = dd; best = d; }
+    }
+    return best && { d: best, dist: bd };
+  };
+
+  const GOD_COLS = ['#ff3a5a', '#ff8a2a', '#ffd23a', '#38f0a0', '#3ad0ff', '#c070ff'];
   class Player {
     constructor(def, ctrl, x, y, o = {}) {
       Object.assign(this, {
@@ -6472,7 +6597,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     update(st) {
       if (this.dead) return;
       const c = this.ctrl.s;
-      for (const k of ['fireCd', 'skillCd', 'revealT', 'inv', 'recoil', 'buzz', 'invShow', 'lockCd', 'bonkT', 'nagT', 'guardCd', 'spinFx']) if (this[k] > 0) this[k]--;
+      for (const k of ['fireCd', 'skillCd', 'revealT', 'inv', 'recoil', 'buzz', 'invShow', 'lockCd', 'bonkT', 'nagT', 'guardCd', 'spinFx', 'god', 'thorns']) if (this[k] > 0) this[k]--;
       if (this.label && --this.label.t <= 0) this.label = null;
       if (this.healFlash > 0) this.healFlash--;
       let mx = c.mx, my = c.my;
@@ -6516,6 +6641,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.moving = m > 0.15 || this.dashT > 0;
       this.pushX = m > 0.15 ? mx / Math.max(m, 1) : 0; this.pushY = m > 0.15 ? my / Math.max(m, 1) : 0; // where you're pushing (for body blocking)
       if (this.buzz > 0 && this.moving && st.t % 4 === 0) st.burst(this.x, this.y, 1, ['#ffd23a', '#ffffff'], 0.3, 2, 12);
+      if (this.god > 0 && st.t % 30 === 0 && st.enemies) { // god mode: enemies you touch get bowled over
+        for (const e of st.enemies) if (!e.dead && !(e.ally > 0) && e.hittable() && Math.abs(e.x - this.x) < 12 && Math.abs(e.y - this.y) < 9) e.hit(st, G.ITEMS.godmode.dmg, this.x, this.y);
+      }
 
       // Facing: right stick aims (twin-stick); else the mouse cursor, if you're using one; else the way you move
       const am = Math.hypot(c.ax, c.ay), mouse = this.mouseAim(st);
@@ -6774,6 +6902,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     hurt(st, dmg, sx, sy, from) {
       if (this.dead || this.inv > 0 || this.dashT > 0) return;
       if (this.tramp ? !(from && from.canTramp) : this.z > 6) return;
+      if (this.thorns > 0 && from && from.hit && !(from.thornCd > st.t)) { // thorns: whoever hits you gets it back (once a second each)
+        from.thornCd = st.t + 60;
+        from.hit(st, G.ITEMS.thorns.dmg, this.x, this.y);
+        st.burst(from.x, from.y - 12, 8, ['#58d040', '#2a7a2a', '#ffffff'], 1.4, 10, 16);
+      }
+      if (this.god > 0) return; // god mode: nothing gets through
       if (G.perkOf(this) === 'guard' && !(this.guardCd > 0)) { // full-health perk: this hit costs nothing (then it recharges)
         this.guardCd = G.PERK.guardCd; this.inv = 40;
         st.floater(this.x, this.y - 30, 'BLOCKED!', '#7ff0ff');
@@ -7071,6 +7205,19 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         for (let i = 0; i < 7; i++) { const a = a0 - 1 + 2 * Math.min(1, k + 0.3) * (i / 6); ctx.fillRect(Math.round(sx + Math.cos(a) * R), Math.round(by - G.HAND_Z + Math.sin(a) * R * 0.75), 2, 2); }
       }
       if (this.buzz > 0 && (G.tick >> 3) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(sx + 3, sy - 33, 1, 2); }
+      if (this.god > 0 && (this.god > 90 || (this.god >> 3) & 1)) { // god mode: a rainbow wash over you (blinks as it runs out)
+        ctx.globalAlpha = 0.55; ctx.drawImage(G.tinted(this.frame(), GOD_COLS[(G.tick >> 2) % GOD_COLS.length]), sx - 8, by - G.PERSON_Y + breathe); ctx.globalAlpha = 1;
+        ctx.fillStyle = GOD_COLS[((G.tick >> 2) + 2) % GOD_COLS.length];
+        for (let i = 0; i < 3; i++) { const a = G.tick * 0.12 + (i * Math.PI * 2) / 3; ctx.fillRect(Math.round(sx + Math.cos(a) * 9), Math.round(by - 14 + Math.sin(a) * 14), 1, 1); }
+      }
+      if (this.thorns > 0 && (this.thorns > 90 || (this.thorns >> 3) & 1)) { // thorns: a ring of spikes round your middle
+        for (let i = 0; i < 12; i++) { // a vine of thorns circling you: the back half behind, the front half in front
+          const a = (i / 12) * Math.PI * 2 + G.tick * 0.03, c = Math.cos(a), s = Math.sin(a), x = Math.round(sx + c * 10), y = Math.round(by - 13 + s * 5);
+          ctx.fillStyle = '#1e4a1e'; ctx.fillRect(x - 1, y, 3, 2);
+          ctx.fillStyle = s > 0 ? '#58d040' : '#2a7a2a'; ctx.fillRect(x - 1, y, 2, 1);
+          ctx.fillStyle = '#d8f8a0'; ctx.fillRect(Math.round(x + c * 2), Math.round(y - 1 + s), 1, 1); // the spike, pointing out
+        }
+      }
     }
     // A loaded blower's ball at the tube's mouth, and a power bar under you while a weapon with power() charges
     drawCharge(ctx, sx, by) {
@@ -7930,6 +8077,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       const hp = p.hp; p.hurt(st, dmg, e.x, e.y, e); if (p.hp < hp) n++;
       if (first) break;
     }
+    if (!(first && n)) n += G.hurtDecoys(st, e.x, e.y, rx, ry, dmg); // a holo decoy takes the hit too
     return n;
   };
   G.hurtNear = hurtNear;
@@ -7958,6 +8106,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       else if (e.aggro && td > (o.giveUp || 190) * sight && !(e.huntT > 0)) { e.aggro = false; e.lost = 40; e.wanderT = 0; }   // "?"
       e.provoked = false;
       if (!e.aggro) { tgt = null; td = Infinity; }
+      const lure = G.lureFor(st, e); // a holo decoy it can see: it goes for that instead of anyone
+      if (lure) { tgt = lure.d; td = lure.dist; if (!e.aggro) { e.aggro = true; e.alert = Math.max(e.alert, 24); e.lost = 0; } } // (and hurries at it)
       for (const n of st.neighbors || []) {
         if (n.gone || (e.skipN && e.skipN.get(n) > st.t)) continue; // (one it found no way to: left alone for a while)
         const d = Math.hypot(n.x - e.x, n.y - e.y);
@@ -8170,7 +8320,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   B.swipe = {
     init(e) { e.swipeT = 0; e.swipeCd = G.randi(10, 30); e.slotT = 0; },
     update(e, st, o) {
-      const reach = o.reach || 15, t = e.target, player = t && t.def;
+      const reach = o.reach || 15, t = e.target, player = t && (t.def || t.decoy); // (a holo decoy gets swung at like you)
       if (e.swipeCd > 0) e.swipeCd--;
       if (e.swipeT > 0) {
         e.swipeT--;
@@ -8179,6 +8329,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           G.sfx.play('swipe');
           const hx = e.x + e.fx * 8, hy = e.y + e.fy * 6; // the spot in front of it
           for (const p of st.players) if (!p.dead && Math.hypot(p.x - hx, p.y - hy) < reach * 0.8) p.hurt(st, o.dmg || 1, e.x, e.y, e);
+          G.hurtDecoys(st, hx, hy, reach * 0.8, reach * 0.8, o.dmg || 1);
         }
         return true;
       }
@@ -8585,7 +8736,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   G.SHOTS.cloneShot = {
     update(s, st) {
       s.t++;
-      const hurt = (r) => { for (const p of st.players) if (!p.dead && Math.abs(p.x - s.x) < r + 3 && Math.abs(p.y - 2 - s.y) < r + 2) p.hurt(st, s.dmg, s.x, s.y); };
+      const hurt = (r) => { for (const p of st.players) if (!p.dead && Math.abs(p.x - s.x) < r + 3 && Math.abs(p.y - 2 - s.y) < r + 2) p.hurt(st, s.dmg, s.x, s.y); G.hurtDecoys(st, s.x, s.y + 2, r + 3, r + 2, s.dmg); };
       if (s.lob) {
         const k = s.t / s.T;
         s.x = s.x0 + (s.tx - s.x0) * k; s.y = s.y0 + (s.ty - s.y0) * k;
@@ -8597,6 +8748,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (--s.life <= 0) return false;
       if (st.room.blocksShot(s.x, s.y)) { st.burst(s.x, s.y, 3, G.CLONE_SHOTS[s.w].col, 0.8, 9, 10); return false; }
       for (const p of st.players) if (!p.dead && Math.abs(p.x - s.x) < s.r + 2 && Math.abs(p.y - 2 - s.y) < s.r + 2) { p.hurt(st, s.dmg, s.x, s.y); st.burst(s.x, s.y, 4, G.CLONE_SHOTS[s.w].col, 1, 9, 10); return false; }
+      if (G.hurtDecoys(st, s.x, s.y + 2, s.r + 2, s.r + 2, s.dmg)) return false; // a holo decoy soaks it up
       return true;
     },
     draw(ctx, s, v) {
@@ -9295,7 +9447,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const W = G.WEAPONS, ids = Object.keys(W);
     return [...ids.filter((id) => !W[id].signature), ...ids.filter((id) => W[id].signature)];
   };
-  const ITEMS = ['pie', 'wholepie', 'coffee', 'bomb', 'pogo']; // (not the PDA: practice has no map to show)
+  const ITEMS = ['pie', 'wholepie', 'coffee', 'bomb', 'pogo', 'decoy', 'godmode', 'thorns', 'pandora']; // (not the PDA: practice has no map to show)
   const itemMax = (id) => G.ITEMS[id].max || G.ITEM_STACK;
   G.practiceKit = (p, first) => {
     for (const id of ORDER()) {
@@ -10415,9 +10567,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ENEMY SPAWN (CLICK ONE AGAIN: ONE TYPE ONLY)'], ['B', 'PACKAGE'], ['|', 'ENEMY THAT STAYS PUT (ASLEEP TILL YOU SEE IT, NEVER DESPAWNS; CLICK AGAIN: WHICH)'], ['Q', 'PDA'],
     ['+', 'DATA DISK (ONE PER LEVEL, BEHIND A SECRET: ALL FIVE UNLOCK THE SECRET LEVEL)'], [']', 'BONUS TICKET (FIND IT: THE BONUS LEVEL AFTER THIS ONE IS NEXT)'], ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
+    [';', "ITEM: HOLO DECOY, GOD MODE, THORNS OR PANDORA'S BOX (CLICK AGAIN: WHICH)"],
   ];
   K.MARK = new Set(K.MARKERS.map((m) => m[0]));
-  const ICON_OF = { '+': 'disk', ']': 'ticket', '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
+  const ICON_OF = { '+': 'disk', ']': 'ticket', '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey', ';': 'decoy' };
 
   let exitIcon = null, btnIcon = null;
   function makeBtnIcon() { // a spawn button (practice.js), as on the floor
@@ -10542,7 +10695,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     return c;
   };
   // Palette sections: theme.groups is [[title, 'chars'], ...]; anything not listed lands in OTHER
-  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZ|BT$'], ['PICKUPS', 'QA8CU1234567890FX&+]']];
+  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZ|BT$'], ['PICKUPS', 'QA8CU1234567890;FX&+]']];
   const sections = (entries, groups) => {
     if (!groups) return [['TILES', entries]];
     const out = groups.map(([t, chars]) => [t, entries.filter((e) => chars.includes(e[0]))]);
@@ -11136,7 +11289,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<|)'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZWGtY*<|);'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
@@ -11189,7 +11342,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const px = x * 16 + 8, py = y * 16 + 12;
     if (ch === '|') { G.placeEnemy(st, (st.def.kinds || {})[x + ',' + y], px, py).tile = x + ',' + y; return; } // a placed enemy (asleep till it's on screen)
     const e = ch === '$' ? new G.SpawnButton(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'T' ? new G.Dummy(px, py) : ch === 'Z' ? new G.Spawner(px, py, (st.def.kinds || {})[x + ',' + y]) : ch === 'N' ? G.makeNeighbor(st.room, x, y, st.def.kinds)
-      : new G.Pickup(G.PICKUP_CHARS[ch], px, py, { respawn: st.test, color: G.cardColor(st.room, x, y) });
+      : new G.Pickup(ch === ';' ? G.itemMarker(st.room, x, y) : G.PICKUP_CHARS[ch], px, py, { respawn: st.test, color: G.cardColor(st.room, x, y) });
     e.tile = x + ',' + y;
     (ch === '$' ? st.buttons : ch === 'T' ? st.dummies : ch === 'Z' ? st.spawners : ch === 'N' ? st.neighbors : st.pickups).push(e);
   }
@@ -11462,9 +11615,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'north', 'south', 'locked'], // a garden gate: one-way latch (opens from the side you can't reach from the start, or the side you pick), or locked (a house key) // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     '|': () => Object.keys(G.ENEMY_TYPES), // an enemy placed in the map: which one
+    ';': () => G.MAP_ITEMS, // the item marker: which item
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : ch === ')' ? (k === 'ns' ? 'ns' : 'ew') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : ch === '|' ? 'phoneTeen' : ch === ')' ? 'ew' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : ch === ')' ? (k === 'ns' ? 'ns' : 'ew') : ch === ';' ? G.itemMarker(st.room, x, y).slice(2) : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : ch === '|' ? 'phoneTeen' : ch === ')' ? 'ew' : ch === ';' ? G.MAP_ITEMS[0] : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
@@ -11472,7 +11626,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     let a = x; while (whole && R.at(a - 1, y) === ch) a--;
     const cells = []; if (whole) for (let b = a; R.at(b, y) === ch; b++) cells.push(b); else cells.push(x); // (a door or a gate: all of it together)
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
-    if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z' || ch === '|') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
+    if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z' || ch === '|' || ch === ';') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') for (const cx of cells) { const d = R.doors.find((q) => q.tx === cx && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, cx, y, cx, y); G.rebuildUpright(R, cx, y); }
     if (ch === 'g' || ch === 'W' || ch === ')') G.rebuildUpright(R, x, y);
     if (varied(st, ch)) { for (const [a, b] of K.pieceCells(R, x, y)) G.rebuildUpright(R, a, b); G.redrawRoomTiles(R, x - 1, y - 1, x + 2, y + 2); } // a new look
@@ -11573,7 +11727,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (varied(st, ch)) { const v = kindAt(st, x, y); return label.replace(/ \(.*\)$/, '') + ' (LOOK ' + (v === 'auto' ? 'AUTO' : +v.slice(1) + 1 + '/' + st.room.theme.variety[ch]) + ')'; }
     if (!VARIANTS[ch]) return label;
     if (ch === 'G') return 'GARDEN GATE (' + { latch: 'LATCH: OPENS FROM THE SIDE YOU CAN\'T REACH FROM THE START', north: 'LATCH: OPENS FROM THE NORTH', south: 'LATCH: OPENS FROM THE SOUTH', locked: 'LOCKED: A HOUSE KEY OPENS IT' }[kindAt(st, x, y)] + ')';
-    return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : (ch === 'Z' || ch === '|') && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
+    return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : (ch === 'Z' || ch === '|') && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : ch === ';' ? G.ITEMS[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
   };
   function paintLine(st, a, b) {
     const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -11779,7 +11933,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.practice = !!def.practice; // the weapon practice range (practice.js): everything, never running out
       this.enemyCfg = { ...G.ENEMY_DEFAULTS, ...(def.enemies || {}) };
       this.overT = 0; // ticks since everyone ran out of lives
-      this.saved = 0; this.lost = 0; this.beams = []; this.turns = []; this.tallyFlash = 0; // neighbors beamed out / turned
+      this.saved = 0; this.lost = 0; this.beams = []; this.turns = []; this.decoys = []; this.flashT = 0; this.tallyFlash = 0; // neighbors beamed out / turned
       this.spawnT = this.enemyCfg.grace; // ticks until the next enemy rises
       this.parts = []; this.floaters = []; this.ghosts = []; this.rings = []; this.props = []; // props: looks-only debris (dropped phones)
       this.score = 0; this.targetsDown = 0; this.shakeT = 0; this.shakeA = 0; this.t = 0; this.pda = false;
@@ -11805,7 +11959,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
           case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || 'ammo'))); break;
           case 'E': this.exit = tag(new ExitDoor(s.x, s.y)); break;
-          default: this.pickups.push(tag(new G.Pickup(G.PICKUP_CHARS[s.ch], s.x, s.y, { respawn: this.test, needed: !this.test && G.isBreaker(this.room.theme, G.PICKUP_CHARS[s.ch]), color: G.cardColor(this.room, s.tx, s.ty) }))); // a breaker the level needs comes back if it's used up
+          default: this.pickups.push(tag(new G.Pickup(s.ch === ';' ? G.itemMarker(this.room, s.tx, s.ty) : G.PICKUP_CHARS[s.ch], s.x, s.y, { respawn: this.test, needed: !this.test && G.isBreaker(this.room.theme, G.PICKUP_CHARS[s.ch]), color: G.cardColor(this.room, s.tx, s.ty) }))); // a breaker the level needs comes back if it's used up
         }
       }
       if (!this.test) this.room.mini = G.buildMinimap(this.room);
@@ -11872,6 +12026,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     // Call after tiles change (doors open, walls get blown up) so enemy pathing knows
     mapChanged() { if (this.flow) this.flow.refreshOpen(); if (this.flowJump) this.flowJump.refreshOpen(); if (this.flowSwim) this.flowSwim.refreshOpen(); }
     addScore(n) { this.score += n; if (this.score > G.save.data.best) G.save.data.best = this.score; }
+    flash(t) { this.flashT = Math.max(this.flashT || 0, t); if (this.out) this.out.push(['F', t]); } // the whole screen goes white, fading (Pandora's box)
     shake(t, a) { this.shakeT = Math.max(this.shakeT, t); this.shakeA = Math.max(this.shakeA, a); if (this.out) this.out.push(['h', t, a]); }
     // a floating word (6px up: over a two-tile-tall person's head; guests get the raw y and lift it themselves)
     floater(x, y, text, col) { this.floaters.push({ x, y: y - 6, text, col, life: 50 }); if (this.out) this.out.push(['f', Math.round(x), Math.round(y), text, col]); }
@@ -12108,6 +12263,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       G.sfxLog = this.out || null; // online host: sounds go to the guests too
       const before = this.players.map((p) => [p.x, p.y]);
       for (const p of this.players) p.update(this);
+      for (const d of this.decoys) if (--d.t <= 0 || d.hp <= 0) { this.burst(d.x, d.y - 14, 12, ['#7ff0ff', '#3ad0ff', '#ffffff'], 1.2, 12, 18); G.sfx.play('logoff'); d.t = 0; } // a hologram blinks out
+      G.compact(this.decoys, (d) => d.t > 0);
       if (this.shared) this.keepOnScreen(before);
       if (this.coop) this.updateRevives();
       this.updateSafeZone();
@@ -12176,6 +12333,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (const r of this.rings) r.life--;
       G.compact(this.rings, (r) => r.life > 0);
       if (this.shakeT > 0 && --this.shakeT === 0) this.shakeA = 0;
+      if (this.flashT > 0) this.flashT--;
       this.updateCam(false);
     }
 
@@ -12208,7 +12366,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (this.exit) this.exit.drawFloor(ctx, v);
       for (const b of this.buttons) b.drawFloor(ctx, v);
       for (const s of this.spawners) if (s.type) s.drawFloor(ctx, v, this.t); // typed spawners: pads, glitches, cracked dirt
-      G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players, ...(this.critters || [])]);
+      G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players, ...(this.critters || []), ...this.decoys.map((d) => ({ y: d.y, draw: (c, vv) => G.drawDecoy(c, d, vv) }))]);
       G.drawSmoke(ctx, this, v); // smoke from wrecks and burning drums
       this.drawLocks(ctx, v); // locks shimmer now and then
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
@@ -12241,6 +12399,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         const hw = G.textWidth(p.label.text) / 2;
         G.text(p.label.text, G.clamp(p.x - cx, hw + 2, G.W - hw - 2), p.y - cy - 42, p.label.col, { align: 'center', shadow: '#140c1c' });
       }
+      if (this.flashT > 0) { ctx.globalAlpha = Math.min(1, this.flashT / 20); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, G.W, G.H); ctx.globalAlpha = 1; }
       drawHud(ctx, this);
       G.Debug.draw(this, ctx, v);
       this.drawNeighborMarkers(ctx, cx, cy);
@@ -14152,7 +14311,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
     'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', 'burnT', // (the clones'; burnT: a coffee spill's burn timer)
-    'allyHitCd', 'messT', 'idleT', 'spinT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle and spin counters)
+    'allyHitCd', 'thornCd', 'messT', 'idleT', 'spinT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle and spin counters)
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(o) {
@@ -14181,7 +14340,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       g: { t: st.t, score: st.score, saved: st.saved, lost: st.lost, tally: st.tallyFlash, pda: st.pda, exit: st.exit ? st.exit.open : false, over: st.overT,
         wet: st.wet && st.wet.size ? [...st.wet].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0, // a mop bot's wet floor: cell, half-seconds left
         spill: st.spill && st.spill.size ? [...st.spill].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0,
-        soda: st.soda && st.soda.size ? [...st.soda].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0 }, // soda puddles, the same // coffee spills, the same // a mop bot's wet floor: cell, half-seconds left
+        soda: st.soda && st.soda.size ? [...st.soda].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0,
+        decoys: (st.decoys || []).map((d) => [Math.round(d.x), Math.round(d.y), d.crew, r2(d.fx), r2(d.fy), d.t]) }, // holo decoys // soda puddles, the same // coffee spills, the same // a mop bot's wet floor: cell, half-seconds left
       p: Object.fromEntries(st.players.map((p) => { const q = pack(p); q.crew = p.def.id; return [p.num, q]; })),
       e: packList(st, st.enemies.filter((e) => !e.dead)),
       n: packList(st, st.neighbors.filter((n) => !n.gone)),
@@ -14299,6 +14459,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     st.wet = new Map(); for (let i = 0; g.wet && i < g.wet.length; i += 2) st.wet.set(g.wet[i], g.wet[i + 1] * 30);
     st.spill = new Map(); for (let i = 0; g.spill && i < g.spill.length; i += 2) st.spill.set(g.spill[i], g.spill[i + 1] * 30);
     st.soda = new Map(); for (let i = 0; g.soda && i < g.soda.length; i += 2) st.soda.set(g.soda[i], g.soda[i + 1] * 30);
+    st.decoys = (g.decoys || []).map(([x, y, crew, fx, fy, t]) => ({ decoy: true, x, y, crew, fx, fy, t, hp: 1 }));
     // map cells that changed since the guest last looked
     const R = st.room, had = st.cellsSeen || (st.cellsSeen = {});
     for (const key in snap.x) {
@@ -14318,6 +14479,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       case 'b': st.burst(e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8]); break;
       case 'f': st.floater(e[1], e[2], e[3], e[4]); break;
       case 'h': st.shake(e[1], e[2]); break;
+      case 'F': st.flash(e[1]); break;
       case 'o': st.tossPhone(e[1], e[2], e[3]); break;
       case 'j': st.stickDart(e[1], e[2], { ux: e[3] / 100, uy: e[4] / 100, kind: e[5], on: e[6] && st.mirrors && st.mirrors.e ? st.mirrors.e.get(String(e[6])) : null, cling: e[7], bounce: e[8], suction: e[9] }); break; // a spent dart
       case 'r': st.rings.push({ x: e[1], y: e[2], max: e[3], life: 14, col: e[4] }); break;

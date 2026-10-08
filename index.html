@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 22:12 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 22:23 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -338,6 +338,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   // ---- Toast (small banner message drawn over any state) ----
   G.toastMsg = ''; G.toastT = 0;
+  // Units for people: 1 unit (a tile, 16 px) = 2.5 ft and the game runs 60 ticks a second. The engine keeps px and
+  // ticks; the Tuning Lab and the debug panel show feet and feet per second (G.ft, G.fts; G.UNITS for a row's `unit`).
+  G.FT_PER_PX = 2.5 / 16;
+  G.ft = (px) => +(px * G.FT_PER_PX).toFixed(1);             // px -> ft
+  G.fts = (pxPerTick) => +(pxPerTick * 60 * G.FT_PER_PX).toFixed(1); // px per tick -> ft per second
+  G.UNITS = { ft: (v) => G.ft(v) + ' FT', fts: (v) => G.fts(v) + ' FT/S', s: (v) => +(v / 60).toFixed(2) + ' S' }; // s: ticks shown as seconds
   G.toast = (msg, t = 150) => { G.toastMsg = msg; G.toastT = t; };
 })();
 </script>
@@ -4450,15 +4456,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     { group: 'DARTS', label: 'DAMAGE', o: W.darts, k: 'dmg', min: 0.25, max: 10, step: 0.25 },
     { group: 'DARTS', label: 'HOLD DELAY', o: W.darts, k: 'cdBase', min: 3, max: 40, step: 1, note: (v) => perSec(v) },
     { group: 'DARTS', label: 'TAP DELAY', o: W.darts, k: 'tapCd', min: 2, max: 40, step: 1, note: (v) => perSec(v) },
-    { group: 'DARTS', label: 'SPEED', o: W.darts, k: 'speed', min: 1, max: 8, step: 0.2 },
+    { group: 'DARTS', label: 'SPEED', o: W.darts, k: 'speed', min: 1, max: 8, step: 0.2, unit: 'fts' },
     { group: 'DARTS', label: 'RANGE', o: W.darts, k: 'range', min: 10, max: 120, step: 2 },
     { group: 'SKILLET (LOU)', label: 'DAMAGE', o: W.skillet, k: 'dmg', min: 0.25, max: 20, step: 0.25 },
-    { group: 'SKILLET (LOU)', label: 'THROW', o: W.skillet, k: 'out', min: 6, max: 80, step: 2, note: (v) => Math.round(v * W.skillet.speed) + 'PX' },
+    { group: 'SKILLET (LOU)', label: 'THROW', o: W.skillet, k: 'out', min: 6, max: 80, step: 2, note: (v) => G.ft(v * W.skillet.speed) + ' FT' },
     { group: 'SKILLET (LOU)', label: 'FIRE DELAY', o: W.skillet, k: 'rate', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
     { group: 'SKILLET (LOU)', label: 'KNIFE (LV2)', o: W.skillet.knife, k: 'dmg', min: 0, max: 10, step: 0.25 },
     { group: 'SKILLET (LOU)', label: 'CLEAVER (LV3)', o: W.skillet.cleaver, k: 'dmg', min: 0, max: 15, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'DAMAGE', o: W.tranq, k: 'dmg', min: 0, max: 10, step: 0.25 },
-    { group: 'TRANQ (JUNE)', label: 'SLEEP', o: W.tranq, k: 'sleep', min: 0, max: 600, step: 15, note: (v) => (v / 60).toFixed(1) + 'S' },
+    { group: 'TRANQ (JUNE)', label: 'SLEEP', o: W.tranq, k: 'sleep', min: 0, max: 600, step: 15, unit: 's' },
     { group: 'TRANQ (JUNE)', label: 'ASLEEP: DAMAGE X', o: W.tranq, k: 'sleepMul', min: 1, max: 4, step: 0.25 },
     { group: 'TRANQ (JUNE)', label: 'HOLD DELAY', o: W.tranq, k: 'cdBase', min: 3, max: 40, step: 1, note: (v) => perSec(v) },
     { group: 'TRANQ (JUNE)', label: 'RANGE', o: W.tranq, k: 'range', min: 10, max: 120, step: 2 },
@@ -4470,26 +4476,26 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     { group: 'EMP (ROOT)', label: 'ARC LV2', o: W.emp, k: 'arc2', min: 20, max: 360, step: 10, note: () => 'DEG' },
     { group: 'EMP (ROOT)', label: 'ARC LV3', o: W.emp, k: 'arc3', min: 20, max: 360, step: 10, note: () => 'DEG' },
     { group: 'EMP (ROOT)', label: 'TAP DELAY', o: W.emp, k: 'tapCd', min: 4, max: 90, step: 1, note: (v) => perSec(v) },
-    { group: 'EMP (ROOT)', label: 'STUN', o: W.emp, k: 'zap', min: 0, max: 300, step: 5, note: (v) => (v / 60).toFixed(1) + 'S' },
-    { group: 'EMP (ROOT)', label: 'RANGE', o: W.emp, k: 'range', min: 16, max: 120, step: 4, note: () => 'PX' },
+    { group: 'EMP (ROOT)', label: 'STUN', o: W.emp, k: 'zap', min: 0, max: 300, step: 5, unit: 's' },
+    { group: 'EMP (ROOT)', label: 'RANGE', o: W.emp, k: 'range', min: 16, max: 120, step: 4, unit: 'ft' },
     { group: 'EMP (ROOT)', label: 'HOLD DELAY', o: W.emp, k: 'cdBase', min: 4, max: 120, step: 1, note: (v) => perSec(v) },
     { group: 'HOCKEY STICK (TED)', label: 'DAMAGE', o: W.hockey, k: 'dmg', min: 0.25, max: 10, step: 0.25, note: () => 'LV1' },
     { group: 'HOCKEY STICK (TED)', label: 'PER LEVEL', o: W.hockey, k: 'dmgLv', min: 0, max: 5, step: 0.25 },
-    { group: 'HOCKEY STICK (TED)', label: 'REACH', o: W.hockey, k: 'reach', min: 10, max: 40, step: 1, note: () => 'PX' },
-    { group: 'HOCKEY STICK (TED)', label: 'SPIN REACH', o: W.hockey, k: 'spinReach', min: 12, max: 80, step: 2, note: () => 'PX' },
+    { group: 'HOCKEY STICK (TED)', label: 'REACH', o: W.hockey, k: 'reach', min: 10, max: 40, step: 1, unit: 'ft' },
+    { group: 'HOCKEY STICK (TED)', label: 'SPIN REACH', o: W.hockey, k: 'spinReach', min: 12, max: 80, step: 2, unit: 'ft' },
     { group: 'HOCKEY STICK (TED)', label: 'SWING DELAY', o: W.hockey, k: 'rate', min: 4, max: 60, step: 1, note: (v) => perSec(v) },
     { group: 'MELEE SPIN', label: 'CHARGE TIME', o: G.MELEE_SPIN, k: 'time', min: 10, max: 180, step: 5, note: (v) => perSec(v) },
     { group: 'MELEE SPIN', label: 'DAMAGE X', o: G.MELEE_SPIN, k: 'mul', min: 1, max: 5, step: 0.25 },
-    { group: 'MELEE SPIN', label: 'REACH (BAT, MACHETE)', o: G.MELEE_SPIN, k: 'reach', min: 12, max: 60, step: 2, note: () => 'PX' },
+    { group: 'MELEE SPIN', label: 'REACH (BAT, MACHETE)', o: G.MELEE_SPIN, k: 'reach', min: 12, max: 60, step: 2, unit: 'ft' },
     { group: 'COFFEE POT (DOT)', label: 'DAMAGE', o: W.splash, k: 'dmg', min: 0.05, max: 5, step: 0.05 },
     { group: 'COFFEE POT (DOT)', label: 'FIRE DELAY', o: W.splash, k: 'rate', min: 1, max: 20, step: 1 },
     { group: 'COFFEE POT (DOT)', label: 'RANGE', o: W.splash, k: 'range', min: 4, max: 50, step: 1 },
     { group: 'COFFEE POT (DOT)', label: 'SPILL BURN', o: W.splash, k: 'spillBurn', min: 0, max: 2, step: 0.05 },
-    { group: 'COFFEE POT (DOT)', label: 'BURN EVERY', o: W.splash, k: 'spillEvery', min: 10, max: 120, step: 5, note: (v) => (v / 60).toFixed(1) + 'S' },
+    { group: 'COFFEE POT (DOT)', label: 'BURN EVERY', o: W.splash, k: 'spillEvery', min: 10, max: 120, step: 5, unit: 's' },
     { group: 'SODA', label: 'DAMAGE', o: W.soda, k: 'dmg', min: 0.5, max: 30, step: 0.5 },
     { group: 'SODA', label: 'SPLASH', o: W.soda, k: 'radius', min: 6, max: 60, step: 2 },
-    { group: 'SODA', label: 'THROW NEAR', o: W.soda, k: 'near', min: 10, max: 100, step: 5, note: () => 'PX' },
-    { group: 'SODA', label: 'THROW FAR', o: W.soda, k: 'far', min: 40, max: 200, step: 5, note: () => 'PX' },
+    { group: 'SODA', label: 'THROW NEAR', o: W.soda, k: 'near', min: 10, max: 100, step: 5, unit: 'ft' },
+    { group: 'SODA', label: 'THROW FAR', o: W.soda, k: 'far', min: 40, max: 200, step: 5, unit: 'ft' },
     { group: 'SODA', label: 'AIM TIME', o: W.soda, k: 'aimTime', min: 10, max: 150, step: 5, note: (v) => perSec(v) },
     { group: 'SODA', label: 'FIRE DELAY', o: W.soda, k: 'rate', min: 4, max: 90, step: 2, note: (v) => perSec(v) },
     { group: 'SODA', label: 'AMMO/PICKUP', o: W.soda, k: 'ammo', min: 1, max: 30, step: 1 },
@@ -4506,10 +4512,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     { group: 'BLOWER', label: 'BALL LASTS', o: W.blower, k: 'ballHits', min: 1, max: 9, step: 1, note: () => 'HITS' },
     { group: 'BLOWER', label: 'CANNON HIT', o: W.blower, k: 'cannonDmg', min: 0, max: 30, step: 0.5 },
     { group: 'BLOWER', label: 'CANNON CHARGE', o: W.blower, k: 'cannonCharge', min: 10, max: 180, step: 5, note: (v) => perSec(v) },
-    { group: 'BLOWER', label: 'CANNON SPEED', o: W.blower, k: 'cannonMax', min: 2, max: 12, step: 0.5, note: () => 'PX/TICK' },
+    { group: 'BLOWER', label: 'CANNON SPEED', o: W.blower, k: 'cannonMax', min: 2, max: 12, step: 0.5, unit: 'fts' },
     { group: 'BLOWER', label: 'DRONE TOSS', o: W.blower, k: 'droneToss', min: 1, max: 10, step: 0.5, note: (v) => 'X' + v + ' A TEEN' },
-    { group: 'BLOWER', label: 'DRONE SPEED', o: W.blower, k: 'droneSpeed', min: 0.5, max: 12, step: 0.25, note: (v) => Math.round((v / G.PLAYER_SPEED) * 100) + '% OF YOU' },
-    { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.99, step: 0.005, note: (v) => '~' + Math.round(W.blower.droneSpeed / (1 - v)) + 'PX' },
+    { group: 'BLOWER', label: 'DRONE SPEED', o: W.blower, k: 'droneSpeed', min: 0.5, max: 12, step: 0.25, unit: 'fts', note: (v) => '= ' + Math.round((v / G.PLAYER_SPEED) * 100) + '% OF YOU' },
+    { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.99, step: 0.005, note: (v) => '~' + G.ft(W.blower.droneSpeed / (1 - v)) + ' FT' },
     { group: 'BLOWER', label: 'DRONE CRASH HIT', o: W.blower, k: 'droneHit', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'RANGE', o: W.blower, k: 'range', min: 4, max: 40, step: 1 },
     { group: 'BLOWER', label: 'FUEL/PICKUP', o: W.blower, k: 'ammo', min: 10, max: 400, step: 10 },
@@ -4531,18 +4537,26 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     { group: 'VEGGIE BURGER', label: 'HEAL', o: G.PICKUP_STATS.burger, k: 'heal', min: 1, max: 8, step: 1, note: (v) => v / 2 + ' HRT' },
     { group: 'ZOMBIES', label: 'DARTS WHEN OUT', o: G.LOOT_CHANCE, k: 'desperate', min: 0, max: 100, step: 5, note: () => '%' },
     { group: 'PLATES', label: 'DAMAGE', o: W.plates, k: 'dmg', min: 0.5, max: 20, step: 0.5 },
-    { group: 'PLATES', label: 'FLIGHT', o: W.plates, k: 'range', min: 8, max: 90, step: 2, note: (v) => Math.round(v * W.plates.speed) + 'PX' },
+    { group: 'PLATES', label: 'FLIGHT', o: W.plates, k: 'range', min: 8, max: 90, step: 2, note: (v) => G.ft(v * W.plates.speed) + ' FT' },
     { group: 'PLATES', label: 'PER STACK', o: W.plates, k: 'ammo', min: 1, max: 16, step: 1 },
     { group: 'PLATES', label: 'MOST CARRIED', o: W.plates, k: 'max', min: 8, max: 99, step: 1 },
     { group: 'PLATES', label: 'MOST AT ONCE', o: W.plates, k: 'most', min: 1, max: 12, step: 1, note: (v) => (v > 1 ? Math.round(180 / (v - 1)) + ' DEG APART' : 'STRAIGHT') },
     { group: 'PLATES', label: 'CHARGE SPEED', o: W.plates, k: 'chargeRate', min: 2, max: 30, step: 0.4, note: (v) => 'FULL IN ' + ((v * (W.plates.most - 1)) / 60).toFixed(1) + 'S' },
-    { group: 'FULL-HP PERK', label: 'CHARGE TIME', o: G.PERK, k: 'recharge', min: 10, max: 300, step: 10, note: (v) => (v / 60).toFixed(1) + 'S' },
+    { group: 'FULL-HP PERK', label: 'CHARGE TIME', o: G.PERK, k: 'recharge', min: 10, max: 300, step: 10, unit: 's' },
     { group: 'FULL-HP PERK', label: 'CHARGED DMG', o: G.PERK, k: 'critDmg', min: 2, max: 99, step: 1 },
     { group: 'FULL-HP PERK', label: 'RAPID BOOST', o: G.PERK, k: 'rapid', min: 0, max: 80, step: 5, note: () => '%' },
     { group: 'FULL-HP PERK', label: 'PIERCE RANGE', o: G.PERK, k: 'pierceRange', min: 0, max: 200, step: 10, note: () => '%' },
-    { group: 'FULL-HP PERK', label: 'GUARD RECHARGE', o: G.PERK, k: 'guardCd', min: 60, max: 1800, step: 30, note: (v) => (v / 60).toFixed(1) + 'S' },
+    { group: 'FULL-HP PERK', label: 'GUARD RECHARGE', o: G.PERK, k: 'guardCd', min: 60, max: 1800, step: 30, unit: 's' },
   ];
-  G.TUNABLES.forEach((t) => { t.id = t.group + '.' + t.label; t.def = t.o[t.k]; });
+  // Each row: id 'GROUP.LABEL', base = the value in the code, def = the game's own value (src/tuning.js LAB_TUNING,
+  // which every tuning Save writes; else base). Your changes (G.save.data.tune) sit on top and go with your tweaks.
+  G.registerTunables = () => G.TUNABLES.forEach((t) => {
+    if (!t.id) { t.id = t.group + '.' + t.label; t.base = t.o[t.k]; }
+    const lab = G.LAB_TUNING && G.LAB_TUNING[t.id];
+    t.def = typeof lab === 'number' ? G.clamp(lab, t.min, t.max) : t.base;
+  });
+  // What a row shows: its value in its unit (ft, ft/s) or as is, plus its note
+  G.tuneShown = (t, v = t.o[t.k]) => (t.unit ? G.UNITS[t.unit](v) : String(Math.round(v * 100) / 100)) + (t.note ? ' ' + t.note(v) : '');
   const round = (v, step) => Math.round(v / step) * step;
   G.setTune = (t, v) => {
     v = G.clamp(+round(v, t.step).toFixed(3), t.min, t.max);
@@ -4553,9 +4567,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   G.resetTuning = () => { G.TUNABLES.forEach((t) => { t.o[t.k] = t.def; }); G.save.data.tune = {}; G.save.write(); };
   G.applyTuning = () => {
+    G.registerTunables();
     const tune = G.save.data.tune || {};
-    for (const t of G.TUNABLES) if (typeof tune[t.id] === 'number') t.o[t.k] = G.clamp(tune[t.id], t.min, t.max);
+    for (const t of G.TUNABLES) t.o[t.k] = typeof tune[t.id] === 'number' ? G.clamp(tune[t.id], t.min, t.max) : t.def;
   };
+  // For src/tuning.js: every row whose value isn't the code's own { id: value }
+  G.labTable = () => Object.fromEntries(G.TUNABLES.filter((t) => t.o[t.k] !== t.base).map((t) => [t.id, t.o[t.k]]).sort((a, b) => (a[0] < b[0] ? -1 : 1)));
+  // A Save wrote them into src/tuning.js: they're the game's own now
+  G.labBaked = () => { G.LAB_TUNING = G.labTable(); G.TUNABLES.forEach((t) => { t.def = t.o[t.k]; }); G.save.data.tune = {}; G.save.write(); };
   G.applyTuning();
 
   // ===== Projectiles: update returns false when the shot is finished =====
@@ -5676,7 +5695,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
  *   hunt    true (10 s) or ticks: a fresh riser comes for you that long, whatever its give-up range
  *   linger  ticks without chasing before an enemy sinks back into the ground
  *   types   { enemyType: weight } which enemies rise, by weight
- *   water   { every: [min, max] ticks, max } puddles that rise out of water (pools, wet floor, coffee spills) */
+ *   water   { every: [min, max] ticks, max } puddles that rise out of water (pools, wet floor, coffee spills)
+ *
+ * LAB_TUNING: the Tuning Lab's numbers (the player and crew, weapons, items, skills) where they differ from the
+ * code, keyed by row ("PLAYER.WALK SPEED": px per tick). Saved with the rest by the debug panel's Save and by leaving
+ * the Tuning Lab; G.TUNABLES says what each one is. Units: the engine keeps px and ticks; the editors show feet
+ * (1 unit = 16 px = 2.5 ft) and ft/s. */
 (function () {
   window.G.ENEMY_TUNING = {
     shambler: { hp: 3, speed: 0.34, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { pace: 0.55, chance: 0.01 }, hurry: { chance: 0.25, mul: 1.6 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
@@ -5694,6 +5718,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     core: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [125, 220], near: [40, 140], ring: [24, 120], rest: 280, hunt: 480, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
     serverfarm: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
     galleria: { water: { every: [600, 1000], max: 1 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
+  };
+  window.G.LAB_TUNING = {
   };
 })();
 </script>
@@ -5900,6 +5926,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     ' *            three lines), note (for whoever edits it). */\n';
   T.levelsFile = (data) => T.LEVELS_HEAD + '(function () {\n  window.G.LEVEL_DATA = ' + lit(data, '  ') + ';\n})();\n';
 
+  // src/tuning.js from its tables (the debug panel's Save, the Tuning Lab, tools/apply-tweaks.js): head = the file's
+  // header comment. Enemy tables as plain JS literals one entry per line; LAB_TUNING keyed by Tuning Lab row id.
+  const jsLit = (v) => Array.isArray(v) ? '[' + v.map(jsLit).join(', ') + ']'
+    : v && typeof v === 'object' ? '{ ' + Object.entries(v).map(([k, x]) => k + ': ' + jsLit(x)).join(', ') + ' }' : typeof v === 'string' ? "'" + v + "'" : String(v);
+  const table = (name, obj) => '  window.G.' + name + ' = {\n' + Object.entries(obj).map(([k, o]) => '    ' + k + ': ' + jsLit(o) + ',').join('\n') + '\n  };\n';
+  T.tuningFile = (head, enemy, spawn, lab) => head + '(function () {\n' + table('ENEMY_TUNING', enemy) + table('ENEMY_SPAWN', spawn) +
+    '  window.G.LAB_TUNING = {\n' + Object.entries(lab || {}).map(([k, v]) => '    ' + JSON.stringify(k) + ': ' + v + ',').join('\n') + (Object.keys(lab || {}).length ? '\n' : '') + '  };\n})();\n';
+
   if (typeof module === 'object' && module.exports) module.exports = T;
   if (!root.G) return;
 
@@ -5954,7 +5988,17 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // Keep this browser's tweaks (every editor's Save calls this). Returns the one-line summary.
   T.save = () => { const t = T.capture(); store.write(t); T.pushCloud(t); return T.summary(t); };
   // A dev-server save wrote these parts into the files: they're the game's own now, so stop counting them as tweaks
-  T.baked = (...parts) => { for (const p of parts) shipped[p] = clone(p === 'levels' ? G.LEVEL_DATA : p === 'maps' ? G.MAPS : p === 'enemyTuning' ? G.ENEMY_TUNING : G.ENEMY_SPAWN); T.conflicts = []; T.save(); };
+  T.baked = (...parts) => {
+    for (const p of parts) if (p === 'tunables') G.labBaked(); else shipped[p] = clone(p === 'levels' ? G.LEVEL_DATA : p === 'maps' ? G.MAPS : p === 'enemyTuning' ? G.ENEMY_TUNING : G.ENEMY_SPAWN);
+    T.conflicts = []; T.save();
+  };
+  // Save every tuning number (enemies, spawns, the Tuning Lab: player, crew, weapons) the way the debug panel does:
+  // into src/tuning.js through the dev server, else as tweaks here. Resolves [message, wroteTheFile].
+  T.saveTuning = async () => {
+    const r = G.Debug && G.Debug.tuningFile ? await fetch('__save-tuning', { method: 'POST', body: G.Debug.tuningFile() }).catch(() => null) : null;
+    if (r && r.ok) { T.baked('enemyTuning', 'enemySpawn', 'tunables'); return ['Saved to src/tuning.js.', true]; }
+    return [T.savedHere(T.save()), false];
+  };
   // What an editor says when it saved into this browser instead of the files
   T.savedHere = (summary) => 'Saved in this browser (no dev server here). Your tweaks: ' + summary + '. To keep a copy, or to hand them to Claude: SETTINGS > GAME > TWEAKS > SAVE TO FILE' + (T.cloud ? ' (this artifact also keeps them, where Claude can read them).' : '.');
   // Back to the game's own data (the page reloads)
@@ -6294,14 +6338,20 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   // ===== Player =====
   const DASH_TIME = 10, DASH_SPEED = 3.6;
-  const WALK_SPEED = (G.PLAYER_SPEED = 1.1); // px per tick
+  // The player's numbers, all in the Tuning Lab (PLAYER group; each crew member's SPD and HP are in its CREW group)
+  G.PLAYER = {
+    walk: 1.1,        // px per tick at SPD 5 (Pixel)
+    perSpd: 0.06,     // px per tick for each SPD point above or below 5
+    swim: 0.6,        // walking speed multiplier in water
+    lives: 3,         // lives at the start of a level
+    hurtInv: 120,     // ticks you can't be hurt after a hit (2 s)
+    respawnInv: 180,  // ... after losing a life (3 s)
+  };
+  Object.defineProperty(G, 'PLAYER_SPEED', { get: () => G.PLAYER.walk, configurable: true }); // the yardstick enemy speeds are shown against
   // How fast the player turns, in radians per tick: around in 4 frames, which feels instant (the player's facing
   // still snaps). It's the yardstick enemies turn by: an enemy at 31% of the player's speed turns at 31% of this.
   G.PLAYER_TURN = Math.PI / 4;
-  const HURT_INV = 120;        // ticks of invulnerability after a hit (2 s)
-  const RESPAWN_INV = 180;     // ... after losing a life (3 s)
   const BLINK = 6;             // invulnerable blink: visible / hidden for this many ticks each
-  const SWIM_SPEED = 0.6;      // walking speed multiplier in water
   const JUMP = { dist: 48, height: 30, time: 54 }; // a trampoline launch: 3 tiles, ~2 units high, 0.9 s (tunable)
   const TRAMP_LIFT = G.TRAMP.lift; // on a trampoline your feet are on its mat, this many px above the ground
   const TRAMP_FEET = G.TRAMP.feet; // ...and your ground spot is this far down from the top of its 2x1 footprint (its shadow's middle)
@@ -6312,7 +6362,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const isDiagonal = (x, y) => Math.abs(x) > 0.38 && Math.abs(y) > 0.38; // within ~22 degrees of a 45
   // A crew member's stats (crew.js, 1-5) as real numbers: walk speed in px/tick (Pixel's SPD 5 = G.PLAYER_SPEED),
   // and max health in half-hearts (HP 3 = 4 hearts, HP 5 = 6)
-  G.crewSpeed = (def) => WALK_SPEED + ((def.stats ? def.stats.SPD : 5) - 5) * 0.06;
+  G.crewSpeed = (def) => G.PLAYER.walk + ((def.stats ? def.stats.SPD : 5) - 5) * G.PLAYER.perSpd;
   G.crewHp = (def) => ((def.stats ? def.stats.HP : 3) + 1) * 2;
   // The closed garden-gate tiles side by side with gate tile d (a gate opens as one)
   const gateRow = (R, d) => { const row = R.doors.filter((o) => o.latch && !o.open && o.ty === d.ty); let a = d.tx, b = d.tx; while (row.some((o) => o.tx === a - 1)) a--; while (row.some((o) => o.tx === b + 1)) b++; return row.filter((o) => o.tx >= a && o.tx <= b); };
@@ -6320,7 +6370,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     constructor(def, ctrl, x, y, o = {}) {
       Object.assign(this, {
         def, ctrl, x, y, hw: 4, hh: 5, fx: 0, fy: 1, dir: 'down', anim: 0, moving: false,
-        hp: 0, maxHp: G.crewHp(def), speed: G.crewSpeed(def), lives: 3, dead: false,
+        hp: 0, maxHp: G.crewHp(def), lives: G.PLAYER.lives, dead: false,
         fireCd: 0, charge: 0, fireUsed: false, ballKind: null, spinHeld: false, spinT: 0, spinFx: 0, spinOf: null, skillCd: 0, skillMax: 1, revealT: 0, dashT: 0, dashX: 0, dashY: 0, inv: 0, recoil: 0, buzz: 0,
         // Inventory: slot 0 is always the signature weapon (infinite ammo, levels 1-3)
         weapons: [{ id: def.weapon, lv: 1, ammo: G.WEAPONS[def.weapon].ammo }], wsel: 0, // signature weapon: lots of ammo, not infinite
@@ -6331,6 +6381,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.hp = o.hp || this.maxHp;
       this.sprites = G.art.crew[def.id];
     }
+    get speed() { return G.crewSpeed(this.def); } // live, so the Tuning Lab changes it mid-level
     get weapon() { return this.weapons[this.wsel]; }
     get item() { return this.items[this.isel]; }
     say(text, col = '#ffffff') { this.label = { text, col, t: 50 }; }
@@ -6357,7 +6408,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         if (this.dashT % 2 === 0) st.addGhost(this);
       } else {
         this.slowed = st.enemies ? G.gripOn(st, this) : 0; // enemies on you drag you down (a dash breaks free)
-        const sp = this.speed * (this.buzz > 0 ? 1 + G.ITEMS.coffee.speed / 100 : 1) * (1 - this.slowed) * (this.swimming ? SWIM_SPEED : 1) * (this.mower ? G.MOWER.speed : 1);
+        const sp = this.speed * (this.buzz > 0 ? 1 + G.ITEMS.coffee.speed / 100 : 1) * (1 - this.slowed) * (this.swimming ? G.PLAYER.swim : 1) * (this.mower ? G.MOWER.speed : 1);
         const bx = this.x, by = this.y;
         let vx = mx * sp, vy = my * sp;
         if (G.wetAt && G.wetAt(st, this.x, this.y) && !this.swimming) { // a mop bot's wet trail: you keep sliding the way you were going
@@ -6640,7 +6691,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         G.sfx.play('spark');
         return;
       }
-      this.hp -= dmg; this.inv = HURT_INV;
+      this.hp -= dmg; this.inv = G.PLAYER.hurtInv;
       const sig = this.weapons[0]; // signature weapon upgrades aren't permanent: each hit costs a level (min 1)
       if (sig.lv > 1) { sig.lv--; this.say(G.WEAPONS[sig.id].name + ' LV' + sig.lv, '#ff8a2a'); }
       const kx = this.x - sx, ky = this.y - sy, km = Math.hypot(kx, ky) || 1;
@@ -6656,7 +6707,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       st.shake(12, 3);
       G.sfx.play('die');
       if (this.lives < 0) { this.dead = true; this.lives = 0; this.reviveT = 0; if (this.coop) this.say('DOWN!', '#ff3a5a'); return; } // co-op: down, until a partner revives you
-      this.hp = this.maxHp; this.inv = RESPAWN_INV; this.tramp = null; this.jump = null; this.z = 0;
+      this.hp = this.maxHp; this.inv = G.PLAYER.respawnInv; this.tramp = null; this.jump = null; this.z = 0;
       this.say('-1 LIFE', '#ff3a5a');
     }
 
@@ -7014,6 +7065,20 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
   }
   G.Player = Player;
+  // Tuning Lab rows for the player (crew.js adds each crew member's SPD and HP)
+  const P = G.PLAYER;
+  G.TUNABLES.push(
+    { group: 'PLAYER', label: 'WALK SPEED', o: P, k: 'walk', min: 0.4, max: 3, step: 0.025, unit: 'fts', note: () => 'AT SPD 5' },
+    { group: 'PLAYER', label: 'PER SPD POINT', o: P, k: 'perSpd', min: 0, max: 0.3, step: 0.01, unit: 'fts' },
+    { group: 'PLAYER', label: 'SWIM SPEED', o: P, k: 'swim', min: 0.2, max: 1, step: 0.05, note: (v) => '= ' + Math.round(v * 100) + '%' },
+    { group: 'PLAYER', label: 'LIVES', o: P, k: 'lives', min: 1, max: 9, step: 1, note: () => 'EACH LEVEL' },
+    { group: 'PLAYER', label: 'SAFE AFTER A HIT', o: P, k: 'hurtInv', min: 0, max: 360, step: 10, unit: 's' },
+    { group: 'PLAYER', label: 'SAFE AFTER A LIFE', o: P, k: 'respawnInv', min: 0, max: 600, step: 10, unit: 's' },
+    { group: 'PLAYER', label: 'TRAMPOLINE DISTANCE', o: JUMP, k: 'dist', min: 32, max: 112, step: 4, unit: 'ft' },
+    { group: 'PLAYER', label: 'TRAMPOLINE HEIGHT', o: JUMP, k: 'height', min: 12, max: 60, step: 2, unit: 'ft' },
+    { group: 'PLAYER', label: 'TRAMPOLINE AIR TIME', o: JUMP, k: 'time', min: 24, max: 120, step: 2, unit: 's' },
+  );
+  G.applyTuning();
 
   // ===== Neighbors: run into them and the visitor beams them out (ZAMN-style, no following) =====
   // What each kind looks like and does is in neighbors.js (G.NEIGHBOR_KINDS); this class runs them: panic when a teen
@@ -9375,7 +9440,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   // ---- What's tunable, tab by tab. A row edits tuning[kind][g][k] (or tuning[kind][k] without g), in `step`s,
   // kept between min and max (numbers, or functions of the kind's tuning for limits that depend on each other).
-  const px = (v) => v + ' px', pct = (v) => Math.round(v * 100) + '%', secs = (t) => +(t / 60).toFixed(2) + 's';
+  const px = (v) => G.ft(v) + ' ft', pct = (v) => Math.round(v * 100) + '%', secs = (t) => +(t / 60).toFixed(2) + 's';
   const TABS = {
     SIGHT: [
       { g: 'sight', k: 'notice', label: 'NOTICE', step: 10, min: 10, max: (t) => t.sight.giveUp - 10, show: px },
@@ -9385,7 +9450,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       { g: 'sight', k: 'neighbors', label: 'NEIGHBORS', step: 10, min: 0, max: 300, show: (v) => (v ? px(v) : 'ignores them') },
     ],
     MOVE: [
-      { k: 'speed', label: 'SPEED', step: 0.02, min: 0.05, max: 2, show: (v) => v.toFixed(2) + ' = ' + Math.round((v / G.PLAYER_SPEED) * 100) + '% of you' },
+      { k: 'speed', label: 'SPEED', step: 0.02, min: 0.05, max: 2, show: (v) => G.fts(v) + ' ft/s = ' + Math.round((v / G.PLAYER_SPEED) * 100) + '% of you' },
       { g: 'mosey', k: 'pace', label: 'MOSEY PACE', step: 0.05, min: 0.1, max: 1, show: pct },
       { g: 'hurry', k: 'chance', label: 'HURRY CHANCE', step: 0.05, min: 0, max: 1, show: pct },
       { g: 'hurry', k: 'mul', label: 'HURRY SPEED', step: 0.1, min: 1, max: 3, show: (v) => '\u00d7' + v.toFixed(1) },
@@ -9667,11 +9732,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     panel.querySelector('#dp-dirty').textContent = sig() === savedSig ? '' : '\u25cf unsaved changes';
   }
   // tuning.js as text, from the live numbers: plain JS literals ({ a: 1, b: [2, 3] }), one entry per line
-  const lit = (v) => Array.isArray(v) ? '[' + v.map(lit).join(', ') + ']'
-    : v && typeof v === 'object' ? '{ ' + Object.entries(v).map(([k, x]) => k + ': ' + lit(x)).join(', ') + ' }' : typeof v === 'string' ? "'" + v + "'" : String(v);
-  const table = (name, obj) => '  window.G.' + name + ' = {\n' + Object.entries(obj).map(([k, o]) => '    ' + k + ': ' + lit(o) + ',').join('\n') + '\n  };\n';
-  const tuningFile = () => TUNING_HEAD + '(function () {\n' + table('ENEMY_TUNING', G.ENEMY_TUNING) + table('ENEMY_SPAWN', G.ENEMY_SPAWN) + '})();\n';
-  D.tuningFile = () => tuningFile(); // (the level manager saves a new level's spawn settings with it)
+  const tuningFile = () => G.Tweaks.tuningFile(TUNING_HEAD, G.ENEMY_TUNING, G.ENEMY_SPAWN, G.labTable()); // (the Tuning Lab's numbers too)
+  D.tuningFile = () => tuningFile(); // (the level manager and the Tuning Lab save with it too)
   let TUNING_HEAD = '/* AFK APOCALYPSE — enemy tuning */\n'; // replaced by the file's real header comment once it's fetched
   fetch('src/tuning.js').then((r) => r.text()).then((t) => { const end = t.indexOf('*/'); if (t.startsWith('/* AFK APOCALYPSE — enemy tuning') && end > 0) TUNING_HEAD = t.slice(0, end + 2) + '\n'; }).catch(() => {});
   async function save() {
@@ -9681,7 +9743,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (res.status === 409) return msg('Not saved: tuning.js changed since this page loaded. Reload, then tune again.', 'bad');
       if (!res.ok) throw new Error(await res.text());
       version = await res.text(); savedSig = sig(); shownSig = null;
-      G.Tweaks.baked('enemyTuning', 'enemySpawn');
+      G.Tweaks.baked('enemyTuning', 'enemySpawn', 'tunables');
       msg('Saved to src/tuning.js.', 'ok');
     } catch (e) { savedSig = sig(); shownSig = null; msg(G.Tweaks.savedHere(G.Tweaks.save()), 'ok'); } // no dev server: keep it in this browser (tweaks.js)
   }
@@ -9736,7 +9798,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 <script>
 /* AFK APOCALYPSE — the crew: who they are, what they carry, and their recruit-screen stats (1-5).
    `ready` = playable in the current build. `short` = the name in the HUD, if `name` is too long for it.
-   Stats set the real numbers: walk speed = 0.8 + SPD x 0.06 px/tick (Pixel's 5 = 1.1), max health = HP + 1 hearts. */
+   Stats set the real numbers: walk speed = G.PLAYER.walk + (SPD - 5) x G.PLAYER.perSpd px/tick (Pixel's 5 = 1.1),
+   max health = HP + 1 hearts. All of it is in the Tuning Lab (PLAYER, and a CREW group per crew member). */
 (function () {
   'use strict';
   const G = window.G;
@@ -9773,6 +9836,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       stats: { SPD: 4, POW: 3, RNG: 2, HP: 4 },
     },
   };
+  // Tuning Lab: each crew member's speed and health stats (1-5, as on the recruit screen); what they come to is shown
+  for (const c of Object.values(G.CREW)) {
+    G.TUNABLES.push(
+      { group: 'CREW: ' + (c.short || c.name), label: 'SPEED (SPD)', o: c.stats, k: 'SPD', min: 1, max: 5, step: 1, note: () => '= ' + G.fts(G.crewSpeed(c)) + ' FT/S' },
+      { group: 'CREW: ' + (c.short || c.name), label: 'HEALTH (HP)', o: c.stats, k: 'HP', min: 1, max: 5, step: 1, note: () => '= ' + G.crewHp(c) / 2 + ' HEARTS' },
+    );
+  }
+  G.applyTuning();
 })();
 </script>
 <script>
@@ -9894,22 +9965,21 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
 
   // Tuning Lab rows for the skills
-  const sec = (v) => (v / 60).toFixed(1) + 'S', S = G.SKILLS;
+  const S = G.SKILLS;
   G.TUNABLES.push(
-    { group: 'SKILLS', label: 'FRAME SKIP RECHARGE', o: S.frameSkip, k: 'cd', min: 10, max: 600, step: 5, note: sec },
-    { group: 'SKILLS', label: 'ORDER UP RECHARGE', o: S.orderUp, k: 'cd', min: 30, max: 1200, step: 30, note: sec },
+    { group: 'SKILLS', label: 'FRAME SKIP RECHARGE', o: S.frameSkip, k: 'cd', min: 10, max: 600, step: 5, unit: 's' },
+    { group: 'SKILLS', label: 'ORDER UP RECHARGE', o: S.orderUp, k: 'cd', min: 30, max: 1200, step: 30, unit: 's' },
     { group: 'SKILLS', label: 'ORDER UP DAMAGE', o: S.orderUp, k: 'dmg', min: 0, max: 20, step: 0.5 },
-    { group: 'SKILLS', label: 'UNPLUG RECHARGE', o: S.unplug, k: 'cd', min: 30, max: 1800, step: 30, note: sec },
-    { group: 'SKILLS', label: 'UNPLUG REACH', o: S.unplug, k: 'reach', min: 12, max: 96, step: 4, note: () => 'PX' },
-    { group: 'SKILLS', label: 'OVERRIDE RECHARGE', o: S.override, k: 'cd', min: 30, max: 1800, step: 30, note: sec },
-    { group: 'SKILLS', label: 'HACKED ROBOT FIGHTS', o: S.override, k: 'hackT', min: 0, max: 1800, step: 30, note: sec },
-    { group: 'SKILLS', label: 'HACK REACH', o: S.override, k: 'hackR', min: 0, max: 200, step: 8, note: () => 'PX' },
+    { group: 'SKILLS', label: 'UNPLUG RECHARGE', o: S.unplug, k: 'cd', min: 30, max: 1800, step: 30, unit: 's' },
+    { group: 'SKILLS', label: 'UNPLUG REACH', o: S.unplug, k: 'reach', min: 12, max: 96, step: 4, unit: 'ft' },
+    { group: 'SKILLS', label: 'OVERRIDE RECHARGE', o: S.override, k: 'cd', min: 30, max: 1800, step: 30, unit: 's' },
+    { group: 'SKILLS', label: 'HACKED ROBOT FIGHTS', o: S.override, k: 'hackT', min: 0, max: 1800, step: 30, unit: 's' },
+    { group: 'SKILLS', label: 'HACK REACH', o: S.override, k: 'hackR', min: 0, max: 200, step: 8, unit: 'ft' },
     { group: 'SKILLS', label: 'HACKED HITS X', o: S.override, k: 'allyDmg', min: 0, max: 5, step: 0.25 },
-    { group: 'SKILLS', label: 'I KNEW IT RECHARGE', o: S.iKnewIt, k: 'cd', min: 30, max: 1800, step: 30, note: sec },
-    { group: 'SKILLS', label: 'I KNEW IT SHOWS', o: S.iKnewIt, k: 'show', min: 60, max: 1800, step: 60, note: sec },
-    { group: 'SKILLS', label: '86 IT RECHARGE', o: S.eightySix, k: 'cd', min: 30, max: 1200, step: 30, note: sec },
+    { group: 'SKILLS', label: 'I KNEW IT RECHARGE', o: S.iKnewIt, k: 'cd', min: 30, max: 1800, step: 30, unit: 's' },
+    { group: 'SKILLS', label: 'I KNEW IT SHOWS', o: S.iKnewIt, k: 'show', min: 60, max: 1800, step: 60, unit: 's' },
+    { group: 'SKILLS', label: '86 IT RECHARGE', o: S.eightySix, k: 'cd', min: 30, max: 1200, step: 30, unit: 's' },
   );
-  G.TUNABLES.forEach((t) => { if (!t.id) { t.id = t.group + '.' + t.label; t.def = t.o[t.k]; } });
   G.applyTuning();
 })();
 </script>
@@ -12517,6 +12587,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           const L = G.PERK_ORDER, i = L.indexOf(o.perk);
           o.perk = L[((i < 0 ? L.length - 1 : i) + d + L.length) % L.length];
         }, help: () => (G.PERKS[o.perk] || G.PERKS.off).desc || 'NO PERK' },
+        ...(G.save.data.lab && !remote ? [{ label: 'TUNING LAB', act: () => G.setState(new G.states.TuningLab(G.state)), help: () => 'PLAYER, CREW, WEAPON AND ITEM NUMBERS' }] : []), // once found (Konami code / 7 taps on the logo)
         ...(remote ? [] : [tweaksItem()]),
       ]),
       sub('SOUND & SCREEN', 'SOUND, SCANLINES, FULL SCREEN', () => [
@@ -12940,8 +13011,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // ===== The secret Tuning Lab: every weapon and item number (G.TUNABLES), saved =====
   // Up/down: pick a row. Left/right (or tap the left/right half of a row): change it. Back / start: leave.
   class TuningLab {
-    constructor() {
-      Object.assign(this, { menu: true, noToast: true, t: 0, sel: 0, top: 0 });
+    constructor(back) { // back: the screen to return to (the pause menu's SETTINGS > GAME), else the title
+      Object.assign(this, { menu: true, noToast: true, t: 0, sel: 0, top: 0, back: back || null });
+      if (!G.save.data.lab) { G.save.data.lab = true; G.save.write(); } // found it: from now on it's in SETTINGS > GAME too
       this.rows = [];
       let group = null;
       for (const tu of G.TUNABLES) { if (tu.group !== group) { group = tu.group; this.rows.push({ head: group }); } this.rows.push({ tu }); }
@@ -12958,7 +13030,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       else if (r.reset && d > 0) { G.resetTuning(); G.toast('ALL BACK TO NORMAL', 90); G.sfx.play('confirm'); }
       else if (r.back && d > 0) this.leave();
     }
-    leave() { G.sfx.play('pause'); G.Tweaks.save(); G.setState(new S.Boot()); } // keep the numbers with your tweaks (and the artifact's copy)
+    leave() { // save like every other tuning: src/tuning.js with the dev server, else your tweaks (and the artifact's copy)
+      G.sfx.play('pause');
+      if (Object.keys(G.save.data.tune || {}).length) G.Tweaks.saveTuning(); else G.Tweaks.save();
+      G.setState(this.back || new S.Boot());
+    }
     update() {
       this.t++;
       const m = I.menu;
@@ -12979,7 +13055,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     draw(ctx) {
       ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, G.H);
       G.text('TUNING LAB', G.W / 2, 6, '#38f0a0', { align: 'center', scale: 2, shadow: '#0a3a20' });
-      G.text('SECRET SETTINGS - SAVED ON THIS DEVICE', G.W / 2, 23, '#4a8a6a', { align: 'center' });
+      G.text('SECRET SETTINGS - SAVED WITH ALL TUNING', G.W / 2, 23, '#4a8a6a', { align: 'center' });
       for (let k = 0; k < 17; k++) {
         const i = this.top + k, r = this.rows[i];
         if (!r) break;
@@ -12990,7 +13066,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         if (r.back) { G.text('BACK', 16, y, on ? '#ffffff' : '#9a8ec0'); continue; }
         const tu = r.tu, v = tu.o[tu.k], changed = v !== tu.def;
         G.text(tu.label, 16, y, on ? '#ffffff' : '#9a8ec0');
-        const shown = (Math.round(v * 100) / 100) + (tu.note ? ' ' + tu.note(v) : '');
+        const shown = G.tuneShown(tu, v);
         G.text((on ? '< ' : '') + shown + (on ? ' >' : ''), G.W - 10, y, changed ? '#38f0a0' : on ? '#ffffff' : '#c8c0e0', { align: 'right' });
       }
       G.text('ARROWS CHANGE - ESC LEAVES', G.W / 2, G.H - 10, '#4a4a7a', { align: 'center' });

@@ -183,6 +183,36 @@ body.debugging:not(.editing) #debugpanel { display: block; }
 
 /* Aiming with the mouse: the game draws its own crosshair, so hide the system cursor over the game */
 body.mouseaim #screen { cursor: none; }
+
+/* ---- the level manager (PRACTICE > LEVELS, levelmgr.js) ---- */
+#levelpanel { display: none; position: fixed; left: 50%; transform: translateX(-50%); top: 8px; bottom: 8px; width: min(640px, calc(100vw - 16px));
+  box-sizing: border-box; overflow-y: auto; z-index: 25; padding: 0 12px 12px; background: rgba(22, 12, 38, .97); border: 2px solid #ffd23a;
+  border-radius: 6px; color: #e8e0ff; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+body.levelmgr #levelpanel { display: block; }
+body.levelmgr #touch, body.levelmgr #shell { display: none; }
+#levelpanel h1 { font-size: 14px; margin: 0; color: #ffd23a; letter-spacing: 1px; }
+#levelpanel h2 { font-size: 11px; margin: 14px 0 5px; color: #ff5ab0; letter-spacing: 1px; }
+#levelpanel .lm-top { position: sticky; top: 0; z-index: 1; background: #160c26; padding: 10px 0 6px; border-bottom: 1px solid #3a2f58; margin-bottom: 6px; }
+#levelpanel .row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+#levelpanel button { font: inherit; color: #e8e0ff; background: #221636; border: 1px solid #3a2f58; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+#levelpanel button:hover { border-color: #3ad0ff; }
+#levelpanel button.primary { background: #3a1a4a; border-color: #ff5ab0; }
+#levelpanel button.danger { background: #4a1020; border-color: #ff3a5a; }
+#levelpanel input, #levelpanel select, #levelpanel textarea { font: inherit; color: #ffffff; background: #0e0818; border: 1px solid #3a2f58; border-radius: 3px; padding: 3px 5px; }
+#levelpanel textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+#levelpanel .help { color: #8a7aa8; }
+#levelpanel .ok { color: #38f0a0; } #levelpanel .warn { color: #ffd23a; } #levelpanel .bad { color: #ff3a5a; }
+#levelpanel .lm-msg { min-height: 16px; margin-top: 4px; }
+#levelpanel .lm-row { border: 1px solid #2a1f44; border-radius: 4px; padding: 4px 6px; margin: 4px 0; background: #1a1030; }
+#levelpanel .lm-row.open { border-color: #5a4a88; }
+#levelpanel .lm-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#levelpanel .lm-num { width: 18px; text-align: center; color: #ffd23a; font-weight: bold; }
+#levelpanel .lm-name { flex: 1; text-align: left; background: none; border-color: transparent; min-width: 160px; }
+#levelpanel .lm-btns { display: flex; gap: 4px; }
+#levelpanel .lm-form { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 6px 0 2px; }
+#levelpanel .lm-form label { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+#levelpanel .lm-form .wide { flex-basis: 100%; }
+#levelpanel .lm-form .wide input { flex: 1; min-width: 200px; }
 </style>
 </head>
 <body>
@@ -203,7 +233,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 22:05 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 22:12 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -767,6 +797,7 @@ body.mouseaim #screen { cursor: none; }
 
   addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return; // leave browser shortcuts alone
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return; // typing in a form (the level manager): not the game's
     if (GAME_KEYS.has(e.code)) e.preventDefault();
     if (e.repeat) return;
     I.keys[e.code] = true; I.hits[e.code] = true;
@@ -1469,6 +1500,11 @@ body.mouseaim #screen { cursor: none; }
     hockey(r) { // Ted's hockey stick: a taped wooden shaft, a black blade
       for (let i = 0; i < 8; i++) r(9 - i, 1 + i, 2, 1, '#c89060');
       r(8, 2, 2, 1, '#202028'); r(5, 5, 2, 1, '#ffffff'); r(0, 9, 5, 2, '#202028'); r(0, 10, 4, 1, '#3a3a48'); r(1, 9, 2, 1, '#5a5a6a');
+    },
+    ticket(r) { // a bonus ticket: a gold stub, a perforated end, a star
+      r(0, 3, 12, 7, '#ffd23a'); r(0, 3, 12, 1, '#fff0a0'); r(1, 9, 11, 1, '#c89a10'); r(8, 3, 1, 7, '#c89a10');
+      for (let y = 4; y < 10; y += 2) r(8, y, 1, 1, '#fff0a0');
+      r(3, 5, 3, 3, '#ff3a5a'); r(4, 4, 1, 5, '#ff3a5a'); r(2, 6, 5, 1, '#ff3a5a'); r(10, 5, 1, 3, '#c89a10');
     },
     disk(r) { // a data disk (a 3.5" floppy): blue shell, metal shutter, a label
       r(1, 1, 10, 10, '#2a4a9a'); r(2, 1, 8, 1, '#3a6ad0'); r(4, 1, 5, 4, '#c8c8d8'); r(7, 2, 1, 2, '#2a4a9a'); r(3, 6, 7, 5, '#e8e8f0'); r(4, 7, 5, 1, '#ff3a5a'); r(4, 9, 4, 1, '#8a8aa0'); r(1, 10, 1, 1, '#1a2a6a');
@@ -6043,7 +6079,7 @@ body.mouseaim #screen { cursor: none; }
     return {
       id: e.id, kind: e.kind, after: e.after || null, name: info.name || e.id.toUpperCase(), time: info.time || [0, 0], theme: m.theme,
       disk: !!info.disk, packages: info.packages || [], briefing: info.briefing && info.briefing.length ? info.briefing : null,
-      enemies: G.ENEMY_SPAWN[e.id] || G.ENEMY_SPAWN[G.LEVEL_DATA.order[0].id] || {},
+      enemies: G.ENEMY_SPAWN[e.id] || G.ENEMY_SPAWN.culdesac || {},
       ...(e.kind === 'secret' ? { secret: true } : e.kind === 'bonus' ? { bonus: true } : {}),
       map: m.rows, over: m.over, kinds: m.kinds, floors: m.floors, loot: m.loot, // kinds: per-cell variants; floors: the floor under each object
     };
@@ -6095,7 +6131,7 @@ body.mouseaim #screen { cursor: none; }
   const G = window.G;
 
   // ===== Room =====
-  G.PICKUP_CHARS = { '+': 'disk', A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
+  G.PICKUP_CHARS = { '+': 'disk', ']': 'ticket', A: 'ammo', F: 'w:bat', X: 'w:machete', U: 'up', 1: 'w:soda', 2: 'w:blower', 3: 'w:rockets', 4: 'i:pie', 5: 'i:coffee', 6: 'i:bomb', 7: 'burger', 8: 'key', 9: 'quarter', 0: 'i:pogo', Q: 'pda', C: 'hkey' }; // 8: a keycard (its color from the map), C: a house key
   const MARKERS = new Set(['P', 'E', 'N', 'Z', 'B', 'T', '&', '$', ...Object.keys(G.PICKUP_CHARS)]); // &: a lawn mower (mower.js), $: a spawn button (practice.js)
 
   class Room {
@@ -7152,6 +7188,14 @@ body.mouseaim #screen { cursor: none; }
       const [type, id] = this.kind.split(':');
       const say = (text, col) => st.floater(this.x, this.y - 24, text, col);
       let sound = 'pickup';
+      if (this.kind === 'ticket') { // a bonus ticket: the bonus level that follows this one is played next (levelset.js)
+        const bonus = st.def.id && G.bonusAfter(st.def.id);
+        st.ticket = true;
+        say(bonus ? 'BONUS LEVEL NEXT!' : 'BONUS TICKET', '#ffd23a');
+        st.addScore(500); st.burst(this.x, this.y - 8, 24, ['#ffd23a', '#ff9ad0', '#ffffff'], 1.6, 10, 30);
+        G.sfx.play('secret');
+        return;
+      }
       if (this.kind === 'disk') { // a data disk: one hidden in each of levels 1-5; all five unlock the secret level (saved on this device)
         const D = G.save.data.disks = G.save.data.disks || {}, had = D[st.def.id];
         D[st.def.id] = true; G.save.write();
@@ -9627,6 +9671,7 @@ body.mouseaim #screen { cursor: none; }
     : v && typeof v === 'object' ? '{ ' + Object.entries(v).map(([k, x]) => k + ': ' + lit(x)).join(', ') + ' }' : typeof v === 'string' ? "'" + v + "'" : String(v);
   const table = (name, obj) => '  window.G.' + name + ' = {\n' + Object.entries(obj).map(([k, o]) => '    ' + k + ': ' + lit(o) + ',').join('\n') + '\n  };\n';
   const tuningFile = () => TUNING_HEAD + '(function () {\n' + table('ENEMY_TUNING', G.ENEMY_TUNING) + table('ENEMY_SPAWN', G.ENEMY_SPAWN) + '})();\n';
+  D.tuningFile = () => tuningFile(); // (the level manager saves a new level's spawn settings with it)
   let TUNING_HEAD = '/* AFK APOCALYPSE — enemy tuning */\n'; // replaced by the file's real header comment once it's fetched
   fetch('src/tuning.js').then((r) => r.text()).then((t) => { const end = t.indexOf('*/'); if (t.startsWith('/* AFK APOCALYPSE — enemy tuning') && end > 0) TUNING_HEAD = t.slice(0, end + 2) + '\n'; }).catch(() => {});
   async function save() {
@@ -10117,11 +10162,11 @@ body.mouseaim #screen { cursor: none; }
 
   K.MARKERS = [['A', 'DART BOX (+60 DARTS)'], ['F', 'BASEBALL BAT'], ['X', 'MACHETE'], ['&', 'LAWN MOWER (PUSH IT: MOWS TEENS TILL IT RUNS OUT OF GAS)'],
     ['P', 'PLAYER START'], ['E', 'EXIT (TIME DOOR)'], ['N', 'NEIGHBOR (CLICK ONE AGAIN TO CHANGE ITS KIND)'], ['Z', 'ENEMY SPAWN (CLICK ONE AGAIN: ONE TYPE ONLY)'], ['B', 'PACKAGE'], ['Q', 'PDA'],
-    ['+', 'DATA DISK (ONE PER LEVEL, BEHIND A SECRET: ALL FIVE UNLOCK THE SECRET LEVEL)'], ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
+    ['+', 'DATA DISK (ONE PER LEVEL, BEHIND A SECRET: ALL FIVE UNLOCK THE SECRET LEVEL)'], [']', 'BONUS TICKET (FIND IT: THE BONUS LEVEL AFTER THIS ONE IS NEXT)'], ['8', 'KEYCARD (CLICK ONE AGAIN: COLOR)'], ['C', 'KEY (OPENS ANY ONE LOCKED HOUSE DOOR)'], ['T', 'PRACTICE TARGET'], ['$', 'SPAWN BUTTON (STEP ON IT: AN ENEMY RISES AT A ZOMBIE SPAWN; CLICK ONE AGAIN: WHICH)'], ['U', 'DART UPGRADE'], ['1', 'SODA'], ['2', 'BLOWER'], ['3', 'ROCKETS'],
     ['4', 'PIE'], ['5', 'COFFEE'], ['6', 'SODA BOMB'], ['7', 'VEGGIE BURGER'], ['9', 'QUARTER (1UP)'], ['0', 'POGO STICK (5 JUMPS)'],
   ];
   K.MARK = new Set(K.MARKERS.map((m) => m[0]));
-  const ICON_OF = { '+': 'disk', '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
+  const ICON_OF = { '+': 'disk', ']': 'ticket', '&': 'mower', A: 'ammo', F: 'bat', X: 'machete', 1: 'soda', 2: 'blower', 3: 'rockets', 4: 'pie', 5: 'coffee', 6: 'bomb', 7: 'burger', 8: 'card_red', 9: 'quarter', 0: 'pogo', Q: 'pda', C: 'hkey' };
 
   let exitIcon = null, btnIcon = null;
   function makeBtnIcon() { // a spawn button (practice.js), as on the floor
@@ -10226,7 +10271,7 @@ body.mouseaim #screen { cursor: none; }
     return c;
   };
   // Palette sections: theme.groups is [[title, 'chars'], ...]; anything not listed lands in OTHER
-  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT$'], ['PICKUPS', 'QA8CU1234567890FX&+']];
+  K.MARKER_GROUPS = [['PEOPLE & PLACES', 'PENZBT$'], ['PICKUPS', 'QA8CU1234567890FX&+]']];
   const sections = (entries, groups) => {
     if (!groups) return [['TILES', entries]];
     const out = groups.map(([t, chars]) => [t, entries.filter((e) => chars.includes(e[0]))]);
@@ -10299,6 +10344,8 @@ body.mouseaim #screen { cursor: none; }
     if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras hold a dart box)`);
     line(count('Q') <= 1 ? 'ok' : 'warn', `PDA: ${count('Q')}`);
     if (level && G.DISK_LEVELS().includes(mapId)) line(count('+') === 1 ? 'ok' : 'warn', `Data disk: ${count('+')} (one per level, behind a secret)`);
+    if (level && level.kind === 'main' && G.bonusAfter(mapId)) line(count(']') === 1 ? 'ok' : 'warn', `Bonus ticket: ${count(']')} (one, hidden: it opens ${G.bonusAfter(mapId).name})`);
+    else if (count(']')) line('warn', `Bonus ticket: ${count(']')}, but no bonus level follows this one (set one up in the level manager)`);
     K.traps = [];
     const sy = grid.findIndex((r) => r.includes('P'));
     if (room) {
@@ -10492,7 +10539,7 @@ body.mouseaim #screen { cursor: none; }
   // contents (level.packages, in reading order). Rockets open patchy hedges; soda bombs open those, secret hedges and
   // cracked brick; each keycard opens one gate next to where you've been. Repeat until nothing new opens up.
   // grid: the raw map (markers included). Returns { missing: [{ ch, x, y }], cells: Set of reached cells }.
-  const NEEDED = { N: 'neighbor', B: 'package', E: 'exit', 8: 'keycard', Q: 'PDA', '+': 'data disk' };
+  const NEEDED = { N: 'neighbor', B: 'package', E: 'exit', 8: 'keycard', Q: 'PDA', '+': 'data disk', ']': 'bonus ticket' };
   // sealed: cells treated as walls that never open (the secret-on-the-critical-path check)
   K.solve = (R, grid, level, sealed) => {
     const W = R.w, H = R.h, T = R.theme, N = W * H;
@@ -10918,6 +10965,7 @@ body.mouseaim #screen { cursor: none; }
           <button data-act="play">\` Play</button>
           <button data-act="save" class="primary">Save</button>
           <button data-act="restart">Restart</button>
+          <button data-act="levels">Levels</button>
         </div>
         <div id="ep-msg"></div><div id="ep-dirty"></div>
         <div id="ep-car" style="display:none"><h2>THIS CAR</h2><div id="ep-car-rows"></div></div>
@@ -10950,6 +10998,7 @@ body.mouseaim #screen { cursor: none; }
         if (b.dataset.act === 'play') EM.exit(s);
         else if (b.dataset.act === 'save') save(s);
         else if (b.dataset.act === 'restart') { EM.exit(s); G.setState(new G.Stage(s.def, s.crewId)); }
+        else if (b.dataset.act === 'levels') { EM.exit(s); G.setState(new G.states.LevelManager(EM.dirty ? 'Your map edits are still unsaved: Save here, or open the map again.' : '')); } // the level manager (levelmgr.js)
       });
     }
     const theme = st.room.theme;
@@ -10959,7 +11008,8 @@ body.mouseaim #screen { cursor: none; }
       for (const [ch, label] of TOP_PALETTE) K.paletteButton(ch, label, topIcon(theme, ch), top, (c) => pickTop(G.state, c), hoverText);
       panel.dataset.theme = st.def.theme;
     }
-    panel.querySelector('#ep-map').textContent = (G.MAPS[st.def.id] || {}).name + ' · ' + theme.label;
+    const lv = G.levelById(st.def.id);
+    panel.querySelector('#ep-map').textContent = (lv ? G.levelLabel(lv) + ' · ' : st.def.test ? '' : 'NOT IN PLAY · ') + (G.MAPS[st.def.id] || {}).name + ' · ' + theme.label;
     panel.querySelector('#ep-checks').innerHTML = K.checks(st.raw, st.def.id, st.room);
     pick(st, st.edit.tool);
     setLayer(st, st.edit.layer || 'ground');
@@ -12355,7 +12405,7 @@ body.mouseaim #screen { cursor: none; }
       G.box(40, 50, 176, 118);
       G.text('LEVEL CLEAR!', G.W / 2, 60, '#ffd23a', { align: 'center', shadow: '#0e124a' });
       G.text(st.def.name, G.W / 2, 74, '#ff9ad0', { align: 'center', shadow: '#0e124a' });
-      const rows = [['NEIGHBORS SAVED', st.saved, '#7ff0ff'], ['NEIGHBORS LOST', st.lost, '#ff5a6a'], ['SCORE', st.score, '#ffffff'], ...(this.disk === null ? [] : [['DATA DISK', this.disk ? 'FOUND' : 'HIDDEN', this.disk ? '#38f0a0' : '#6a6aa8']])];
+      const rows = [['NEIGHBORS SAVED', st.saved, '#7ff0ff'], ['NEIGHBORS LOST', st.lost, '#ff5a6a'], ['SCORE', st.score, '#ffffff'], ...(this.disk === null ? [] : [['DATA DISK', this.disk ? 'FOUND' : 'HIDDEN', this.disk ? '#38f0a0' : '#6a6aa8']]), ...(st.def.kind === 'main' && G.bonusAfter(st.def.id) ? [['BONUS TICKET', st.ticket ? 'FOUND' : 'HIDDEN', st.ticket ? '#ffd23a' : '#6a6aa8']] : [])];
       rows.forEach(([k, val, col], i) => {
         if (this.t < 20 + i * 20) return; // one line at a time
         G.text(k, 56, 96 + i * 14, col, { shadow: '#0e124a' });
@@ -12553,8 +12603,7 @@ body.mouseaim #screen { cursor: none; }
           { label: 'WEAPON PRACTICE', act: () => { const back = G.state; practiceRecruit(() => G.setState(back)); }, help: () => 'EVERY WEAPON, TARGETS, SPAWN BUTTONS' },
           { label: 'TEST ROOM', act: () => G.setState(new Stage(G.TEST_ROOM)), help: () => 'THE DINER KITCHEN: TRY ANY ENEMY' },
           { label: 'LEVEL SELECT', act: () => G.setState(new G.states.LevelSelect()), help: () => 'PLAY ANY LEVEL (AND SEE YOUR DATA DISKS)' },
-          // (the map editor wants a mouse and keyboard)
-          ...(I.touchUI ? [] : [{ label: 'MAP EDITOR', act: () => { const st = new Stage(G.LEVELS[0]); G.setState(st); G.EditMode.enter(st); }, help: () => 'EDIT LEVEL 1 (OR PRESS ` IN GAME)' }]),
+          { label: 'LEVELS', act: () => G.setState(new G.states.LevelManager()), help: () => 'EDIT, ADD AND ORDER LEVELS (` IN GAME EDITS)' }, // levelmgr.js
         ]),
         settingsItem(null),
       ];
@@ -12948,6 +12997,259 @@ body.mouseaim #screen { cursor: none; }
     }
   }
   S.TuningLab = TuningLab;
+})();
+</script>
+<script>
+/* AFK APOCALYPSE — the level manager (PRACTICE > LEVELS): every level and map in one list. Pick a level to edit
+   (edit mode) or play, make a new one, put levels in order (main levels are numbered by it), make one a bonus level
+   (played after a main level when its bonus ticket `]` is found there) or a secret level (after the last main level
+   once every data disk is found), and set each one's name, clock time, data disk, packages, briefing and enemy mix.
+   Works on G.LEVEL_DATA (levels.js) and G.MAPS; Save writes src/levels.js (+ maps.js, tuning.js for a new level)
+   through the dev server, or keeps everything as tweaks in this browser (tweaks.js). A DOM panel over the game. */
+(function () {
+  'use strict';
+  const G = window.G, I = G.input, K = G.EditKit, T = G.Tweaks;
+  const KINDS = [['main', 'MAIN'], ['bonus', 'BONUS'], ['secret', 'SECRET'], ['off', 'NOT IN PLAY']];
+  const LINE = 37; // a briefing line fits this many characters
+  let panel = null, version = null;
+  fetch('__levels-version').then((r) => (r.ok ? r.text() : null)).then((v) => { version = v; }).catch(() => {});
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const D = () => G.LEVEL_DATA;
+  const entry = (id) => D().order.find((e) => e.id === id) || null;
+  const kindOf = (id) => (entry(id) ? entry(id).kind : 'off');
+  const info = (id) => (D().levels[id] = D().levels[id] || { name: id.toUpperCase(), time: [0, 0], packages: [], briefing: [] });
+  const isTool = (id) => G.TOOL_MAPS.includes(id);
+  // Every pickup kind a package can hold ('w:soda', 'i:pie', 'quarter', ...)
+  const packKinds = () => new Set([...Object.values(G.PICKUP_CHARS), 'ammo', ...Object.keys(G.WEAPONS).map((w) => 'w:' + w), ...Object.keys(G.ITEMS).map((i) => 'i:' + i)]);
+
+  // ---- Changes to the list (each one rebuilds the levels) ----
+  const LM = (G.LevelManager = {
+    dirty: false,
+    changed() { this.dirty = true; G.buildLevels(); },
+    // Move a level up (-1) or down (+1) among the levels of its kind
+    move(id, d) {
+      const o = D().order, i = o.findIndex((e) => e.id === id);
+      if (i < 0) return;
+      let j = i + d;
+      while (j >= 0 && j < o.length && o[j].kind !== o[i].kind) j += d;
+      if (j < 0 || j >= o.length) return;
+      [o[i], o[j]] = [o[j], o[i]];
+      this.changed();
+    },
+    // main / bonus / secret / off (not in play: kept, not played)
+    setKind(id, kind) {
+      const o = D().order, i = o.findIndex((e) => e.id === id);
+      if (kind === 'off') { if (i >= 0) o.splice(i, 1); }
+      else {
+        const e = i >= 0 ? o[i] : { id };
+        e.kind = kind;
+        if (kind === 'bonus') e.after = e.after && G.levelById(e.after) && G.levelById(e.after).kind === 'main' ? e.after : (G.LEVELS[0] || {}).id;
+        else delete e.after;
+        if (i < 0) { // into the list: after the last of its kind
+          let at = -1; o.forEach((x, k) => { if (x.kind === kind) at = k; });
+          o.splice(at < 0 ? (kind === 'main' ? 0 : o.length) : at + 1, 0, e);
+        }
+      }
+      for (const b of o) if (b.kind === 'bonus' && b.after === id && kind !== 'main') b.after = (G.LEVELS.find((d) => d.id !== id) || {}).id; // its bonus follows another one
+      this.changed();
+    },
+    // A new level: a closed border, the player start, the exit, a neighbor and two spawn points to start from
+    create({ name, theme, w, h, kind, after, like }) {
+      const th = G.THEMES[theme];
+      let id = (name || 'level').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 16) || 'level', n = 2;
+      const base = id;
+      while (G.MAPS[id] || D().levels[id] || isTool(id)) id = base + n++;
+      w = G.clamp(w | 0, 16, 160); h = G.clamp(h | 0, 14, 120);
+      const g = Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => (x === 0 || y === 0 || x === w - 1 || y === h - 1 ? th.border : th.ground)));
+      g[h - 4][3] = 'P'; g[2][w - 4] = 'E'; g[h >> 1][w >> 1] = 'N'; g[3][3] = 'Z'; g[h - 4][w - 5] = 'Z';
+      G.MAPS[id] = { name: (name || id).toUpperCase(), theme, rows: g.map((r) => r.join('')), ...(th.roofLift || th.canopyTile ? { over: g.map((r) => '.'.repeat(r.length)) } : {}) };
+      const tmpl = like && G.levelById(like);
+      D().levels[id] = { name: (name || id).toUpperCase(), time: tmpl ? tmpl.time.slice() : [0, 0], packages: [], briefing: [], note: 'Made in the level manager.' };
+      if (!G.ENEMY_SPAWN[id]) G.ENEMY_SPAWN[id] = T.clone(G.ENEMY_SPAWN[like] || G.ENEMY_SPAWN[(G.LEVELS[G.LEVELS.length - 1] || {}).id] || {});
+      this.setKind(id, kind || 'main');
+      if (kind === 'bonus' && after) entry(id).after = after;
+      this.changed();
+      return id;
+    },
+    // Delete a map that's not in play (and its level info and spawn settings)
+    remove(id) {
+      if (entry(id) || isTool(id)) return false;
+      delete G.MAPS[id]; delete D().levels[id]; delete G.ENEMY_SPAWN[id];
+      this.changed();
+      return true;
+    },
+    // Save: the files through the dev server, else this browser's tweaks. Resolves [message, ok].
+    async save() {
+      let res;
+      try { res = await fetch('__save-levels' + (version ? '?base=' + version : ''), { method: 'POST', body: T.levelsFile(D()) }); }
+      catch (e) { res = null; }
+      if (res && res.status === 409) return ['Not saved: levels.js changed since this page loaded (another tab or an update). Reload, then redo it.', false];
+      if (!res || !res.ok) { this.dirty = false; return [T.savedHere(T.save()), true]; } // no dev server: tweaks
+      version = await res.text();
+      const parts = ['levels'], said = ['src/levels.js'];
+      if (!T.same(T.shipped.maps, G.MAPS)) {
+        try { await K.save(); parts.push('maps'); said.push('src/maps.js'); }
+        catch (e) { return [e.message === 'stale' ? K.STALE_HELP : 'Saved src/levels.js, but not the maps: ' + e.message, false]; }
+      }
+      if (!T.same(T.shipped.enemySpawn, G.ENEMY_SPAWN) && G.Debug.tuningFile) {
+        const r = await fetch('__save-tuning', { method: 'POST', body: G.Debug.tuningFile() }).catch(() => null);
+        if (r && r.ok) { parts.push('enemySpawn', 'enemyTuning'); said.push('src/tuning.js'); }
+      }
+      T.baked(...parts);
+      this.dirty = false;
+      return ['Saved ' + said.join(', ') + '. Commit them to keep them on GitHub.', true];
+    },
+  });
+
+  // ---- The screen ----
+  class LevelManager {
+    constructor(msg) { Object.assign(this, { menu: true, noToast: true, t: 0, open: new Set(), msg: msg || '', ok: true, sure: null, leave: false }); }
+    enter() { build(); document.body.classList.add('levelmgr'); render(this); }
+    exit() { document.body.classList.remove('levelmgr'); }
+    update() {
+      this.t++;
+      if (!document.body.classList.contains('levelmgr')) this.enter(); // (first frame, or back from a level)
+    }
+    draw(ctx) {
+      ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, G.H);
+      for (let i = 0; i < 40; i++) { ctx.fillStyle = i % 3 ? '#2a1f44' : '#3a2f58'; ctx.fillRect((i * 53 + this.t / 4) % G.W, (i * 37) % G.H, 1, 1); }
+      G.text('LEVEL MANAGER', G.W / 2, 100, '#ffd23a', { align: 'center', scale: 2, shadow: '#140c1c' });
+    }
+  }
+  G.states.LevelManager = LevelManager;
+  // Leave the manager for another screen (a level, the title)
+  const go = (st, next) => { st.exit(); G.setState(next); };
+
+  function build() {
+    if (panel) return;
+    panel = document.createElement('div');
+    panel.id = 'levelpanel';
+    document.body.appendChild(panel);
+    panel.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b && G.state instanceof LevelManager) act(G.state, b.dataset.act, b.dataset.id, b); });
+    panel.addEventListener('change', (e) => { const f = e.target.closest('[data-field]'); if (f && G.state instanceof LevelManager) field(G.state, f.dataset.field, f.dataset.id, f); });
+    panel.addEventListener('keydown', (e) => { if (e.key === 'Escape' && G.state instanceof LevelManager) act(G.state, 'back'); });
+  }
+
+  function act(st, a, id, el) {
+    if (a !== 'back') st.leave = false;
+    if (a !== 'delete') st.sure = null;
+    if (a === 'back') {
+      if (LM.dirty && !st.leave) { st.leave = true; st.msg = 'Unsaved changes. Press Back again to leave anyway (they stay until you reload).'; st.ok = false; return render(st); }
+      return go(st, new G.states.Boot());
+    }
+    if (a === 'save') { st.msg = 'Saving...'; render(st); LM.save().then(([m, ok]) => { st.msg = m; st.ok = ok; render(st); }); return; }
+    if (a === 'export') { T.exportFile().then((m) => { st.msg = m; st.ok = true; render(st); }); return; }
+    if (a === 'import') { T.importFile().then((m) => { st.msg = m; render(st); }); return; }
+    if (a === 'toggle') { if (st.open.has(id)) st.open.delete(id); else st.open.add(id); return render(st); }
+    if (a === 'up' || a === 'down') { LM.move(id, a === 'up' ? -1 : 1); return render(st); }
+    if (a === 'edit' || a === 'play') {
+      const def = G.levelById(id) || G.levelDef({ id, kind: null });
+      if (a === 'play') { G.coop = null; I.controllers.length = 0; return go(st, new G.Recruit(1, { level: def, onBack: () => G.setState(new LevelManager()) })); }
+      const s = new G.Stage(def); go(st, s); G.EditMode.enter(s); return;
+    }
+    if (a === 'new') {
+      const v = (n) => panel.querySelector('[data-new="' + n + '"]').value;
+      const name = v('name').trim();
+      if (!name) { st.msg = 'Give the new level a name first.'; st.ok = false; return render(st); }
+      const nid = LM.create({ name, theme: v('theme'), w: +v('w'), h: +v('h'), kind: v('kind'), after: v('after'), like: v('like') });
+      st.open.add(nid); st.msg = 'Made ' + G.MAPS[nid].name + ' (' + nid + '). Edit it, then Save.'; st.ok = true;
+      return render(st);
+    }
+    if (a === 'spawncopy') {
+      const from = panel.querySelector('[data-spawnfrom="' + id + '"]').value;
+      G.ENEMY_SPAWN[id] = T.clone(G.ENEMY_SPAWN[from]); LM.changed();
+      st.msg = 'Enemies in ' + info(id).name + ' now spawn like ' + info(from).name + '.'; st.ok = true; return render(st);
+    }
+    if (a === 'delete') {
+      if (st.sure !== id) { st.sure = id; st.msg = 'Press Delete again to delete ' + id + ' for good.'; st.ok = false; return render(st); }
+      st.sure = null; LM.remove(id); st.msg = 'Deleted ' + id + '. Save to make it stick.'; st.ok = true; return render(st);
+    }
+  }
+
+  function field(st, f, id, el) {
+    const L = info(id), e = entry(id);
+    if (f === 'kind') LM.setKind(id, el.value);
+    else if (f === 'after' && e) { e.after = el.value; LM.changed(); }
+    else if (f === 'name') { L.name = el.value.toUpperCase().trim() || id.toUpperCase(); LM.changed(); }
+    else if (f === 'time') { const m = /^(\d{1,2}):(\d{2})$/.exec(el.value.trim()); if (m) { L.time = [+m[1] % 24, Math.min(59, +m[2])]; LM.changed(); } }
+    else if (f === 'disk') { L.disk = el.checked || undefined; LM.changed(); }
+    else if (f === 'packages') { L.packages = el.value.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean); LM.changed(); }
+    else if (f === 'briefing') { L.briefing = el.value.toUpperCase().split(/\n\s*\n/).map((p) => p.split('\n').map((s) => s.trim()).filter(Boolean)).filter((p) => p.length); LM.changed(); }
+    else if (f === 'note') { L.note = el.value.trim() || undefined; LM.changed(); }
+    render(st);
+  }
+
+  // ---- Drawing the panel ----
+  const clock = (t) => { const [h, m] = t || [0, 0]; return h + ':' + String(m).padStart(2, '0'); };
+  function row(st, id, num, k) {
+    const m = G.MAPS[id], L = info(id), e = entry(id), open = st.open.has(id), dev = !I.touchUI;
+    const warn = [];
+    if (k === 'main' && L.disk && !m.rows.some((r) => r.includes('+'))) warn.push('no data disk on the map');
+    if (k === 'main' && G.bonusAfter(id) && !m.rows.some((r) => r.includes(']'))) warn.push('a bonus level follows: hide a bonus ticket ] here');
+    if (G.Tweaks.conflicts.includes(id)) warn.push('the game\'s own map changed under your edit');
+    const unknown = (L.packages || []).filter((p) => !packKinds().has(p));
+    if (unknown.length) warn.push('unknown package contents: ' + unknown.join(', '));
+    const long = (L.briefing || []).some((p) => p.length > 3 || p.some((s) => s.length > LINE));
+    if (long) warn.push('a briefing page has more than 3 lines or a line over ' + LINE + ' characters');
+    let h = `<div class="lm-row${open ? ' open' : ''}"><div class="lm-head">
+      <span class="lm-num">${esc(num)}</span>
+      <button class="lm-name" data-act="toggle" data-id="${id}">${esc(L.name)} <span class="help">${esc(id)} · ${esc(m.theme)} · ${m.rows[0].length}x${m.rows.length}${k === 'bonus' && e.after ? ' · after ' + esc(info(e.after).name) : ''}</span></button>
+      <span class="lm-btns">
+        ${dev ? `<button data-act="edit" data-id="${id}" class="primary">Edit</button>` : ''}<button data-act="play" data-id="${id}">Play</button>
+        ${k !== 'off' ? `<button data-act="up" data-id="${id}" title="earlier">▲</button><button data-act="down" data-id="${id}" title="later">▼</button>` : ''}
+      </span></div>`;
+    if (warn.length) h += `<div class="warn">${warn.map(esc).join(' · ')}</div>`;
+    if (open) {
+      const mains = G.LEVELS.filter((d) => d.id !== id), others = G.ALL_LEVELS.filter((d) => d.id !== id && G.ENEMY_SPAWN[d.id]);
+      h += `<div class="lm-form">
+        <label>Name <input data-field="name" data-id="${id}" value="${esc(L.name)}" maxlength="24"></label>
+        <label>Kind <select data-field="kind" data-id="${id}">${KINDS.map(([v, t]) => `<option value="${v}"${v === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+        ${k === 'bonus' ? `<label>After <select data-field="after" data-id="${id}">${mains.map((d) => `<option value="${d.id}"${d.id === e.after ? ' selected' : ''}>${d.num} ${esc(d.name)}</option>`).join('')}</select></label>` : ''}
+        <label>Clock <input data-field="time" data-id="${id}" value="${clock(L.time)}" size="5"></label>
+        <label><input type="checkbox" data-field="disk" data-id="${id}"${L.disk ? ' checked' : ''}> Holds a data disk</label>
+        <label class="wide">Packages, in reading order <input data-field="packages" data-id="${id}" value="${esc((L.packages || []).join(', '))}"></label>
+        <div class="help wide">e.g. w:soda, i:pie, i:coffee, quarter, w:plates, ammo. Extra packages hold a dart box.</div>
+        <label class="wide">Briefing (a blank line starts a new page; up to 3 lines of ${LINE} characters)
+          <textarea data-field="briefing" data-id="${id}" rows="6">${esc((L.briefing || []).map((p) => p.join('\n')).join('\n\n'))}</textarea></label>
+        <label class="wide">Enemies spawn like <select data-spawnfrom="${id}">${others.map((d) => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select>
+          <button data-act="spawncopy" data-id="${id}">Copy</button></label>
+        <div class="help wide">Fine-tune them in game with the debug panel (\\ key).</div>
+        <label class="wide">Note <input data-field="note" data-id="${id}" value="${esc(L.note || '')}"></label>
+        ${k === 'off' ? `<button data-act="delete" data-id="${id}" class="danger">${st.sure === id ? 'Really delete?' : 'Delete this map'}</button>` : ''}
+      </div>`;
+    }
+    return h + '</div>';
+  }
+  function render(st) {
+    if (!panel) return;
+    const sec = (title, help, ids, numOf, k) => `<h2>${title}</h2>${help ? `<div class="help">${help}</div>` : ''}` + (ids.length ? ids.map((id, i) => row(st, id, numOf(id, i), k)).join('') : '<div class="help">none</div>');
+    const off = Object.keys(G.MAPS).filter((id) => !entry(id) && !isTool(id));
+    const themes = Object.keys(G.THEMES), lastMain = (G.LEVELS[G.LEVELS.length - 1] || {}).id;
+    const focus = document.activeElement && panel.contains(document.activeElement) ? document.activeElement.dataset.field + '|' + document.activeElement.dataset.id : null;
+    panel.innerHTML = `
+      <div class="lm-top"><h1>LEVELS</h1>
+        <div class="row"><button data-act="save" class="primary">Save</button><button data-act="export">Save tweaks to file</button><button data-act="import">Load tweaks file</button><button data-act="back">Back</button></div>
+        <div class="lm-msg ${st.ok ? 'ok' : 'bad'}">${esc(st.msg)}</div>${LM.dirty ? '<div class="warn">● unsaved changes</div>' : ''}
+      </div>
+      <div class="help">Main levels play in this order and are numbered by it. A bonus level is played right after the level it follows, when its bonus ticket (<b>]</b>) is found there. Secret levels come after the last main level once every data disk is found. ${I.touchUI ? 'Editing a map needs a mouse and keyboard.' : 'Edit opens the map in edit mode (its Levels button comes back here).'}</div>
+      ${sec('MAIN LEVELS', '', G.LEVELS.map((d) => d.id), (id, i) => String(i + 1), 'main')}
+      ${sec('BONUS LEVELS', '', G.BONUS_LEVELS.map((d) => d.id), () => 'B', 'bonus')}
+      ${sec('SECRET LEVELS', '', G.SECRET_LEVELS.map((d) => d.id), () => 'X', 'secret')}
+      ${sec('NOT IN PLAY', 'Maps kept but not played. Set a kind to put one back in.', off, () => '-', 'off')}
+      <h2>NEW LEVEL</h2>
+      <div class="lm-form">
+        <label>Name <input data-new="name" maxlength="24" placeholder="BACKYARD BBQ"></label>
+        <label>Tiles <select data-new="theme">${themes.map((t) => `<option value="${t}"${t === 'suburb' ? ' selected' : ''}>${esc(G.THEMES[t].label || t)}</option>`).join('')}</select></label>
+        <label>Size <input data-new="w" value="48" size="3"> x <input data-new="h" value="42" size="3"> tiles</label>
+        <div class="help wide">A screen is 16 x 14 tiles; ZAMN's levels are about 20-34 screens (Level 1 is 96 x 64).</div>
+        <label>Kind <select data-new="kind">${KINDS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>
+        <label>Bonus after <select data-new="after">${G.LEVELS.map((d) => `<option value="${d.id}"${d.id === lastMain ? ' selected' : ''}>${d.num} ${esc(d.name)}</option>`).join('')}</select></label>
+        <label>Enemies like <select data-new="like">${G.ALL_LEVELS.map((d) => `<option value="${d.id}"${d.id === lastMain ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
+        <button data-act="new" class="primary">Make it</button>
+      </div>
+      <div class="help">It starts as an open field inside a border, with the player start, the exit, one neighbor and two spawn points. Build it in edit mode, then follow docs/design/level-rules.md (the checks in edit mode say what's missing).</div>`;
+    if (focus) { const [f, id] = focus.split('|'); const el = panel.querySelector('[data-field="' + f + '"][data-id="' + id + '"]'); if (el) el.focus(); }
+  }
 })();
 </script>
 <script>

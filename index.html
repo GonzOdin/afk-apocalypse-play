@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 23:01 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 23:02 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1933,7 +1933,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   //   label, palette [[ch, name]...], groups [[title, 'chars']...] (editor sections)
   //   border (out-of-bounds tile), ground (what markers and broken tiles become)
   //   solid, shots (blocks shots), breakable (rockets and soda bombs clear them), chop (the machete cuts them),
-  //   patchy (the obvious breakables, for the NEEDS ROCKETS hint), secret (PDA shimmer),
+  //   patchy (the obvious breakables), secret (PDA shimmer),
   //   vent (crew with the vent gate can pass), rubble { ch: leftover tile }
   //   seeThrough (uprights you see people through: glass, sparse hedge), poolLiquid ('water' or 'coolant': puddle color), water, bounce, searchable, jumpBlock, road (street tiles, for the editors' layout checks)
   //   stamps { ch: [w, h] }       multi-tile pieces the editors place whole (a 2x1 trampoline)
@@ -3671,7 +3671,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       jumpBlock: new Set([...'RHKOWwxvDGcY^@!']), // a trampoline launch can't clear these: houses, brick, gates, cars, big trees
       pogoBlock: new Set([...'RHKOWwxvDGcYJSebIV^@!/']), // the pogo only clears half-height things: tall hedges stop it too
       // breakable: rockets and soda bombs break all of these; chop: the machete cuts these (hedges, not brick);
-      // patchy: the obvious ones (the "NEEDS ROCKETS" hint); rubble: what a broken tile leaves (else ground)
+      // patchy: the obvious ones (they look breakable); rubble: what a broken tile leaves (else ground)
       breakable: new Set(['S', 'x', 'e']), chop: new Set(['e', 'S']), patchy: new Set(['e']), rubble: { e: 'r', S: 'r', '^': 'n', V: '_' }, secret: new Set(['S', 'x', 'V', '^']), vent: new Set(['v']),
       // crew gates: pass[gate] = what a crew member with that gate (crew.js) walks through: Pixel vents, June crowds,
       // Dot fire. (Lou smashes cracked walls with Order Up!, Root opens locked doors with Override, Ted pushes
@@ -6514,16 +6514,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       // trash cans and mailboxes: walk into one, or fire while facing it, to search it
       const bumpCan = m > 0.5 ? st.room.searchTouching(this, mx, my) : null;
       if (bumpCan) st.search(bumpCan.tx, bumpCan.ty, this);
-      // pushing into a patchy hedge with nothing that breaks it: say what does (like a keycard gate does)
+      // pushing into a crew gate or Ted's secret wall. (No hints about how to break things: James wants players to
+      // work out walls themselves; the looks tell them)
       if (m > 0.5 && this.lockCd <= 0) {
         const R = st.room, ahead = R.at(Math.floor((this.x + (mx / m) * (this.hw + 3)) / 16), Math.floor((this.y - this.hh / 2 + (my / m) * (this.hh / 2 + 3)) / 16));
-        const armed = this.weapons.some((w) => w.id === 'rockets' || w.id === 'machete') || this.items.some((i) => i.id === 'bomb');
         const T = R.theme, mine = this.gate && T.pass && T.pass[this.gate] && T.pass[this.gate].has(ahead), ax = this.x + (mx / m) * 10, ay = this.y - 4 + (my / m) * 8;
-        if (T.patchy && T.patchy.has(ahead) && !armed) { this.lockCd = 120; this.say('NEEDS ROCKETS OR A MACHETE', '#ff8a2a'); }
-        else if (T.melee && T.melee.has(ahead)) { this.lockCd = 150; this.say('LOOSE BOARDS: WHACK IT (FIRE)', '#c8945a'); }
-        else if (this.gate === 'secret' && T.secretWall && T.secretWall.has(ahead)) { this.lockCd = 30; this.say('I KNEW IT!', '#7ff0ff'); st.breakWalls(ax, ay, 4, T.secretWall, true); } // Ted: the whole secret hedge gives way
-        else if (T.douse && T.douse.has(ahead) && !mine) { this.lockCd = 120; this.hurt(st, 1, ax, ay); this.say('TOO HOT! (DOT, OR SODA)', '#ff8a2a'); } // fire burns
-        else if (T.scatter && T.scatter.has(ahead) && !mine) { this.lockCd = 150; this.say('TOO MANY OF THEM (JUNE, OR A SODA BOMB)', '#a87ab0'); }
+        if (this.gate === 'secret' && T.secretWall && T.secretWall.has(ahead)) { this.lockCd = 30; this.say('I KNEW IT!', '#7ff0ff'); st.breakWalls(ax, ay, 4, T.secretWall, true); } // Ted: the whole secret hedge gives way
+        else if (T.douse && T.douse.has(ahead) && !mine) { this.lockCd = 120; this.hurt(st, 1, ax, ay); this.say('TOO HOT!', '#ff8a2a'); } // fire burns
+        else if (T.scatter && T.scatter.has(ahead) && !mine) { this.lockCd = 150; this.say('TOO MANY OF THEM', '#a87ab0'); }
       }
       if (c.fireP && !acted) { const fc = st.room.searchTouching(this, this.fx, this.fy, 6); if (fc) { st.search(fc.tx, fc.ty, this); acted = true; this.fireCd = 12; } }
       // facing loose boards (theme.melee): fire whacks them instead of shooting (a punch; a bat or machete swing whacks too)

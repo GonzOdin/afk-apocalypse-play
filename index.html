@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 18:53 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 21:21 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2767,9 +2767,10 @@ body.mouseaim #screen { cursor: none; }
       { base: '#2e4438', line: '#22342a', ridge: '#4e6e5c', ridge2: '#3a5446', edge: '#16221a' }, // green
     ];
     const roofArt = (r, tx, ty, isR) => {
+      // the whole roof's top-left corner (its color and chimney come from it), so an L-shaped house gets one roof
       let x0 = tx, y0 = ty;
-      while (isR(x0 - 1, ty)) x0--;
-      while (isR(x0, y0 - 1)) y0--;
+      { const seen = new Set([tx + ',' + ty]), q = [[tx, ty]];
+        while (q.length && seen.size < 600) { const [a, c] = q.pop(); if (c < y0 || (c === y0 && a < x0)) { x0 = a; y0 = c; } for (const [p, s2] of [[a + 1, c], [a - 1, c], [a, c + 1], [a, c - 1]]) if (!seen.has(p + ',' + s2) && isR(p, s2)) { seen.add(p + ',' + s2); q.push([p, s2]); } } }
       const C = ROOFS[Math.floor(G.hash(x0 * 7 + 1, y0 * 3 + 2) * ROOFS.length)];
       r(0, 0, 16, 16, C.base);
       for (let k = 0; k < 4; k++) {
@@ -2798,11 +2799,15 @@ body.mouseaim #screen { cursor: none; }
       H: [{ base: '#5a78ac', line: '#4a6694' }, { base: '#5e9a8e', line: '#4c8276' }, { base: '#7a84a0', line: '#666e88' }],
       K: [{ base: '#c4a476', line: '#a88a5e' }, { base: '#c88e76', line: '#aa745e' }, { base: '#c8b870', line: '#aa9a58' }],
     };
+    // (keyed on the whole house: its top-left cell, found through its walls and rooms, so every front wall of an
+    // L-shaped house matches)
+    const IN_HOUSE = new Set([...'WHKO^nyqkzasj[<']);
     const sidingColor = (room, tx, ty) => {
-      let x0 = tx;
-      while (HOUSE.has(room.at(x0 - 1, ty))) x0--;
+      let x0 = tx, y0 = ty;
+      const seen = new Set([tx + ',' + ty]), q = [[tx, ty]];
+      while (q.length && seen.size < 800) { const [a, c] = q.pop(); if (c < y0 || (c === y0 && a < x0)) { x0 = a; y0 = c; } for (const [p, s2] of [[a + 1, c], [a - 1, c], [a, c + 1], [a, c - 1]]) if (!seen.has(p + ',' + s2) && IN_HOUSE.has(room.at(p, s2))) { seen.add(p + ',' + s2); q.push([p, s2]); } }
       const set = SIDING[sidingOf(room, tx, ty)];
-      return set[Math.floor(G.hash(x0 * 13 + 5, ty * 7 + 1) * set.length)];
+      return set[Math.floor(G.hash(x0 * 13 + 5, y0 * 7 + 1) * set.length)];
     };
     const floorWood = (r, tx, ty) => {
       r(0, 0, 16, 16, '#7a5034'); r(0, 0, 16, 1, '#8a6040');
@@ -2902,9 +2907,16 @@ body.mouseaim #screen { cursor: none; }
     // foot (the tell). A few whacks break it (fire while facing it, a bat, a machete): a low-tier secret. Rockets and
     // soda bombs blow it open too. Each whack cracks it a little more (room.wallHits).
     const PL = (c) => c === 'I' || c === 'V';
+    // What a plank fence joins onto besides more fence: hedges, brick, house walls, gates. A fence running into one
+    // meets it properly (James: the transition pieces): a post where it touches, an L or a T where it turns into it.
+    const JOINS = new Set([...'JSebwxvKHWO^DGM']);
+    const JN = (room, x, y) => JOINS.has(room.at(x, y)) || (room.overAt && room.overAt(x, y) === 'M');
     const plankDir = (tx, ty, room) => {
       const hor = PL(room.at(tx - 1, ty)) || PL(room.at(tx + 1, ty)), ver = PL(room.at(tx, ty - 1)) || PL(room.at(tx, ty + 1));
-      return { hor: hor || !ver, ver };
+      const h = hor || !ver; // runs east-west (or stands alone)
+      // a wall or hedge right above or below an east-west run: the fence turns into it (an L or a T, the post on top)
+      const into = h && (JN(room, tx, ty - 1) || JN(room, tx, ty + 1)) && !(PL(room.at(tx - 1, ty)) && PL(room.at(tx + 1, ty)));
+      return { hor: h, ver: ver || into };
     };
     const PLANK = { board: '#8a5a32', lit: '#b07a48', dark: '#5a3418', gap: '#1a100a', top: '#c8945a', nail: '#3a2412' };
     const PLANK_H = 20; // px of boards above the bottom of the footprint (taller than a person: no seeing or hopping over)
@@ -2924,8 +2936,8 @@ body.mouseaim #screen { cursor: none; }
     const plankUp = (r, tx, ty, room) => {
       const { hor, ver } = plankDir(tx, ty, room), broken = room.at(tx, ty) === 'V', hits = room.wallHits ? room.wallHits(tx, ty) : 0;
       const bottom = 9, top0 = bottom - PLANK_H;
-      const post = () => { // seen edge-on: a thick line of boards running north-south (down to the next cell if the line goes on)
-        const h = (PL(room.at(tx, ty + 1)) ? 16 : bottom + 1) - top0 + 2;
+      const post = () => { // seen edge-on: a thick line of boards running north-south (down to the next cell if the line goes on, or on to the wall it meets)
+        const h = (PL(room.at(tx, ty + 1)) || JN(room, tx, ty + 1) ? 16 : bottom + 1) - top0 + 2;
         r(5, top0 - 2, 6, h, PLANK.dark); r(6, top0 - 2, 4, h, PLANK.board); r(6, top0 - 2, 1, h, PLANK.lit); r(6, top0 - 2, 4, 1, PLANK.top);
       };
       if (!hor) {
@@ -2941,7 +2953,8 @@ body.mouseaim #screen { cursor: none; }
       }
       // the boards run across the cell, or, where the line turns or branches (a corner, a T), only from the post
       // toward the side(s) it carries on, so a corner meets in an L instead of crossing
-      const x0 = ver && !PL(room.at(tx - 1, ty)) ? 6 : 0, x1 = ver && !PL(room.at(tx + 1, ty)) ? 10 : 16;
+      const side = (dx) => PL(room.at(tx + dx, ty)) || JN(room, tx + dx, ty); // the run carries on that way (more fence, or the wall it meets)
+      const x0 = ver && !side(-1) ? 6 : 0, x1 = ver && !side(1) ? 10 : 16;
       const gone = broken ? 4 + 4 * Math.floor(G.hash(tx * 5, ty * 3) * 2) : -1; // the missing board
       for (let x = 0; x < 16; x += 4) {
         const xa = Math.max(x, x0), w = Math.min(x + 4, x1) - xa;
@@ -2958,6 +2971,10 @@ body.mouseaim #screen { cursor: none; }
         for (let k = 0; k < hits * 2; k++) { const cx = (G.hash(tx + k, ty * 9) * 14) | 0, cy = top0 + 3 + ((G.hash(ty + k, tx * 5) * 12) | 0); r(cx, cy, 1, 3, PLANK.gap); } // cracks from whacks
       }
       if (ver) post(); // the corner post, over the boards
+      for (const dx of [-1, 1]) if (JN(room, tx + dx, ty) && !PL(room.at(tx + dx, ty))) { // an end post against the wall or hedge it meets
+        const px = dx < 0 ? 0 : 13;
+        r(px, top0 - 2, 3, bottom - top0 + 3, PLANK.dark); r(px, top0 - 2, 2, bottom - top0 + 2, PLANK.board); r(px, top0 - 2, 1, bottom - top0 + 2, PLANK.lit); r(px, top0 - 2, 3, 1, PLANK.top);
+      }
     };
     // Keycard gate: a steel security gate as tall as a brick wall, chunky posts, bars you can see through, a
     // hazard stripe and a glowing red card reader, so it can't be mistaken for a gap in the wall.
@@ -4979,32 +4996,32 @@ body.mouseaim #screen { cursor: none; }
         "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
         "J4..J..............................J...b..........bZ.h.......J........J...........J...........JJ",
         "J...J...%..ZWWWWWWOOWW..........B..J...b.t......t.b..h.....g.J.B......J...........J.........N.JJ",
-        "J.ooJ.oo....Wkkk[WnqqW.....t.......J.t.b.........Zb..h...9...J..J..J..JJJJeeJJJJ..J..JJJJJJJ..JJ",
+        "J.ooJ.oo....Wkkk[WnqqW.....t.......J.t.b.........Zb..h...9...J........JJJJeeJJJJ..J..JJJJJJJ..JJ",
         "J...J.....t.WnnnnWynnW...........t.J...b....U.....b..h.......J..J..J...........JZ.J..J.....J..JJ",
         "JJJJJ.......WnnnnnnnnW.............J...b..........b..h...YY..J..Jg.J...........J..J..J.....J..JJ",
-        "J....J.JJJ..WannnnnnnW.............J...b..........b..h...YY..J..J..JJJJJJJJJJ..J..J..JJJJ..J..JJ",
+        "J....J.JJJ..WannnnnnnW.............J...b..........b..h...YY..J..J..JJJJJJJJJJ........JJJJ..J..JJ",
         "J.t......J..Wnnn<WnnjW....IIII..IIIJ...b..........b..h.......J..JZ....J.......Z......Z.....J..JJ",
-        "J.Z......IIIKKOOKnnnnnWWWW.....Z...JZ..b..........b..h.......J..J.....J....................J..JJ",
+        "J.Z......IIIKKOOKWnnnWWWWW.....Z...JZ..b..........b..h.......J..J.....J....................J..JJ",
         "J................WnnnnnnzWIII....JJJ...bWWWWOOWWWWb..h.......J..JJJJ..J..JJJJJJJJJJJJJJeeJJJ..JJ",
-        "JJJJJ..JJb.......WnnnnnnzW9.I..C.JJJ....Wqq<nnkksW...h.......J..J..J..J...............g..Z....JJ",
-        "J............b...WnnnnnnnW..IZ...JJJ....WnaynnNnzW...h.......J..J..J..J.......................JJ",
+        "JJJJJ..Jb........WnnnnnnzW9.I..C.JJJ....Wqq<nnkksW...h.......J..J..J..J...............g..Z....JJ",
+        "J................WnnnnnnnW..IZ...JJJ....WnaynnNnzW...h.......J..J..J..J.......................JJ",
         "J.::::::::::.J...Wsnnnnn<WI_I....JJJ.t..Wjnnnnnn[W...........J..J..J..JJJJJJJJeeJJJJJJJJJJJJ..JJ",
         "J.:pppppppp:.J...KKKKOOKKK.......JJJ....KKKKOOKKKK..........tJ..J..J...N........2.J........J..JJ",
         "J.:ppppppppg.J..Z.........WWOOWWW..J....dddd..I.4I...........J..J..J.........pp...J........J..JJ",
-        "J.:pppNpppp:.J............Wknnn[W..J.....~~~l.I..V..fffffff..J..J..JJJJJJJ...pp...JJJeeJJ..J..JJ",
+        "J.:pppNpppp:.J............Wknnn[W..J.....~~~l.I..V..fffffff..J.....JJJJJJJ...pp...JJJeeJJ..J..JJ",
         "J.:pppppppp:.J............WknnnnW..J.g.~~YY~~.IIII..f,,,,,fZ.J...........J...pp.Z.......J..J..JJ",
         "J.:pppppppp:.JbJJJJ..JJbIIWnnnanW..J...~~YY~~.Z...Z.f,,,,,f..J...........J..............J..JZ.JJ",
-        "JffppppppppffJ............W<nnnnW..J....~~~.........foo,,,f..JJJJ..JJJJ..J..J..JJJJJJJZ.J..J..JJ",
-        "J.:pppppppp:.J............KKnnnnW..J......hhhhhhh...,,,,,,,..i...........J..J..J.....J........JJ",
-        "J.:pppppppp:.J.......g.b....WnnnW..J..N.............,,,,oo,..i...........J..J..J.....J........JJ",
-        "J.:pppppppp:.J..t......J....WnnzW..J...........~~~~.,,,,,,,..J..JJJJeeJJJJ..J..JJJJ..J..JJJJJJJJ",
+        "JffppppppppffJ............W<nnnnW..J....~~~.........foo,,,f..JJJJ..JJJJ..J..J..JJJJJJJZ.......JJ",
+        "J.:pppppppp:.J............KKWnnnW..J......hhhhhhh...,,,,,,,..i...........J..J..J.....J........JJ",
+        "J.:pppppppp:.J.......g......WnnnW..J..N.............,,,,oo,..i...........J..J..J.....J........JJ",
+        "J.:pppppppp:.J..t......J....WnnzW..J...........~~~~.,,,,,,,.....JJJJeeJJJJ..J..JJJJ..J..JJJJJJJJ",
         "J.:pppppppp:.J.........J.~..WnnzW..J..........~.YY~~......Z..J..J...........J........J...1....JJ",
         "J.::::::::::.J.......N.J~~..WjnnW..Jhhhhhhhhh.~~YY~~.........J.ZJ.........Z.J........J........JJ",
-        "J.........Z.lJ..........~...WnnnW..J...........~~.~.hhhhhhhhhJ..J..JJJJJJJ..JJeeJJJ..JJJJJJJ..JJ",
-        "J............b.........J....KKOOK..J.........t..........l.Z..J........J....................J..JJ",
-        "J.....l..............t.J...I.......J.............g.t.........J........J............N.......J..JJ",
-        "JJJJ.JJJJbIII..........J...I.....t.J......................t..J..JJJJ..JJJJJJJ..JJJJ..J..J..J..JJ",
-        "J.t..........b.........J...I...g...J.........................J8....J..............J.....J.....JJ",
+        "J.........Z.lJ..........~...WnnnW..J...........~~.~.hhhhhhhhhJ.....JJJJJJJ..JJeeJJJ..JJJJJJJ..JJ",
+        "J............b..............KKOOK..J.........t..........l.Z..J........J....................J..JJ",
+        "J.....l..............t.....I.......J.............g.t.........J........J............N.......J..JJ",
+        "JJJJ.JJJJbIII..........J...I.....t.J......................t..J..JJJJ..JJJJJJJ..JJJJ...........JJ",
+        "J.t....................J...I...g...J.........................J8....J..............J.....J.....JJ",
         "J............J.fffff...JIIII.......JJJGGJJJJccccccccJJJJJJJJJJ.....J..............J.....J.....JJ",
         "J..N.........J.f.A.f...............h........cccccccc.........JGGJJJJJJJJJJJJJJJJJJJJJJJJJGGJJJJJ",
         "J..........t.J.foo.f.........t.....h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
@@ -5108,7 +5125,7 @@ body.mouseaim #screen { cursor: none; }
         "................................................................................................",
       ],
       kinds: { "20,2": "painting", "92,2": "dog", "42,9": "painting", "71,13": "jacks", "37,16": "knocked", "38,20": "mower", "21,23": "baby", "56,25": "busted", "83,26": "teacher", "44,29": "left/red/wreck/shut", "3,30": "stretch", "89,30": "locked", "90,30": "locked", "86,32": "left/green/sedan/open", "6,33": "photo", "85,40": "photo", "72,41": "left/blue/wreck/open", "3,42": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "5,51": "painting", "11,51": "photo", "21,51": "painting", "65,58": "dog", "6,59": "gnome" },
-      floors: { "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "20,40": ".", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "10,48": ".", "30,50": ".", "68,61": ".", "88,61": "." },
+      floors: { "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "68,61": ".", "88,61": "." },
       loot: { "8,2": "ammo", "59,2": "i:pie", "46,10": "w:plates", "86,10": "empty", "21,20": "i:coffee", "31,28": "ammo", "72,31": "i:pie", "93,37": "burger", "3,39": "ammo", "88,61": "teen" },
     },
     "galleria": {
@@ -5116,21 +5133,21 @@ body.mouseaim #screen { cursor: none; }
       rows: [
         "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
         "w:::::::::::::Z::::::::::::::w.....................J......w...........................lw",
-        "w:l:::::::::::::w:::::::::B::w.......h............hJ...9..w.N.........t................w",
-        "w::::N::::::::::w::::::::N:::w.......h..hhh.t.hhh.hJ......w...t.................t......w",
+        "w:l:::::::::::::::::::::::B::w.......h............hJ...9..w.N.........t................w",
+        "w::::N:::::::::::::::::::N:::w.......h..hhh.t.hhh.hJ......w...t.................t......w",
         "w???????????::::w???{????????w...t...h.........Z..hJJeJJJJw.......................Z....w",
         "w???????g???::::w????????????e.......h............h.....N.w.........Z..................w",
         "w??g????????::::?%???????????e...Z...h...a..8..a..h.......w............................w",
         "w???????????::::????????g????w.JJJJJJJ............JJJJJJJ.w............................w",
         "w???uuuuuuuu:::Z??Z??????????w....Z...t..........t........w...WWWWWWWWWWWWWWWWW........w",
         "w?????????%?::Q:??????C??????w.........::::::::::.........w...Wkk<nnWnnnnnnnnjW........w",
-        "w??g????????::::?uuuuuuuuuu??w.........::::::::::.........w...Wn+nnnWnsnnsnnsnW........w",
-        "w???????????::::?????????????w.YY......::pppppp::.........w...WnnnnnWnsnnsnnsNW........w",
+        "w??g????????::::?uuuuuuuuuu??w.........::::::::::.........w...Wn+nnnWnnnnnnnsnW........w",
+        "w???????????::::?????????????w.YY......::pppppp::.........w...WnnnnnWnnnnnnnsNW........w",
         "wwvww?{Zw???::::??????????g??w.YY......::pppppp::....l....w...WnnnnnWnsnnsnnsnW........w",
         "ww:Aw???w???::::??????%??????w.........::pp:ppp::.........w...Wnnnnn^nnnnnNnnnW........w",
-        "wwwww?g?w???::::?????????????w....l....::ppp:pp::...Z.....w...WnnnnnWnsnBnnnsnW........w",
-        "w:::::::w:::::::::(((((::::::wm........::pppppp::......YY.w...WnnnUnWnsnnnnnsnW........w",
-        "w:::::::w::::::::::g:::::::l:wJJJJ.....::pppppp::......YY.w...WnnnnnWnsnqqnns[W........w",
+        "wwwww?g?w???::::?????????????w....l....::ppp:pp::...Z.....w...WnnnnnWnnnBnnnnnW........w",
+        "w:::::::w:::::::::(((((::::::wm........::pppppp::......YY.w...WnnnUnWnnnnnnnnnW........w",
+        "w:::::::w::::::::::g:::::::l:wJJJJ.....::pppppp::......YY.w...WnnnnnWnnnqqnns[W........w",
         "w::::::::::::::::::::::::::::wJ..J.....::::::::::.........w...WnnnnnWnnnnnnnnnW........w",
         "w:::::::::::::::::::?????Z???wJ4.J.....:::::::::Z.........w...KKKKKKKKKKKKOOKKK........w",
         "w:WWWWWWWWWWWWWWOOWW?????????wJ..J....t..........t........w.....ZI.9I.I.AI.............w",
@@ -5170,8 +5187,8 @@ body.mouseaim #screen { cursor: none; }
         "w=========)::::::::::::::::::h:hhhh::::::::::::::::::hhhh:w?????%???Z?:::::?(?????cc???w",
         "w=-=-=-=-=):{::::::fffffff:::h::::::::a::::::::::a::::::::w?////??????:::::?(???//////?w",
         "w=========(::::::::f::9::f:::h:::::::::::::::::::::::Z::::w???????????::l::?(??????????w",
-        "w======{==(::::::::foo:::fN::h::::lZ:::::::::::::::::l::::w???g???????:::::?(g?????????w",
-        "w=========(:{::::::fffffff:::h:::::::g::::::E:::::g:::::::w??N????B???:::::?????????N??w",
+        "w=========(::::::::foo:::fN::h::::lZ:::::::::::::::::l::::w???g???????:::::?(g?????????w",
+        "w=========(::::::::fffffff:::h:::::::g::::::E:::::g:::::::w??N????B???:::::?????????N??w",
         "w:::::::Z::::::::Z:::::::::::h::::::::::::::::::::::::::::w???????????:::::????????????w",
         "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
       ],
@@ -5247,28 +5264,28 @@ body.mouseaim #screen { cursor: none; }
         "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
         "J+ZJ........J.....Z........J..w:g::::::::::::::::Z::::::l::.:::::::::::::::::::::::::::::J",
         "J.9J........J..............J..w:::::::::::::::::::::t::::::.:::::::::::::::::::::::::::::J",
-        "JSSJJJJJJJ..J..J..JJJJJJJJJJ..w:::t::::::::::::::::::::::::.::g:::::::::::::::WWWWWWWWWWZJ",
+        "JSSJJJJJJJ..J.....JJJJJJJJJJ..w:::t::::::::::::::::::::::::.::g:::::::::::::::WWWWWWWWWWZJ",
         "J..J.....J..J..J..............w::::Z::::::::::::g::::::::::.::::::::::::::::::WddddddddW:J",
         "J..J.....J..J..J..............w::::::::::::::::::::::::::::.::::::::::::::::::WdddddBddW:J",
-        "J..J..J..J..J..JJJJJJJJJJ..J..w..WWWWWOOWWWWWWWWWWWWWWWWW..w:::::::::::Z::::::WdNddddddW:J",
+        "J..J.....J..J..JJJJJJJJJJ.....w..WWWWWOOWWWWWWWWWWWWWWWWW..w:::::::::::Z::::::WdNddddddW:J",
         "J..J........J..J..J......N.J..w..WkknnnnWnnn<jnnnnWnqqnnW..w:::Z::::::::::::::WddddddddW:J",
         "J..J........J..J..J........J..w..WnnnnnnWnnnnQnnnnWnnnnnW..w:::l::::::::::::l:KKKOOKKKKK:J",
-        "J..J..J..J..J..J..J..JJJJ..J..w..WnnnnnnWyyyyyyyyyWnnBnzW..w::::pppppppppppp:::::::::::::J",
+        "J..J........J..J..J..JJJJ..J..w..WnnnnnnWyyyyyyyyyWnnBnzW..w::::pppppppppppp:::::::::::::J",
         "J..J..J...Z......ZJ........J..w..WWW^WWWnnnnnnnnnnWnnnnnW..w::::pppppppppppp:::::h:::::::J",
         "J..J..J...........J........J..w..WnnnnnnWnnnnnnnNnnnnnnnW..w::::pppppppppppp::t::h:::t:::J",
-        "J..J..JJJJ....8...JJJJ..J..J..w..WnUnn%nWnsnnnnsnnWnnnNnW..w::::pppppppppppp:::t:h:::::::J",
+        "J..J..JJJJ....8...JJJJ.....J..w..WnUnn%nWnnnnnnnnnnnnnNnW..w::::pppppppppppp:::t:h:::::::J",
         "J..J..J......l....J..J..J..J..w..Wnnnnn[WnnnnnnnnnWsnnnnW..w::::pppppppppppp:::::h:::::::J",
         "J..J..J...........J..J..J..J..w..HHHHHHHHHHHOOHHHHHHHHHHH..w::::ppppppppppppZ::::::::N:::J",
-        "J.ZJ..JJJJ..0.....J..J..J..J..w.............::.............w::::pppppppppppp::oo::::a::::J",
+        "J.ZJ..JJJJ..0........J..J..J..w.............::.............w::::pppppppppppp::oo::::a::::J",
         "J..J.................J..J..J..wZ......Z...l.::.l...........w:t::pppppppppppp:::::::::::::J",
         "J..J.................J..J..J..w...YY........::........YY...w::::pppppppppppp:::::::::::::J",
         "J..JJJJJJJ..JJJJJJJ..J..J..J..w...YY........::........YY...w:::l::::::::::::lhhhhhhhhhhhhJ",
         "J........J..J.....J..JN.J..J..w.............::...........g.w::::::::::::::::::Z::::::::::J",
         "J........J..J.....J..J..J..J..w.............::.............w::h::a::a::a::::::::::::h:g::J",
-        "J..JJJJ..JJJJ..J..J..J..J..J..w.hhhhhhhhhhhh::hhhhhhhhhhhh.wZ:h:::::::::::::::::::::h::::J",
+        "J..JJJJ..JJJJ...........J..J..w.hhhhhhhhhhhh::hhhhhhhhhhhh.wZ:h:::::::::::::::::::::h::::J",
         "J.....JN.J.....J........J..J..w.............::.Z...........w::h:::::::::::::hhhhh:::h:9::J",
         "J.....J..J.....J........J..J..w........t....::....t........w::h::::::::::::::::::6::h::::J",
-        "JJJJ..J..J..JJJJJJJJJJ..J..J..w....N........::.............w::h:::::::::::g:::::::::h:t::J",
+        "JJJJ..J.....JJJJJJJJJJ..J..J..w....N........::.............w::h:::::::::::g:::::::::h:t::J",
         "J.....J.....J..ZB.......J..J..w.....hhhhhh..::..hhhhhh.....w::h::::::::::::::a::::ooh::::J",
         "J.....J.....J...........J..J..w.g...........::.............w::h:hhhhhhhhh::::::::::::::t:J",
         "JJJJJJJJJJJJJ..JJJJJJJJJJ..J..w...........lZ::.l...........w::h::::::::::::::::t::::N::::J",
@@ -5300,7 +5317,7 @@ body.mouseaim #screen { cursor: none; }
         "J.f,,,fYY.hdddh..hdddh.JhddJh.J...J..J::=========WWWWWWW...w:::::::::::::::uuuuuuu::w..w:J",
         "J.f,,,fh..hh.hh..hh.hh.Jhh..h.J..ZJ1.J..:::::::::Wj<nn[W...w::::::::::::::::::::::::wZAw:J",
         "J.foo,f................J4..J..J...JJJJ...........WnnBnnW...w::::::::::::::::::ccc:::wwww:J",
-        "J.fffff................JJJJJ..J......ghhhh.......KNOOKKK...w:N::::::::::::::::ccc::::::::J",
+        "J.fffff................JJJJJ..J......ghhhh........NOOKKK...w:N::::::::::::::::ccc::::::::J",
         "J.l..............N..........l.J..l..........E...........l..w:::::::::::::g::::::9::l:::::J",
         "J.........................Z...J............................w::::::::::Z::::::::::::::::::J",
         "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
@@ -5377,7 +5394,7 @@ body.mouseaim #screen { cursor: none; }
         "##########################################################################################",
         "#........Z.........Z..........#............................#::::::::Z:::::::::::::::#::::#",
         "#....j...j...j...j...j...j....#.B........................B.#::B:::::::::::::::::::::#9:+:#",
-        "#.B...........................#.....c..........m...........#::::::::::::::::::::::::#::::#",
+        "#.B...........................#.....c......................#::::::::::::::::::::::::#::::#",
         "#:::::::::::::::::::::::::::::#............................#::l:::::::::::::::::l:::##SS##",
         "#.............................#sssssssssssssssssssssss....s#:::::::::::::::::::::::::::::#",
         "#..kkkkk..kkkk...kkkk..kkkkk..#..Z.........................#::::::pppppppppppp::::::c::::#",
@@ -5410,7 +5427,7 @@ body.mouseaim #screen { cursor: none; }
         "#.............................#==l==========::==========l==#...Z..........::.............#",
         "#ssssssssssssssssssssssss...ss#=============::=============#..............::.............#",
         "#..Z..........................#=============::=============#...ccc..ccc...::..Zccc..ccc..#",
-        "#.....c..,..N.....,........,m.#=========N===::=============#...ccc..ccc...::...ccc..ccc..#",
+        "#.....c..,..N.....,........,..#=========N===::=============#...ccc..ccc...::...ccc..ccc..#",
         "#.............................#=============::====Z========#...ccc..ccc........ccc..ccc..#",
         "#s...ssssssssss..sssssssssssss#===)((((((===::===(((((()===#..........N..........Z%......#",
         "#............................Z#=============::=============#.............................#",
@@ -5421,8 +5438,8 @@ body.mouseaim #screen { cursor: none; }
         "#m......c.,........,........,.==m====i======::======i======#.B.ccc..ccc...s....ccc..ccc..#",
         "#.....,,,,,,,,,,,,,,,,,,,,,,,.=======i======::======i====m=#Z..ccc..ccc...s....ccc..ccc..#",
         "#........Z..........c......%..==============::=============#...ccc.Zccc........ccc..ccc.m#",
-        "#.............................#==========kkk==kkk==========#...........l..s..............#",
-        "#s...ssssssssssss..sssssssssss#============================#..............s..............#",
+        "#.............................#==========kkk==kkk==========#...........l.................#",
+        "#s...ssssssssssss..sssssssssss#============================#.............................#",
         "#.............................#==l======================l==#......(((((((.s..))))))).....#",
         "#...,.......c,........N......l#=========c=======c==========#...........Z..s..............#",
         "#...Z.........................#Z=====================N=====#...................c....N(...#",
@@ -5430,21 +5447,21 @@ body.mouseaim #screen { cursor: none; }
         "#.............................#=iiiii======================#.................:::::::::::.#",
         "#........,......c.,........,B.#=====i==uuu=====uuu=========##GG##............============#",
         "#..............Z..............#=====i==l==========l========#====#............=========c==#",
-        "#sssssss...sssssssssssssssssss#=u===i=======================Z===#............=m==uuu=====#",
-        "#.4..x....m...................#===1=i=======E===================#.l..........==========B=#",
-        "#..9.x........l...............#=====i======================#====#............==Z=========#",
+        "#sssssss...sssssssssssssssssss#=u===i=======================Z===#............====uuu=====#",
+        "#.4..x........................#===1=i=======E===================#.l..........==========B=#",
+        "#..9.x........l...............#=====i===========================#............==Z=========#",
         "##########################################################################################",
       ],
       kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "3,35": "clone", "81,38": "robodog" },
-      loot: { "47,3": "i:pie", "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "w:squirt", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo", "10,57": "ammo" },
+      loot: { "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "w:squirt", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo" },
     },
     "core": {
       name: "THE CORE", theme: "servers",
       rows: [
         "############################################################################################",
         "#.Z...........................#====i===j===========j=========#....j.....j.....j.....j.....B#",
-        "#B.s.m.s...s.m.s...s.m.s...s..#=1==i=========E===============#...............Z.............#",
-        "#..s...s...s...s...s...s...s..#====i=========================#l............................#",
+        "#B............................#=1==i=========E===============#...............Z.............#",
+        "#.............................#====i=========================#l............................#",
         "#..s...s...s...s...s...s...s..#Z===i==l===u=====u====l=======#Z...........................l#",
         "#..s...s...s...s...s...s...s..#====i=========================#..kkkkkk..kkkk....kkkkkk.....#",
         "#..s...s.N.s...s...s...s...s..#===ui====================c====#..........................i..#",
@@ -5469,9 +5486,9 @@ body.mouseaim #screen { cursor: none; }
         "#.Q...i..s...s...s...s...s....#==ssss=======::::=======ssss==##GG##...c....::.s............#",
         "#.....i..s...s...s...s...s....#==ssss=======::::=======ssss==#====#........::.s.......c....#",
         "#...k.i..s...s...s...s...s....#==========l==::::==l==========#====#......c.::.s............#",
-        "#m....i..........Z.........l..#=============::::==c==============Z#...m....::.s.......%....#",
+        "#m....i..........Z.........l..#=============::::==c==============Z#........::.........%....#",
         "#.....i....%................B.#=======Z===c=::::==================#........::..............#",
-        "#.........................Z...#=============::::============Z#====#........::..............#",
+        "#.........................Z...#=============::::============Z=====#........::..............#",
         "###############D############################::::############################D###############",
         "#...Z.........:::.............#..............................#.............::..............#",
         "#m............:::.............#...............l............B.#.B...........::.......Z.....l#",
@@ -5500,14 +5517,14 @@ body.mouseaim #screen { cursor: none; }
         "#.......%.....................#.....l.................Zl.....#..........Z..........Z.......#",
         "#.....................N.......#.......Z......................#..(((((((.........)))))).....#",
         "##SS#..........l..............#...X.....................iieei#.............................#",
-        "#...#.........................#..........c........c.....i....#..N..................%.......#",
+        "#...#.........................#..........c........c.....i....#..N..........cc......%.......#",
         "#...#.........................#...............N.........i....#.............................#",
-        "#+..#.......................B.#.....................%...i.4..#.....l......m.............0..#",
+        "#+..#.......................B.#.....................%...i.4..#.....l....................0..#",
         "#..9#.......m..Z.............Z#.........................i...9#............................B#",
         "############################################################################################",
       ],
       kinds: { "2,1": "clone", "89,7": "mopbot", "81,21": "blue", "17,28": "clone", "15,31": "blue", "84,33": "robodog", "3,47": "drone", "54,56": "clone", "72,56": "drone", "38,57": "robodog" },
-      loot: { "5,2": "i:pie", "21,2": "ammo", "90,22": "ammo", "1,33": "burger", "70,39": "teen", "35,49": "i:coffee", "90,49": "teen", "83,59": "i:coffee", "52,61": "i:pie", "12,62": "ammo" },
+      loot: { "90,22": "ammo", "1,33": "burger", "70,39": "teen", "35,49": "i:coffee", "90,49": "teen", "83,59": "i:coffee", "52,61": "i:pie", "12,62": "ammo" },
     },
     "root": {
       name: "/ROOT", theme: "root",
@@ -5537,8 +5554,8 @@ body.mouseaim #screen { cursor: none; }
         "#::::::::::::::::::::::l#i.....i....8...s......#......................m#",
         "#Z::::::::::7:::::::::::#i.....i........s......#....((((((....))))))..Z#",
         "#:::::::::::::::::::::::#iii..ii........s......#..N.................c..#",
-        "#::::::Z::::::::::::::::#........N......s......#................c......#",
-        "#m::::::l:::::::::::::::#...............s...m..#.......m.............BZ#",
+        "#::::::Z::::::::::::::::#........N.............#................c......#",
+        "#m::::::l:::::::::::::::#......................#.....................BZ#",
         "#:::::::::::::::::::::::#.................Z....#............Z..........#",
         "###########SS######################D########################D###########",
         "#...........Z...........#=========:::==========#.......................#",
@@ -5570,7 +5587,7 @@ body.mouseaim #screen { cursor: none; }
         "########################################################################",
       ],
       kinds: { "3,1": "clone", "61,1": "clone", "26,8": "drone", "45,17": "robodog", "14,20": "mopbot", "36,22": "blue", "1,23": "clone", "70,23": "clone", "60,28": "blue", "2,42": "robodog", "69,43": "drone" },
-      loot: { "23,2": "ammo", "48,3": "teen", "30,21": "i:pie", "70,22": "burger", "1,26": "ammo", "44,26": "ammo", "55,26": "teen", "3,44": "i:coffee" },
+      loot: { "23,2": "ammo", "48,3": "teen", "30,21": "i:pie", "70,22": "burger", "1,26": "ammo", "3,44": "i:coffee" },
     },
   };
 })();
@@ -9974,6 +9991,10 @@ body.mouseaim #screen { cursor: none; }
         const T = room.theme, sideways = [];
         grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'D' || c === 'G') && T.solid.has(room.at(x, y - 1)) && T.solid.has(room.at(x, y + 1))) sideways.push([x, y]); }));
         for (const [x, y] of sideways.slice(0, 3)) line('warn', `The gate at ${x},${y} is in a north-south wall, so the wall in front hides it. Put gates in east-west walls, facing the camera`);
+        const gaps = K.hiddenGaps(room);
+        if (!gaps.length) line('ok', 'Openings in sight (every gap in a north-south wall shows a floor tile)');
+        for (const q of gaps.slice(0, 4)) line('warn', `The gap at ${q.x},${q.y} in a north-south wall is hidden by the wall south of it rising over it (${Math.max(0, q.show)}px of floor show): make it taller (3 tiles in a tall hedge) unless it's a secret`);
+        if (gaps.length > 4) line('warn', `...and ${gaps.length - 4} more hidden gaps`);
         const hid = K.hiddenNeighbors(room, grid);
         if (!hid.length) line('ok', 'Neighbors in plain sight (none hidden behind something tall)');
         for (const h of hid.slice(0, 4)) line('warn', `The neighbor at ${h.x},${h.y} is ${Math.round(h.cover * 100)}% hidden behind something tall in front of them: move them out into view (unless it's on purpose)`);
@@ -10261,6 +10282,46 @@ body.mouseaim #screen { cursor: none; }
       }
       if (cov.size >= ((bx1 - bx0) * (by1 - by0)) / 2) out.push({ x, y, cover: cov.size / ((bx1 - bx0) * (by1 - by0)) });
     }));
+    return out;
+  };
+  // ---- Openings you can see (James): a way through a north-south wall line (a gap in a hedge, a fence, brick) is
+  // covered by the wall just south of it rising over it (2.5D), so a one-tile gap in a tall hedge can't be seen at all.
+  // At least one whole floor tile of every such gap has to show. Returns [{ x, y, show }] (show: px of floor in view).
+  K.hiddenGaps = (R) => {
+    const T = R.theme, out = [], W = R.w, H = R.h;
+    const rise = (x, y) => { const c = R.at(x, y), u = T.up && T.up[c]; return u && T.solid.has(c) && !(T.seeThrough && T.seeThrough.has(c)) ? u.rise : 0; };
+    for (let x = 1; x < W - 1; x++) for (let y = 1; y < H - 1; y++) {
+      if (!walkableCell(R, x, y) || walkableCell(R, x, y - 1) || rise(x, y - 1) < 14) continue; // the top of a gap: wall above
+      let y1 = y; while (y1 + 1 < H && walkableCell(R, x, y1 + 1)) y1++;
+      const below = rise(x, y1 + 1);
+      if (below < 14 || y1 - y > 3) continue; // no tall wall below, or a long corridor, not a gap
+      const line = (yy) => walkableCell(R, x - 1, yy) && walkableCell(R, x + 1, yy); // a lone north-south wall cell (open ground east and west)
+      if (!line(y - 1) && !line(y1 + 1)) continue; // (the end of a corridor between two wall rows shows sideways: not a gap in a line)
+      let through = false; for (let k = y; k <= y1; k++) if (walkableCell(R, x - 1, k) && walkableCell(R, x + 1, k)) through = true;
+      if (!through) continue; // a dead-end notch or a north-south corridor, not a way through
+      const show = (y1 - y + 1) * 16 - below;
+      if (show < 16) out.push({ x, y, show });
+    }
+    return out;
+  };
+  // Make every hidden gap tall enough to see (K.hiddenGaps): take out wall cells of the north-south line just above or
+  // below it, one at a time, only where the wall cell stands alone in its line (open ground east and west of it), so
+  // nothing else opens up. Edits map rows (an array of strings) and the room together. Returns the cells cleared.
+  K.fixGaps = (R, rows) => {
+    const out = [], T = R.theme;
+    const lone = (x, y) => T.solid.has(R.at(x, y)) && walkableCell(R, x - 1, y) && walkableCell(R, x + 1, y);
+    for (let pass = 0; pass < 4; pass++) {
+      const gaps = K.hiddenGaps(R);
+      if (!gaps.length) break;
+      for (const q of gaps) {
+        let y1 = q.y; while (walkableCell(R, q.x, y1 + 1)) y1++;
+        const cell = lone(q.x, y1 + 1) ? [q.x, y1 + 1] : lone(q.x, q.y - 1) ? [q.x, q.y - 1] : null;
+        if (!cell) continue;
+        const [cx, cy] = cell, fl = T.floors && T.floors.has(rows[q.y][q.x]) ? rows[q.y][q.x] : T.ground;
+        rows[cy] = rows[cy].slice(0, cx) + fl + rows[cy].slice(cx + 1);
+        R.setTile(cx, cy, fl); out.push(cell);
+      }
+    }
     return out;
   };
   // ---- Secrets stay optional: with every secret wall (S) sealed for good, every neighbor and the exit can

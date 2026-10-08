@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 21:53 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 22:05 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -5662,11 +5662,366 @@ body.mouseaim #screen { cursor: none; }
 })();
 </script>
 <script>
-/* AFK APOCALYPSE — level data.
+/* AFK APOCALYPSE — the level list. Written by the level manager's Save (PRACTICE > LEVELS, via tools/devserver.js),
+ * so keep it plain data. The code that turns it into levels is levelset.js.
+ *   order    every level in play, in order: kind main (numbered 1, 2, ... in this order), bonus (after: the main
+ *            level it follows, played next when you find its bonus ticket there), secret (after the last main
+ *            level, once every data disk is found). A map that is in no list is kept but not played.
+ *   levels   per level (its map is G.MAPS[id], its spawn settings G.ENEMY_SPAWN[id]): name, time on the clock
+ *            [h, m], disk (holds a data disk), packages (contents in reading order), briefing (pages of up to
+ *            three lines), note (for whoever edits it). */
+(function () {
+  window.G.LEVEL_DATA = {
+    order: [
+      { id: "culdesac", kind: "main" },
+      { id: "galleria", kind: "main" },
+      { id: "mansion", kind: "main" },
+      { id: "serverfarm", kind: "main" },
+      { id: "core", kind: "main" },
+      { id: "root", kind: "secret" },
+    ],
+    levels: {
+      culdesac: {
+        name: "CUL-DE-SAC",
+        time: [23, 58],
+        disk: true,
+        packages: ["w:soda", "i:pie", "i:coffee", "quarter"],
+        note: "Layout: docs/design/level-1-plan.md. Packages in reading order: a soda in the backyards' far corner, a pie in the maze's far corner, the garage block's coffee, the lawn's come-back quarter.",
+        briefing: [
+          ["11:58 PM. IN TWO MINUTES THE FEED", "GOES LIVE ON EVERY PHONE ON THIS", "STREET. THE TEENS ARE ALREADY HOOKED."],
+          ["RUN INTO YOUR NEIGHBORS AND I WILL", "BEAM THEM TO SAFETY. IF A PHONE", "ZOMBIE GETS THEM FIRST, THEY TURN."],
+          ["SOMEONE DROPPED A PDA ON THIS BLOCK.", "FIND IT AND IT WILL MAP EVERY", "SECRET AND PACKAGE AROUND HERE."],
+          ["THE TIME DOOR OPENS ONCE EVERYONE", "IS ACCOUNTED FOR. GO!"],
+        ],
+      },
+      galleria: {
+        name: "GALLERIA MALL",
+        time: [1, 12],
+        disk: true,
+        packages: ["quarter", "i:pie", "w:soda", "i:coffee"],
+        note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the alley's far corner, the food court, the department store, the loading dock.",
+        briefing: [
+          ["1:12 AM. THE FEED IS LIVE AND THE", "GALLERIA IS FULL OF TEENS WHO CAME", "FOR THE WIFI AND NEVER LEFT."],
+          ["DELIVERY DRONES ARE STILL RUNNING", "THEIR ROUTES. WATCH THE SKY, AND", "WATCH WHAT COLOR THE BOX IS."],
+          ["THE LOADING DOCKS NEED A KEYCARD.", "MALL SECURITY LEFT ONE IN THE", "GARDEN COURT, PAST THE ALLEY."],
+          ["GET EVERYONE OUT. THE TIME DOOR", "OPENS IN THE PLAZA. GO!"],
+        ],
+      },
+      mansion: {
+        name: "FOUNDER'S MANSION",
+        time: [2, 20],
+        disk: true,
+        packages: ["i:pie", "w:soda", "i:coffee", "quarter", "i:pie"],
+        note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the greenhouse, the mansion, the maze, the garage, the gatehouse.",
+        briefing: [
+          ["2:20 AM. THE FEED'S FOUNDER LIVES", "UP HERE. HIS ESTATE HAS ROBOT DOGS,", "A HEDGE MAZE AND A PANIC ROOM."],
+          ["THE DOGS BARK FOR BACKUP. SHUT THEM", "UP BEFORE THE WHOLE LAWN COMES.", "THEY WILL CHASE A BALL, THOUGH."],
+          ["THE BLUE KEYCARD TO THE MANSION IS", "IN THE MIDDLE OF THE MAZE. THE", "GARDENER LEFT A MACHETE OUT."],
+          ["SAVE THE STAFF AND THE GUESTS.", "THE TIME DOOR IS ON THE DRIVE. GO!"],
+        ],
+      },
+      serverfarm: {
+        name: "SERVER FARM",
+        time: [3, 1],
+        disk: true,
+        packages: ["i:coffee", "w:soda", "i:pie", "quarter", "i:pie", "w:plates", "i:coffee", "i:pie"],
+        note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the NOC, the stacks (2), the cooling plant, the cold aisle (2), the power room (2).",
+        briefing: [
+          ["3:01 AM. THIS IS WHERE THE FEED", "LIVES: TEN THOUSAND SERVERS UNDER", "A HILL, HUMMING ALL NIGHT."],
+          ["THE NIGHT SHIFT IS TRAPPED INSIDE.", "SECURITY BOTS, MOPS, DRONES... AND", "SOMETHING WEARING YOUR FACE."],
+          ["ROCKETS ARE IN THE COLD AISLE. THE", "GLASS INTO THE CONTROL ROOM IS", "CRACKED. THE KEYCARDS DO THE REST."],
+          ["GET THE TECHS OUT. THE TIME DOOR", "IS IN THE LOBBY. GO!"],
+        ],
+      },
+      core: {
+        name: "THE CORE",
+        time: [3, 33],
+        disk: true,
+        packages: ["i:pie", "i:coffee", "w:soda", "quarter", "i:pie", "w:plates", "i:coffee"],
+        note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the training floor, the archive (2), the core, the substation, the clone vats, the substation.",
+        briefing: [
+          ["3:33 AM. THE BOTTOM OF THE HILL.", "THE CORE: WHERE THE FEED THINKS.", "IT KNOWS YOU ARE COMING."],
+          ["IT HAS BEEN COPYING YOU ALL NIGHT.", "THE CLONES GET BETTER AT BEING YOU", "EVERY TIME YOU MISS."],
+          ["A MACHETE BY THE MOAT, ROCKETS IN", "THE ARCHIVE. THE KEYCARDS ARE IN", "THE SUBSTATION AND THE TRAINING ROOM."],
+          ["THE TIME DOOR IS BY THE ELEVATOR.", "BRING EVERYONE UP. GO!"],
+        ],
+      },
+      root: {
+        name: "/ROOT",
+        time: [4, 4],
+        packages: ["quarter", "i:pie", "quarter", "w:soda", "i:coffee"],
+        note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: /bin, /etc, /dev, /tmp, /home. No data disk of its own.",
+        briefing: [
+          ["4:04 AM. TIME NOT FOUND.", "FIVE DISKS, FIVE BACKUPS... AND A", "WAY INTO THE FEED ITSELF."],
+          ["THIS IS ITS SOURCE. EVERY FOLDER", "IS A ROOM. EVERY USER IT EVER", "KEPT IS STORED IN /HOME."],
+          ["THE CLONES LIVE HERE. THEY ARE", "FAST, AND THEY HAVE YOUR MOVES.", "SOMETHING GOOD IS IN /DEV/NULL."],
+          ["LOG THEM ALL OUT. THE TIME DOOR", "IS AT /. GO!"],
+        ],
+      },
+    },
+  };
+})();
+</script>
+<script>
+/* AFK APOCALYPSE — tweaks: your changes to the game's own data, kept even where there's no dev server to write the
+   files (the play link, the claude.ai artifact, a file on disk).
+
+   What a tweak is: an edited or new map, the level list (order, bonus and secret levels, names, briefings), enemy
+   tuning and spawn settings (the debug panel), and Tuning Lab numbers. Every editor's Save writes the files through
+   the dev server when there is one, and otherwise into this browser (localStorage). From SETTINGS > GAME > TWEAKS
+   (or the level manager) you save them to a file and load one back. In the claude.ai artifact they're also kept
+   with the artifact (its `db`), where Claude can read them.
+
+   The file is versioned (VERSION). Loading an older one runs the migrations below, so the engine upgrades it; a
+   rename in the engine goes into RENAMED and old tweaks follow it. What the game already ships (a tweak that was
+   baked into the files) is dropped when the game loads. `tools/apply-tweaks.js` bakes a file into src/ (it
+   requires this file: the part above `if (!root.G)` runs in node too). Docs: docs/engine/tweaks.md. */
+(function (root) {
+  'use strict';
+  const T = {};
+  T.FORMAT = 'afk-apocalypse-tweaks';
+  T.VERSION = 1;
+  const clone = (T.clone = (o) => (o === undefined ? undefined : JSON.parse(JSON.stringify(o))));
+  const same = (T.same = (a, b) => JSON.stringify(a) === JSON.stringify(b));
+  // A short signature of a value (FNV-1a over its JSON): which version of a map a tweak was made from
+  T.sig = (o) => { let h = 0x811c9dc5; const s = JSON.stringify(o) || ''; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+  T.empty = () => ({ format: T.FORMAT, version: T.VERSION, saved: null, game: null, tunables: {}, enemyTuning: {}, enemySpawn: {}, maps: {}, levels: null });
+
+  // Two-level tables ({ group: { key: value } }: ENEMY_TUNING by archetype, ENEMY_SPAWN by level): what `now` changes
+  T.diff2 = (base, now) => {
+    const out = {};
+    for (const [g, o] of Object.entries(now || {})) for (const [k, v] of Object.entries(o || {})) {
+      if (base && base[g] && same(base[g][k], v)) continue;
+      (out[g] = out[g] || {})[k] = clone(v);
+    }
+    return out;
+  };
+  // Put a diff back onto a table. newGroups: a group the table doesn't have is added (a new level's spawn settings);
+  // otherwise it's dropped and noted (an archetype the engine no longer has)
+  T.apply2 = (target, d, newGroups, notes, what) => {
+    for (const [g, o] of Object.entries(d || {})) {
+      if (!target[g]) { if (!newGroups) { notes.push(what + ' ' + g + ': no longer in the game, skipped'); continue; } target[g] = {}; }
+      for (const [k, v] of Object.entries(o)) target[g][k] = clone(v);
+    }
+  };
+
+  // ---- Upgrades ----
+  // MIGRATE[v] turns a version-v file into version v+1. Add one whenever the file's shape changes.
+  const MIGRATE = {
+    // 0: before versioning (a bare Tuning Lab table { 'GROUP.LABEL': n }, or a save's `tune`)
+    0: (t) => ({ ...T.empty(), tunables: t.tunables || t.tune || Object.fromEntries(Object.entries(t).filter(([, v]) => typeof v === 'number')) }),
+  };
+  // Things the engine renamed: old name -> new name. Old tweaks follow the rename when they load.
+  T.RENAMED = { tunables: {}, archetypes: {}, maps: {} };
+  // Bring any tweaks file up to this engine: returns { t, notes } (notes: what was upgraded or skipped)
+  T.migrate = (raw) => {
+    const notes = [];
+    if (!raw || typeof raw !== 'object') throw new Error('not a tweaks file');
+    let t = clone(raw), v = t.format === T.FORMAT ? t.version | 0 : 0;
+    if (t.format && t.format !== T.FORMAT) throw new Error('not a tweaks file (' + t.format + ')');
+    if (v > T.VERSION) notes.push('made by a newer version of the game (' + v + '): loading what this one understands');
+    while (v < T.VERSION) { t = MIGRATE[v](t); notes.push('upgraded from version ' + v + ' to ' + (v + 1)); v++; }
+    t = { ...T.empty(), ...t, format: T.FORMAT, version: T.VERSION };
+    const rename = (o, map, what) => { for (const [a, b] of Object.entries(map)) if (o && a in o) { o[b] = o[a]; delete o[a]; notes.push(what + ' ' + a + ' is now ' + b); } };
+    rename(t.tunables, T.RENAMED.tunables, 'tunable');
+    rename(t.enemyTuning, T.RENAMED.archetypes, 'enemy');
+    rename(t.maps, T.RENAMED.maps, 'map');
+    if (t.levels && t.levels.data) for (const e of t.levels.data.order || []) if (T.RENAMED.maps[e.id]) e.id = T.RENAMED.maps[e.id];
+    return { t, notes };
+  };
+  // Is this a usable map? (rows of equal length, a known theme)
+  T.mapOk = (m, themes) => !!(m && Array.isArray(m.rows) && m.rows.length > 2 && m.rows.every((r) => typeof r === 'string' && r.length === m.rows[0].length) && (!themes || themes[m.theme]));
+  // What a tweaks file holds, in one line ("2 maps, the level list, 3 enemy numbers, 4 Tuning Lab numbers")
+  T.summary = (t) => {
+    const n2 = (d) => Object.values(d || {}).reduce((a, o) => a + Object.keys(o).length, 0), parts = [];
+    const maps = Object.keys(t.maps || {}).length, tune = Object.keys(t.tunables || {}).length, en = n2(t.enemyTuning) + n2(t.enemySpawn);
+    if (maps) parts.push(maps + (maps === 1 ? ' map' : ' maps'));
+    if (t.levels) parts.push('the level list');
+    if (en) parts.push(en + ' enemy ' + (en === 1 ? 'setting' : 'settings'));
+    if (tune) parts.push(tune + ' Tuning Lab ' + (tune === 1 ? 'number' : 'numbers'));
+    return parts.length ? parts.join(', ') : 'nothing';
+  };
+
+  // ---- Writers for the data files (shared by the dev server saves and tools/apply-tweaks.js) ----
+  // A JS literal: short things (and any list of plain values) on one line, longer ones one entry per line
+  const key = (k) => (/^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k));
+  const inline = (v) => Array.isArray(v) ? '[' + v.map(inline).join(', ') + ']'
+    : v && typeof v === 'object' ? '{ ' + Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) => key(k) + ': ' + inline(x)).join(', ') + ' }' : JSON.stringify(v === undefined ? null : v);
+  const lit = (T.lit = (v, ind = '') => {
+    const one = inline(v);
+    if (!v || typeof v !== 'object' || one.length + ind.length <= 116 || (Array.isArray(v) && v.every((x) => !x || typeof x !== 'object'))) return one;
+    const ind2 = ind + '  ';
+    if (Array.isArray(v)) return '[\n' + v.map((x) => ind2 + lit(x, ind2) + ',').join('\n') + '\n' + ind + ']';
+    return '{\n' + Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) => ind2 + key(k) + ': ' + lit(x, ind2) + ',').join('\n') + '\n' + ind + '}';
+  });
+  T.LEVELS_HEAD = '/* AFK APOCALYPSE — the level list. Written by the level manager\'s Save (PRACTICE > LEVELS, via tools/devserver.js),\n' +
+    ' * so keep it plain data. The code that turns it into levels is levelset.js.\n' +
+    ' *   order    every level in play, in order: kind main (numbered 1, 2, ... in this order), bonus (after: the main\n' +
+    ' *            level it follows, played next when you find its bonus ticket there), secret (after the last main\n' +
+    ' *            level, once every data disk is found). A map that is in no list is kept but not played.\n' +
+    ' *   levels   per level (its map is G.MAPS[id], its spawn settings G.ENEMY_SPAWN[id]): name, time on the clock\n' +
+    ' *            [h, m], disk (holds a data disk), packages (contents in reading order), briefing (pages of up to\n' +
+    ' *            three lines), note (for whoever edits it). */\n';
+  T.levelsFile = (data) => T.LEVELS_HEAD + '(function () {\n  window.G.LEVEL_DATA = ' + lit(data, '  ') + ';\n})();\n';
+
+  if (typeof module === 'object' && module.exports) module.exports = T;
+  if (!root.G) return;
+
+  // ===== In the game =====
+  const G = root.G, KEY = 'afk-apocalypse/tweaks/v1';
+  G.Tweaks = T;
+  // The game's own data as it shipped (before this browser's tweaks), to tell what changed
+  const shipped = (T.shipped = { maps: clone(G.MAPS), enemyTuning: clone(G.ENEMY_TUNING), enemySpawn: clone(G.ENEMY_SPAWN), levels: clone(G.LEVEL_DATA) });
+  T.notes = []; T.conflicts = []; // from loading: what was skipped or upgraded; maps the game changed under your edit
+  const store = {
+    read() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } },
+    write(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); return true; } catch (e) { return false; } },
+    clear() { try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } },
+  };
+  // Put a tweaks object onto the live game data (before levelset.js builds the levels)
+  T.apply = (t) => {
+    const notes = T.notes;
+    for (const [id, m] of Object.entries(t.maps || {})) {
+      if (m.deleted) { if (G.MAPS[id]) delete G.MAPS[id]; continue; }
+      if (!T.mapOk(m.map, G.THEMES)) { notes.push('map ' + id + ': damaged or an unknown tileset, skipped'); continue; }
+      if (shipped.maps[id] && m.base && T.sig(shipped.maps[id]) !== m.base && !same(shipped.maps[id], m.map)) T.conflicts.push(id);
+      G.MAPS[id] = clone(m.map);
+    }
+    T.apply2(G.ENEMY_TUNING, t.enemyTuning, false, notes, 'enemy');
+    T.apply2(G.ENEMY_SPAWN, t.enemySpawn, true, notes, 'spawn settings for');
+    if (t.levels && t.levels.data && Array.isArray(t.levels.data.order)) {
+      const d = clone(t.levels.data);
+      d.order = d.order.filter((e) => (G.MAPS[e.id] ? true : (notes.push('level ' + e.id + ': its map is missing, left out'), false)));
+      d.levels = d.levels || {};
+      G.LEVEL_DATA = d;
+    }
+    if (t.tunables && Object.keys(t.tunables).length) G.save.data.tune = { ...(G.save.data.tune || {}), ...t.tunables };
+  };
+  // This browser's tweaks, from the live data: only what differs from what the game ships
+  T.capture = () => {
+    const prev = store.read() || {}, maps = {};
+    for (const id of new Set([...Object.keys(shipped.maps), ...Object.keys(G.MAPS)])) {
+      const now = G.MAPS[id], was = shipped.maps[id];
+      if (same(now, was)) continue;
+      const keep = prev.maps && prev.maps[id] && T.conflicts.includes(id) ? prev.maps[id].base : null; // still on top of an older map
+      maps[id] = now ? { map: clone(now), base: keep || (was ? T.sig(was) : null) } : { deleted: true };
+    }
+    return {
+      format: T.FORMAT, version: T.VERSION, saved: new Date().toISOString(), game: root.AFK_BUILD || 'dev',
+      tunables: clone(G.save.data.tune || {}),
+      enemyTuning: T.diff2(shipped.enemyTuning, G.ENEMY_TUNING), enemySpawn: T.diff2(shipped.enemySpawn, G.ENEMY_SPAWN),
+      maps, levels: same(shipped.levels, G.LEVEL_DATA) ? null : { data: clone(G.LEVEL_DATA), base: T.sig(shipped.levels) },
+    };
+  };
+  T.current = () => store.read() || T.empty();
+  T.has = () => T.summary(T.capture()) !== 'nothing';
+  // Keep this browser's tweaks (every editor's Save calls this). Returns the one-line summary.
+  T.save = () => { const t = T.capture(); store.write(t); T.pushCloud(t); return T.summary(t); };
+  // A dev-server save wrote these parts into the files: they're the game's own now, so stop counting them as tweaks
+  T.baked = (...parts) => { for (const p of parts) shipped[p] = clone(p === 'levels' ? G.LEVEL_DATA : p === 'maps' ? G.MAPS : p === 'enemyTuning' ? G.ENEMY_TUNING : G.ENEMY_SPAWN); T.conflicts = []; T.save(); };
+  // What an editor says when it saved into this browser instead of the files
+  T.savedHere = (summary) => 'Saved in this browser (no dev server here). Your tweaks: ' + summary + '. To keep a copy, or to hand them to Claude: SETTINGS > GAME > TWEAKS > SAVE TO FILE' + (T.cloud ? ' (this artifact also keeps them, where Claude can read them).' : '.');
+  // Back to the game's own data (the page reloads)
+  T.clear = () => { store.clear(); G.save.data.tune = {}; G.save.write(); T.pushCloud(null).then(() => location.reload()); };
+
+  // ---- File: save and load ----
+  const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); };
+  T.fileName = () => 'afk-tweaks-' + stamp() + '.json';
+  T.text = () => JSON.stringify(T.capture(), null, 1);
+  // Save to a file: the artifact's own download (claude.ai), else a plain browser download. Resolves a message.
+  T.exportFile = async () => {
+    const t = T.capture(), text = JSON.stringify(t, null, 1), name = T.fileName();
+    store.write(t);
+    const dl = root.claude && root.claude.use ? await root.claude.use('downloads').catch(() => null) : null;
+    if (dl) {
+      try { await dl.save({ filename: name, data: text }); return 'SAVED ' + name; }
+      catch (e) { if (e && e.code === 'declined') return 'NOT SAVED'; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return 'SAVED ' + name;
+  };
+  // Load a file (picked by the player): upgrade it, keep it, reload so everything starts from it
+  T.importText = (text) => {
+    const { t, notes } = T.migrate(JSON.parse(text));
+    for (const m of Object.values(t.maps || {})) if (!m.deleted && !T.mapOk(m.map, G.THEMES)) throw new Error('a map in it is damaged');
+    store.write(t);
+    G.save.data.tune = { ...(t.tunables || {}) }; G.save.write();
+    try { sessionStorage.setItem('afk-tweaks-note', 'LOADED: ' + T.summary(t) + (notes.length ? ' (' + notes.join('; ') + ')' : '')); } catch (e) { /* ignore */ }
+    return T.pushCloud(t).then(() => location.reload());
+  };
+  T.importFile = () => new Promise((resolve) => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return resolve('NOTHING PICKED');
+      f.text().then((txt) => T.importText(txt)).then(() => resolve('LOADED'), (e) => resolve('NOT A TWEAKS FILE: ' + e.message));
+    };
+    inp.click();
+  });
+
+  // ---- The claude.ai artifact: also keep them with the artifact (its db), where Claude can read them ----
+  // tweaks/current holds everything but the maps; each map is tweaks/current/maps/<id>. Writes go one at a time.
+  T.cloud = null;
+  let chain = Promise.resolve();
+  T.pushCloud = (t) => {
+    if (!T.cloud) return Promise.resolve();
+    const db = T.cloud;
+    chain = chain.then(async () => {
+      const meta = db.doc('tweaks/current'), old = await meta.get().catch(() => null), oldMaps = (old && old.exists && old.data().mapIds) || [];
+      const maps = (t && t.maps) || {};
+      for (const id of oldMaps) if (!maps[id]) await db.doc('tweaks/current/maps/' + id).delete().catch(() => {});
+      for (const [id, m] of Object.entries(maps)) await db.doc('tweaks/current/maps/' + id).set(clone(m)).catch(() => {});
+      if (t) await meta.set({ ...clone(t), maps: null, mapIds: Object.keys(maps) }).catch(() => {});
+      else await meta.delete().catch(() => {});
+    }).catch(() => {});
+    return chain;
+  };
+  T.pullCloud = async () => {
+    const db = T.cloud, s = db && (await db.doc('tweaks/current').get().catch(() => null));
+    if (!s || !s.exists) return null;
+    const t = s.data(), maps = {};
+    for (const id of t.mapIds || []) { const m = await db.doc('tweaks/current/maps/' + id).get().catch(() => null); if (m && m.exists) maps[id] = m.data(); }
+    delete t.mapIds;
+    return { ...t, maps };
+  };
+  if (root.claude && root.claude.use) {
+    root.claude.use('db').then(async (db) => {
+      if (!db) return;
+      T.cloud = db;
+      const local = store.read(), cloud = await T.pullCloud();
+      // This browser has none (cleared, or another device) but the artifact keeps some: use them (once per visit)
+      if (cloud && !local && cloud.saved) {
+        let tried = false; try { tried = sessionStorage.getItem('afk-tweaks-pulled'); sessionStorage.setItem('afk-tweaks-pulled', '1'); } catch (e) { /* ignore */ }
+        if (!tried) { const { t } = T.migrate(cloud); store.write(t); G.save.data.tune = { ...(t.tunables || {}) }; G.save.write(); G.toast && G.toast('YOUR TWEAKS: RELOADING', 90); setTimeout(() => location.reload(), 1200); }
+      } else if (local && (!cloud || cloud.saved !== local.saved)) T.pushCloud(local);
+    }).catch(() => {});
+  }
+
+  // ---- Boot: this browser's tweaks go onto the game's data now ----
+  const raw = store.read();
+  if (raw) {
+    try {
+      const { t, notes } = T.migrate(raw);
+      T.notes.push(...notes);
+      T.apply(t);
+      if (notes.length) store.write(t); // upgraded: keep it in the new shape
+    } catch (e) { T.notes.push('your saved tweaks could not be read: ' + e.message); }
+  }
+  try { const n = sessionStorage.getItem('afk-tweaks-note'); if (n) { T.loadedNote = n; sessionStorage.removeItem('afk-tweaks-note'); } } catch (e) { /* ignore */ }
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* AFK APOCALYPSE — levels from the level list (levels.js, G.LEVEL_DATA) plus their maps (G.MAPS) and spawn settings
+   (G.ENEMY_SPAWN): G.LEVELS (main, numbered), G.BONUS_LEVELS, G.SECRET_LEVELS; what comes after each; data disks.
+   The level manager (PRACTICE > LEVELS, levelmgr.js) edits G.LEVEL_DATA and calls G.buildLevels() again.
    Marker chars (become ground once parsed): P player  E exit (time door)  N neighbor  Z zombie spawn point
    B package (contents from `packages`, in reading order)  Q PDA  T practice target  $ spawn button (practice.js)
-   Pickups: U signature level-up  1 soda  2 blower  3 rockets  4 pie  5 coffee  6 soda bomb  7 burger  8 keycard  9 quarter
-   Map layouts live in maps.js (edit them in edit mode: press ` while playing). Tile legends live with each theme in tiles-*.js. */
+   ] bonus ticket  + data disk. Pickups: U signature level-up  1 soda  2 blower  3 rockets  4 pie  5 coffee  6 soda bomb
+   7 burger  8 keycard  9 quarter. Tile legends live with each theme in tiles-*.js. */
 (function () {
   'use strict';
   const G = window.G;
@@ -5674,110 +6029,62 @@ body.mouseaim #screen { cursor: none; }
   G.TEST_ROOM = {
     id: 'test', name: 'TEST ROOM', theme: G.MAPS.test.theme, test: true, map: G.MAPS.test.rows, kinds: G.MAPS.test.kinds, floors: G.MAPS.test.floors, loot: G.MAPS.test.loot,
   };
-
   // The weapon practice range (title: WEAPON PRACTICE; practice.js): every weapon, targets in the lanes, buttons that
   // bring enemies up in the arena. No enemies of its own (cap 0): only the buttons spawn them.
   G.PRACTICE = {
     id: 'range', name: 'WEAPON PRACTICE', theme: G.MAPS.range.theme, test: true, practice: true, enemies: { cap: 0 },
     map: G.MAPS.range.rows, kinds: G.MAPS.range.kinds, floors: G.MAPS.range.floors, loot: G.MAPS.range.loot,
   };
+  G.TOOL_MAPS = ['test', 'range']; // maps that are tools, never levels
 
-  // Data disks: one hidden in each of the first five levels (the '+' marker, behind a secret). Find all five and the
-  // secret level opens (G.SECRET_LEVEL): after Level 5, and in the level select. Saved per device (G.save.data.disks).
-  G.DISK_LEVELS = () => G.LEVELS.slice(0, 5).map((l) => l.id);
+  // One level's def (what Stage plays) from its entry in the list
+  G.levelDef = (e) => {
+    const info = G.LEVEL_DATA.levels[e.id] || {}, m = G.MAPS[e.id];
+    return {
+      id: e.id, kind: e.kind, after: e.after || null, name: info.name || e.id.toUpperCase(), time: info.time || [0, 0], theme: m.theme,
+      disk: !!info.disk, packages: info.packages || [], briefing: info.briefing && info.briefing.length ? info.briefing : null,
+      enemies: G.ENEMY_SPAWN[e.id] || G.ENEMY_SPAWN[G.LEVEL_DATA.order[0].id] || {},
+      ...(e.kind === 'secret' ? { secret: true } : e.kind === 'bonus' ? { bonus: true } : {}),
+      map: m.rows, over: m.over, kinds: m.kinds, floors: m.floors, loot: m.loot, // kinds: per-cell variants; floors: the floor under each object
+    };
+  };
+  // (Re)build every level from the list. Main levels are numbered in order; a bonus level shows as B, a secret one X.
+  G.buildLevels = () => {
+    const order = G.LEVEL_DATA.order.filter((e) => G.MAPS[e.id]), defs = order.map(G.levelDef);
+    G.LEVELS = defs.filter((d) => d.kind === 'main');
+    G.LEVELS.forEach((d, i) => { d.num = i + 1; });
+    G.BONUS_LEVELS = defs.filter((d) => d.kind === 'bonus');
+    G.BONUS_LEVELS.forEach((d) => { d.num = 'B'; });
+    G.SECRET_LEVELS = defs.filter((d) => d.kind === 'secret');
+    G.SECRET_LEVELS.forEach((d) => { d.num = 'X'; });
+    G.SECRET_LEVEL = G.SECRET_LEVELS[0] || null;
+    G.ALL_LEVELS = [...G.LEVELS, ...G.BONUS_LEVELS, ...G.SECRET_LEVELS];
+  };
+  G.levelById = (id) => G.ALL_LEVELS.find((d) => d.id === id) || null;
+  // "LEVEL 3", "BONUS LEVEL", "SECRET LEVEL"
+  G.levelLabel = (d) => (d.secret ? 'SECRET LEVEL' : d.bonus ? 'BONUS LEVEL' : 'LEVEL ' + d.num);
+  // The bonus level that follows main level `id` (found with its bonus ticket), if it has one
+  G.bonusAfter = (id) => G.BONUS_LEVELS.find((d) => d.after === id) || null;
+
+  // Data disks: one hidden in each level marked `disk` (the '+' marker, behind a secret). Find them all and the
+  // secret levels open: after the last main level, and in the level select. Saved per device (G.save.data.disks).
+  G.DISK_LEVELS = () => G.LEVELS.filter((d) => d.disk).map((d) => d.id);
   G.disksFound = () => G.DISK_LEVELS().filter((id) => (G.save.data.disks || {})[id]).length;
   G.secretUnlocked = () => G.disksFound() >= G.DISK_LEVELS().length;
 
-  G.LEVELS = [
-    {
-      id: 'culdesac', num: 1, name: 'CUL-DE-SAC', time: [23, 58], theme: G.MAPS.culdesac.theme,
-      // Package contents in reading order: a soda in the backyards' far corner, a pie in the maze's far corner, the
-      // garage block's coffee, the lawn's come-back quarter (layout: docs/design/level-1-plan.md). Progress items
-      // (rockets, keycard, soda bomb) lie in the open on the route.
-      packages: ['w:soda', 'i:pie', 'i:coffee', 'quarter'],
-      // Enemy spawning: mostly phone teens, the odd sprinter. Lives in tuning.js so the debug panel can tune and save it.
-      enemies: G.ENEMY_SPAWN.culdesac,
-      briefing: [
-        ["11:58 PM. IN TWO MINUTES THE FEED", 'GOES LIVE ON EVERY PHONE ON THIS', 'STREET. THE TEENS ARE ALREADY HOOKED.'],
-        ['RUN INTO YOUR NEIGHBORS AND I WILL', 'BEAM THEM TO SAFETY. IF A PHONE', 'ZOMBIE GETS THEM FIRST, THEY TURN.'],
-        ['SOMEONE DROPPED A PDA ON THIS BLOCK.', 'FIND IT AND IT WILL MAP EVERY', 'SECRET AND PACKAGE AROUND HERE.'],
-        ['THE TIME DOOR OPENS ONCE EVERYONE', 'IS ACCOUNTED FOR. GO!'],
-      ],
-      map: G.MAPS.culdesac.rows, over: G.MAPS.culdesac.over, kinds: G.MAPS.culdesac.kinds, floors: G.MAPS.culdesac.floors, loot: G.MAPS.culdesac.loot, // kinds: per-cell variants; floors: the floor under each object
-    },
-    {
-      id: 'galleria', num: 2, name: 'GALLERIA MALL', time: [1, 12], theme: G.MAPS.galleria.theme,
-      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the alley's far corner, the food court, the
-      // department store, the loading dock.
-      packages: ['quarter', 'i:pie', 'w:soda', 'i:coffee'],
-      enemies: G.ENEMY_SPAWN.galleria,
-      briefing: [
-        ['1:12 AM. THE FEED IS LIVE AND THE', 'GALLERIA IS FULL OF TEENS WHO CAME', 'FOR THE WIFI AND NEVER LEFT.'],
-        ['DELIVERY DRONES ARE STILL RUNNING', 'THEIR ROUTES. WATCH THE SKY, AND', 'WATCH WHAT COLOR THE BOX IS.'],
-        ['THE LOADING DOCKS NEED A KEYCARD.', 'MALL SECURITY LEFT ONE IN THE', 'GARDEN COURT, PAST THE ALLEY.'],
-        ['GET EVERYONE OUT. THE TIME DOOR', 'OPENS IN THE PLAZA. GO!'],
-      ],
-      map: G.MAPS.galleria.rows, over: G.MAPS.galleria.over, kinds: G.MAPS.galleria.kinds, floors: G.MAPS.galleria.floors, loot: G.MAPS.galleria.loot,
-    },
-    {
-      id: 'mansion', num: 3, name: "FOUNDER'S MANSION", time: [2, 20], theme: G.MAPS.mansion.theme,
-      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the greenhouse, the mansion, the maze, the
-      // garage, the gatehouse.
-      packages: ['i:pie', 'w:soda', 'i:coffee', 'quarter', 'i:pie'],
-      enemies: G.ENEMY_SPAWN.mansion,
-      briefing: [
-        ["2:20 AM. THE FEED'S FOUNDER LIVES", 'UP HERE. HIS ESTATE HAS ROBOT DOGS,', 'A HEDGE MAZE AND A PANIC ROOM.'],
-        ['THE DOGS BARK FOR BACKUP. SHUT THEM', 'UP BEFORE THE WHOLE LAWN COMES.', 'THEY WILL CHASE A BALL, THOUGH.'],
-        ['THE BLUE KEYCARD TO THE MANSION IS', 'IN THE MIDDLE OF THE MAZE. THE', 'GARDENER LEFT A MACHETE OUT.'],
-        ['SAVE THE STAFF AND THE GUESTS.', 'THE TIME DOOR IS ON THE DRIVE. GO!'],
-      ],
-      map: G.MAPS.mansion.rows, over: G.MAPS.mansion.over, kinds: G.MAPS.mansion.kinds, floors: G.MAPS.mansion.floors, loot: G.MAPS.mansion.loot,
-    },
-    {
-      id: 'serverfarm', num: 4, name: 'SERVER FARM', time: [3, 1], theme: G.MAPS.serverfarm.theme,
-      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the NOC, the stacks (2), the cooling plant,
-      // the cold aisle (2), the power room (2).
-      packages: ['i:coffee', 'w:soda', 'i:pie', 'quarter', 'i:pie', 'w:plates', 'i:coffee', 'i:pie'],
-      enemies: G.ENEMY_SPAWN.serverfarm,
-      briefing: [
-        ['3:01 AM. THIS IS WHERE THE FEED', 'LIVES: TEN THOUSAND SERVERS UNDER', 'A HILL, HUMMING ALL NIGHT.'],
-        ['THE NIGHT SHIFT IS TRAPPED INSIDE.', 'SECURITY BOTS, MOPS, DRONES... AND', 'SOMETHING WEARING YOUR FACE.'],
-        ['ROCKETS ARE IN THE COLD AISLE. THE', 'GLASS INTO THE CONTROL ROOM IS', 'CRACKED. THE KEYCARDS DO THE REST.'],
-        ['GET THE TECHS OUT. THE TIME DOOR', 'IS IN THE LOBBY. GO!'],
-      ],
-      map: G.MAPS.serverfarm.rows, over: G.MAPS.serverfarm.over, kinds: G.MAPS.serverfarm.kinds, floors: G.MAPS.serverfarm.floors, loot: G.MAPS.serverfarm.loot,
-    },
-    {
-      id: 'core', num: 5, name: 'THE CORE', time: [3, 33], theme: G.MAPS.core.theme,
-      // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the training floor, the archive (2), the
-      // core, the substation, the clone vats, the substation.
-      packages: ['i:pie', 'i:coffee', 'w:soda', 'quarter', 'i:pie', 'w:plates', 'i:coffee'],
-      enemies: G.ENEMY_SPAWN.core,
-      briefing: [
-        ['3:33 AM. THE BOTTOM OF THE HILL.', 'THE CORE: WHERE THE FEED THINKS.', 'IT KNOWS YOU ARE COMING.'],
-        ['IT HAS BEEN COPYING YOU ALL NIGHT.', 'THE CLONES GET BETTER AT BEING YOU', 'EVERY TIME YOU MISS.'],
-        ['A MACHETE BY THE MOAT, ROCKETS IN', 'THE ARCHIVE. THE KEYCARDS ARE IN', 'THE SUBSTATION AND THE TRAINING ROOM.'],
-        ['THE TIME DOOR IS BY THE ELEVATOR.', 'BRING EVERYONE UP. GO!'],
-      ],
-      map: G.MAPS.core.rows, over: G.MAPS.core.over, kinds: G.MAPS.core.kinds, floors: G.MAPS.core.floors, loot: G.MAPS.core.loot,
-    },
-  ];
-
-  // The secret level: opened by finding all five data disks (G.secretUnlocked); comes after Level 5, and is in the
-  // level select. It has no disk of its own.
-  G.SECRET_LEVEL = {
-    id: 'root', num: 'X', secret: true, name: '/ROOT', time: [4, 4], theme: G.MAPS.root.theme,
-    // Plan: docs/design/levels-2-5-plan.md. Packages in reading order: /bin, /etc, /dev, /tmp, /home.
-    packages: ['quarter', 'i:pie', 'quarter', 'w:soda', 'i:coffee'],
-    enemies: G.ENEMY_SPAWN.root,
-    briefing: [
-      ['4:04 AM. TIME NOT FOUND.', 'FIVE DISKS, FIVE BACKUPS... AND A', 'WAY INTO THE FEED ITSELF.'],
-      ['THIS IS ITS SOURCE. EVERY FOLDER', 'IS A ROOM. EVERY USER IT EVER', 'KEPT IS STORED IN /HOME.'],
-      ['THE CLONES LIVE HERE. THEY ARE', 'FAST, AND THEY HAVE YOUR MOVES.', 'SOMETHING GOOD IS IN /DEV/NULL.'],
-      ['LOG THEM ALL OUT. THE TIME DOOR', 'IS AT /. GO!'],
-    ],
-    map: G.MAPS.root.rows, over: G.MAPS.root.over, kinds: G.MAPS.root.kinds, floors: G.MAPS.root.floors, loot: G.MAPS.root.loot,
+  // What plays after clearing `def` (null: the night is over). ticket: the bonus ticket was found in it.
+  G.nextLevel = (def, ticket) => {
+    const mainAfter = (id) => {
+      const i = G.LEVELS.findIndex((d) => d.id === id);
+      return (i >= 0 && G.LEVELS[i + 1]) || (G.secretUnlocked() ? G.SECRET_LEVELS[0] || null : null);
+    };
+    if (def.kind === 'main') return (ticket && G.bonusAfter(def.id)) || mainAfter(def.id);
+    if (def.kind === 'bonus') return mainAfter(def.after);
+    if (def.kind === 'secret') { const i = G.SECRET_LEVELS.indexOf(def); return G.SECRET_LEVELS[i + 1] || null; }
+    return null;
   };
+
+  G.buildLevels();
 })();
 </script>
 <script>
@@ -9329,8 +9636,9 @@ body.mouseaim #screen { cursor: none; }
       if (res.status === 409) return msg('Not saved: tuning.js changed since this page loaded. Reload, then tune again.', 'bad');
       if (!res.ok) throw new Error(await res.text());
       version = await res.text(); savedSig = sig(); shownSig = null;
+      G.Tweaks.baked('enemyTuning', 'enemySpawn');
       msg('Saved to src/tuning.js.', 'ok');
-    } catch (e) { msg(G.saveHelp(), 'bad'); }
+    } catch (e) { savedSig = sig(); shownSig = null; msg(G.Tweaks.savedHere(G.Tweaks.save()), 'ok'); } // no dev server: keep it in this browser (tweaks.js)
   }
 
   // ===== Mouse: select an enemy, drag its rings =====
@@ -9965,7 +10273,7 @@ body.mouseaim #screen { cursor: none; }
   // room (optional): the map as the game sees it, for the jump-trap check (K.findTraps); its result is kept in K.traps
   K.checks = (grid, mapId, room) => {
     const count = (c) => grid.reduce((n, r) => n + r.filter((x) => x === c).length, 0);
-    const level = G.LEVELS.find((l) => l.id === mapId);
+    const level = G.levelById(mapId);
     const pk = count('B'), pkgs = level ? (level.packages || []).slice(0, pk) : [], starts = count('P');
     // keycards and gates by color (the map's kinds: G.cardColor); plain keys and locked house doors
     const colorOf = (x, y) => (room ? G.cardColor(room, x, y) : 'red'), gates = {}, cards = {}, pkgCards = {};
@@ -10713,8 +11021,11 @@ body.mouseaim #screen { cursor: none; }
   }
   function setDirty(on) { EM.dirty = on; if (panel) panel.querySelector('#ep-dirty').textContent = on ? '● unsaved changes' : ''; }
   async function save(st) {
-    try { await K.save(); setDirty(false); msg('Saved to src/maps.js — commit it to keep it on GitHub.', 'ok'); }
-    catch (e) { msg(e.message === 'stale' ? K.STALE_HELP : K.SAVE_HELP, 'bad'); }
+    try { await K.save(); G.Tweaks.baked('maps'); setDirty(false); msg('Saved to src/maps.js — commit it to keep it on GitHub.', 'ok'); }
+    catch (e) {
+      if (e.message === 'stale') return msg(K.STALE_HELP, 'bad');
+      setDirty(false); msg(G.Tweaks.savedHere(G.Tweaks.save()), 'ok'); // no dev server: keep it in this browser (tweaks.js)
+    }
   }
 
   // ===== Mouse painting =====
@@ -11132,7 +11443,7 @@ body.mouseaim #screen { cursor: none; }
     enter() {
       if (this.started) return;
       this.started = true;
-      G.toast(this.practice ? 'WEAPON PRACTICE' : this.test ? 'TEST ROOM' : (this.def.secret ? 'SECRET LEVEL' : 'LEVEL ' + this.def.num) + ' - ' + this.def.name, 180);
+      G.toast(this.practice ? 'WEAPON PRACTICE' : this.test ? 'TEST ROOM' : G.levelLabel(this.def) + ' - ' + this.def.name, 180);
     }
     // Everything shots can hit
     targets() { return [...this.dummies.filter((d) => d.alive()), ...this.enemies.filter((e) => e.hittable() && !(e.ally > 0))]; } // (not a robot Root hacked)
@@ -12025,8 +12336,7 @@ body.mouseaim #screen { cursor: none; }
   class LevelClear {
     constructor(st) {
       this.st = st; this.t = 0; this.menu = true; this.noToast = true;
-      const i = G.LEVELS.indexOf(st.def);
-      this.next = !st.test && i >= 0 ? G.LEVELS[i + 1] || (G.secretUnlocked() ? G.SECRET_LEVEL : null) : null; // after the last: the secret level, if all five data disks are found
+      this.next = !st.test && st.def.kind ? G.nextLevel(st.def, st.ticket) : null; // levelset.js: the next main level, the bonus level if its ticket was found, after the last the secret level if every data disk is found
       this.disk = G.DISK_LEVELS().includes(st.def.id) ? !!(G.save.data.disks || {})[st.def.id] : null;
       if (st.score > (G.save.data.best || 0)) G.save.data.best = st.score;
       G.save.write();
@@ -12134,17 +12444,30 @@ body.mouseaim #screen { cursor: none; }
     }
   }
   const sub = (label, help, rows) => ({ label, sub: true, help: () => help, act() { G.setState(new SubMenu(label, rows(), G.state)); } });
+  // TWEAKS (SETTINGS > GAME): your edits to maps, levels and tuning, kept in this browser when there's no dev server
+  // (tweaks.js). Save them to a file, load one, or go back to the game's own. Results show as a toast.
+  const tweaksItem = () => {
+    const T = G.Tweaks, fit = (m) => (m.length > 38 ? m.slice(0, 36) + '..' : m).toUpperCase();
+    let forget = 0, note = T.loadedNote || (T.conflicts.length ? 'THE GAME CHANGED UNDER YOUR EDIT OF ' + T.conflicts[0] : '');
+    const say = (m) => { note = m; }, tell = (dflt) => () => fit(note || dflt());
+    return sub('TWEAKS', 'YOUR MAP, LEVEL AND TUNING EDITS', () => [
+      { label: 'SAVE TO FILE', act: () => { say('SAVING...'); T.exportFile().then(say, (e) => say('NOT SAVED: ' + e.message)); }, help: tell(() => (T.has() ? T.summary(T.capture()) : 'NOTHING CHANGED YET')) },
+      { label: 'LOAD FROM FILE', act: () => { T.importFile().then(say); }, help: tell(() => 'A FILE YOU SAVED (THE GAME RELOADS)') },
+      { label: 'FORGET MY TWEAKS', act: () => { if (++forget >= 2) T.clear(); else say('PRESS AGAIN TO FORGET THEM'); }, help: tell(() => 'BACK TO THE GAME\'S OWN (RELOADS)') },
+    ]);
+  };
   // SETTINGS (title and pause): GAME, SOUND & SCREEN, CONTROLS. game: the stage, if there is one (online guests
   // don't set the difficulty: the host's counts)
   const settingsItem = (game) => {
     const o = G.opts(), remote = game && game.remote;
     return sub('SETTINGS', 'GAME, SOUND & SCREEN, CONTROLS', () => [
-      sub('GAME', 'DIFFICULTY, PERKS', () => [
+      sub('GAME', 'DIFFICULTY, PERKS, TWEAKS', () => [
         ...(remote ? [] : [{ label: 'DIFFICULTY', val: () => G.diff().name, act: (d = 1) => { const L = G.DIFF_ORDER; o.diff = L[(L.indexOf(o.diff) + d + L.length) % L.length]; }, help: () => G.diff().desc }]),
         { label: 'FULL HP PERK', val: () => (G.PERKS[o.perk] || G.PERKS.off).name, act: (d = 1) => { // a prototype: try each
           const L = G.PERK_ORDER, i = L.indexOf(o.perk);
           o.perk = L[((i < 0 ? L.length - 1 : i) + d + L.length) % L.length];
         }, help: () => (G.PERKS[o.perk] || G.PERKS.off).desc || 'NO PERK' },
+        ...(remote ? [] : [tweaksItem()]),
       ]),
       sub('SOUND & SCREEN', 'SOUND, SCANLINES, FULL SCREEN', () => [
         { label: 'SOUND', val: () => (o.sound ? 'ON' : 'OFF'), act: () => { o.sound = !o.sound; G.sfx.unlock(); G.sfx.play('pickup'); }, // a test beep
@@ -12331,7 +12654,7 @@ body.mouseaim #screen { cursor: none; }
   G.applyOpts();
   G.layout();
   // Shortcuts for testing: ?level=1 jumps straight into a level, ?test opens the test room
-  const qs = new URLSearchParams(location.search), lv = qs.get('level') === 'secret' ? G.SECRET_LEVEL : G.LEVELS[(+qs.get('level') || 0) - 1]; // ?level=2, ?level=secret
+  const qs = new URLSearchParams(location.search), lv = qs.get('level') === 'secret' ? G.SECRET_LEVEL : G.LEVELS[(+qs.get('level') || 0) - 1] || G.levelById(qs.get('level')); // ?level=2, ?level=secret, ?level=<id>
   if (qs.has('debug')) G.Debug.on = true; // ?debug: start with the enemy debug overlay on (\ toggles it)
   if (qs.has('seed')) G.urlSeed = +qs.get('seed') | 0; // ?seed=123: replay the same random game every time
   G.setState(lv ? new Stage(lv) : qs.has('test') ? new Stage(G.TEST_ROOM) : qs.has('practice') ? new Stage(G.PRACTICE, qs.get('practice') || 'pixel') : qs.has('select') ? { menu: true, update() { G.setState(new G.states.LevelSelect()); }, draw() {} } : qs.has('recruit') ? new G.Recruit() : new Boot()); // (?join=CODE, an online join link: lobby.js)
@@ -12400,7 +12723,7 @@ body.mouseaim #screen { cursor: none; }
       ctx.fillStyle = '#12061e'; ctx.fillRect(0, 118, G.W, G.H - 118); ctx.fillStyle = '#3a1a4a'; ctx.fillRect(0, 118, G.W, 1); // the street
       const [h, mm] = this.def.time || [23, 58]; // the clock: two minutes to go
       G.text((h % 12 || 12) + ':' + String(mm).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM'), G.W / 2, 10, '#ff3a5a', { align: 'center', scale: 2, shadow: '#3a0a1a' });
-      G.text((this.def.secret ? 'SECRET LEVEL' : 'LEVEL ' + this.def.num) + ' - ' + this.def.name, G.W / 2, 30, '#ffd23a', { align: 'center', shadow: '#140c1c' });
+      G.text(G.levelLabel(this.def) + ' - ' + this.def.name, G.W / 2, 30, '#ffd23a', { align: 'center', shadow: '#140c1c' });
       // the visitor, stepping out of a time portal, and your crew member listening
       const vx = 74, vy = 112;
       for (let i = 0; i < 24; i++) {
@@ -12424,11 +12747,13 @@ body.mouseaim #screen { cursor: none; }
   // ===== Level select (secret: type LEVEL on the title screen, or tap the attempt counter 5 times; ?select) =====
   // Every level, and the secret one (its lock shows, but you can still go in from here). Pick one, then your crew,
   // then its briefing. Shows which data disks you've found.
+  const ROWS = 9; // level rows on screen at once (the list scrolls)
   class LevelSelect {
-    constructor() { Object.assign(this, { menu: true, noToast: true, sel: 0, t: 0 }); }
+    constructor() { Object.assign(this, { menu: true, noToast: true, sel: 0, t: 0, top: 0 }); }
     items() {
-      const D = G.save.data.disks || {}, rows = G.LEVELS.map((L) => ({ L, label: L.num + '  ' + L.name, disk: G.DISK_LEVELS().includes(L.id) ? !!D[L.id] : null }));
-      if (G.SECRET_LEVEL) rows.push({ L: G.SECRET_LEVEL, label: 'X  ' + G.SECRET_LEVEL.name, secret: true });
+      const D = G.save.data.disks || {}, rows = G.LEVELS.map((L) => ({ L, label: L.num + '  ' + L.name, disk: L.disk ? !!D[L.id] : null }));
+      for (const L of G.BONUS_LEVELS) rows.push({ L, label: 'B  ' + L.name, bonus: true });
+      for (const L of G.SECRET_LEVELS) rows.push({ L, label: 'X  ' + L.name, secret: true });
       rows.push({ label: 'BACK', back: true });
       return rows;
     }
@@ -12439,7 +12764,8 @@ body.mouseaim #screen { cursor: none; }
       if (m.upP) { this.sel = (this.sel + n - 1) % n; G.sfx.play('blip'); }
       if (m.downP) { this.sel = (this.sel + 1) % n; G.sfx.play('blip'); }
       let pick = m.confirmP ? this.sel : -1;
-      for (const tp of I.taps) { const i = Math.floor((tp.y - 56 + 4) / 16); if (i >= 0 && i < n) { this.sel = i; pick = i; } }
+      for (const tp of I.taps) { const i = this.top + Math.floor((tp.y - 56 + 4) / 16); if (i >= this.top && i < Math.min(n, this.top + ROWS)) { this.sel = i; pick = i; } }
+      this.top = G.clamp(this.top, this.sel - ROWS + 1, this.sel); // scroll so the selection shows
       if (pick < 0) return;
       const r = rows[pick];
       G.sfx.play('confirm');
@@ -12451,10 +12777,13 @@ body.mouseaim #screen { cursor: none; }
       sky(ctx, this.t);
       G.text('LEVEL SELECT', G.W / 2, 14, '#ffd23a', { align: 'center', scale: 2, shadow: '#140c1c' });
       G.text('DATA DISKS ' + G.disksFound() + '/' + G.DISK_LEVELS().length + (G.secretUnlocked() ? '  SECRET OPEN' : ''), G.W / 2, 36, '#7ff0ff', { align: 'center', shadow: '#140c1c' });
-      this.items().forEach((r, i) => {
-        const y = 56 + i * 16, on = i === this.sel;
+      const all = this.items();
+      if (this.top > 0) G.text('^', G.W / 2, 46, '#8a7aa8', { align: 'center' });
+      if (this.top + ROWS < all.length) G.text('V', G.W / 2, 56 + ROWS * 16 - 6, '#8a7aa8', { align: 'center' });
+      all.slice(this.top, this.top + ROWS).forEach((r, k) => {
+        const i = this.top + k, y = 56 + k * 16, on = i === this.sel;
         if (on) { ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(20, y - 4, 216, 14); }
-        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.secret ? (G.secretUnlocked() ? '#ff9ad0' : '#6a5a8a') : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
+        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.secret ? (G.secretUnlocked() ? '#ff9ad0' : '#6a5a8a') : r.bonus ? '#ffd23a' : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
         if (r.disk !== null && r.disk !== undefined) { ctx.drawImage(G.art.icons.disk, 214, y - 3); if (!r.disk) { ctx.fillStyle = 'rgba(18,8,30,.7)'; ctx.fillRect(214, y - 3, 12, 12); } }
         if (r.secret && !G.secretUnlocked()) G.text('LOCKED', 228, y, '#6a5a8a', { align: 'right' });
       });
@@ -12580,7 +12909,7 @@ body.mouseaim #screen { cursor: none; }
       else if (r.reset && d > 0) { G.resetTuning(); G.toast('ALL BACK TO NORMAL', 90); G.sfx.play('confirm'); }
       else if (r.back && d > 0) this.leave();
     }
-    leave() { G.sfx.play('pause'); G.setState(new S.Boot()); }
+    leave() { G.sfx.play('pause'); G.Tweaks.save(); G.setState(new S.Boot()); } // keep the numbers with your tweaks (and the artifact's copy)
     update() {
       this.t++;
       const m = I.menu;
@@ -12947,7 +13276,7 @@ body.mouseaim #screen { cursor: none; }
     s.link.send(playMsg(st));
     G.toast(G.CREW[s.crew].name + ' JOINED', 150);
   }
-  const playMsg = (st) => ({ t: 'state', s: 'play', level: G.LEVELS.indexOf(st.def), seed: st.seed });
+  const playMsg = (st) => ({ t: 'state', s: 'play', level: st.def.id, seed: st.seed });
 
   // The host follows its own screens and tells the guests (wrapped G.setState)
   const setState0 = G.setState;
@@ -12960,7 +13289,7 @@ body.mouseaim #screen { cursor: none; }
       if (s !== N.stage) { N.stage = s; N.phase = 'play'; for (const sl of N.slots) if (sl && sl.link) { sl.ack = 0; sl.ackMin = N.snapId || 0; sl.ev = []; } N.hostBroadcast(playMsg(s)); }
       else if (prev instanceof S.Pause) N.hostBroadcast({ t: 'state', s: 'pause', on: false });
     } else if (s instanceof S.Pause && prev === N.stage) N.hostBroadcast({ t: 'state', s: 'pause', on: true });
-    else if (s instanceof S.Briefing) { N.phase = 'brief'; N.stage = null; N.hostBroadcast({ t: 'state', s: 'brief', level: G.LEVELS.indexOf(s.def) }); }
+    else if (s instanceof S.Briefing) { N.phase = 'brief'; N.stage = null; N.hostBroadcast({ t: 'state', s: 'brief', level: s.def.id }); }
     else if (s instanceof S.LevelClear) { N.phase = 'clear'; N.hostBroadcast({ t: 'state', s: 'clear', saved: s.st.saved, lost: s.st.lost, score: s.st.score, next: s.next ? s.next.name : '' }); }
     else if (s instanceof S.GameOver) { N.phase = 'over'; N.stage = null; N.hostBroadcast({ t: 'state', s: 'over', saved: s.st.saved, lost: s.st.lost, score: s.st.score, attempt: s.failed }); }
     else if (s instanceof S.Boot) N.leave();
@@ -13012,13 +13341,13 @@ body.mouseaim #screen { cursor: none; }
     const S = G.states;
     N.phase = o.s === 'pause' ? N.phase : o.s;
     if (o.s === 'play') {
-      const def = G.LEVELS[o.level];
+      const def = G.levelById(o.level);
       if (!def) return;
       const st = new G.Stage(def, [], o.seed);
       N.gstage = st; N.ghist.clear(); N.lastSnap = 0; N.inQ = [];
       G.setState(st);
     } else if (o.s === 'pause') { if (N.gstage) N.gstage.hostPaused = o.on; }
-    else if (o.s === 'brief') { N.gstage = null; const def = G.LEVELS[o.level]; if (def) G.setState(new S.Briefing(def, [], null, true)); }
+    else if (o.s === 'brief') { N.gstage = null; const def = G.levelById(o.level); if (def) G.setState(new S.Briefing(def, [], null, true)); }
     else if (o.s === 'clear' || o.s === 'over' || o.s === 'wait') { if (o.s !== 'wait') N.gstage = null; G.setState(new S.NetWait(o)); }
   }
   function guestLost(why) {

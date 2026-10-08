@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 22:36 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 23:01 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2918,11 +2918,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       r(0, -2, 3, 12, '#5a3a98'); r(13, -2, 3, 12, '#5a3a98'); r(2, 10, 2, 2, '#2a1a20'); r(12, 10, 2, 2, '#2a1a20');
     };
     const kitchenUp = (r, tx, ty, room) => { // a counter with cabinet doors under it: search it for dinner plates
-      r(0, -8, 16, 3, '#e0d8c8'); r(0, -5, 16, 17, '#a07850'); r(0, 12, 16, 2, '#3a2a20');
-      if (searchedAt(room, tx, ty)) { r(2, -3, 5, 5, '#1a1018'); r(9, -3, 5, 5, '#1a1018'); r(0, -3, 2, 5, '#8a6440'); r(14, -3, 2, 5, '#8a6440'); } // doors open
-      else { r(2, -3, 5, 5, '#8a6440'); r(9, -3, 5, 5, '#8a6440'); r(4, -1, 1, 1, '#e0c060'); r(11, -1, 1, 1, '#e0c060'); }
-      if (tx % 3 === 0) { r(3, -8, 10, 2, '#9098b0'); r(7, -10, 2, 2, '#c8d0e0'); } // sink + tap
-      else if (tx % 3 === 1) { r(3, -8, 4, 2, '#3a3a48'); r(9, -8, 4, 2, '#3a3a48'); } // burners
+      // waist height (about half a person): a counter top you see from above, then the cabinet front
+      r(0, 1, 16, 5, '#e0d8c8'); r(0, 1, 16, 1, '#f0ece0'); r(0, 6, 16, 1, '#b8ae9c'); r(0, 7, 16, 7, '#a07850'); r(0, 14, 16, 2, '#3a2a20');
+      if (searchedAt(room, tx, ty)) { r(2, 8, 5, 5, '#1a1018'); r(9, 8, 5, 5, '#1a1018'); r(0, 8, 2, 5, '#8a6440'); r(14, 8, 2, 5, '#8a6440'); } // doors open
+      else { r(2, 8, 5, 5, '#8a6440'); r(9, 8, 5, 5, '#8a6440'); r(4, 10, 1, 1, '#e0c060'); r(11, 10, 1, 1, '#e0c060'); }
+      if (tx % 3 === 0) { r(3, 2, 10, 3, '#9098b0'); r(4, 3, 8, 1, '#6a7088'); r(7, -1, 2, 3, '#c8d0e0'); } // sink + tap
+      else if (tx % 3 === 1) { r(3, 2, 4, 3, '#3a3a48'); r(9, 2, 4, 3, '#3a3a48'); } // burners
     };
     const bedUp = (r) => {
       r(1, -3, 14, 4, '#6a4a30'); r(1, 1, 14, 13, '#e8e0f0'); r(3, 2, 10, 3, '#ffffff');
@@ -2936,13 +2937,21 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       const hor = F(room.at(tx - 1, ty)) || F(room.at(tx + 1, ty)), ver = F(room.at(tx, ty - 1)) || F(room.at(tx, ty + 1));
       return { hor: hor || !ver, ver };
     };
+    // At a corner the two runs meet instead of crossing: each part only reaches toward the side the fence goes on
     const fenceUp = (r, tx, ty, room) => {
       const { hor, ver } = fenceDir(tx, ty, room);
-      if (ver) { r(6, -6, 4, 22, '#d8d8e4'); r(6, -6, 1, 22, '#ffffff'); r(9, -6, 1, 22, '#a8a8b8'); r(5, 0, 6, 2, '#e6e6f0'); }
-      if (hor) {
-        r(0, -2, 16, 1, '#c8c8d8'); r(0, 4, 16, 1, '#c8c8d8');
-        for (let x = 1; x < 16; x += 4) { r(x, -6, 2, 14, '#e6e6f0'); r(x, -6, 1, 14, '#ffffff'); }
+      const W = F(room.at(tx - 1, ty)), E = F(room.at(tx + 1, ty)), N = F(room.at(tx, ty - 1)), S = F(room.at(tx, ty + 1));
+      const corner = hor && ver;
+      if (ver) { // the north-south run: seen edge-on, a white line down the screen (to the corner post if it stops here)
+        const y0 = corner && !N ? -2 : -6, y1 = corner && !S ? 8 : 16;
+        r(6, y0, 4, y1 - y0, '#d8d8e4'); r(6, y0, 1, y1 - y0, '#ffffff'); r(9, y0, 1, y1 - y0, '#a8a8b8'); r(5, 0, 6, 2, '#e6e6f0');
       }
+      if (hor) { // the east-west run: rails and pickets, only on the side(s) it continues
+        const x0 = corner && !W ? 7 : 0, x1 = corner && !E ? 9 : 16;
+        r(x0, -2, x1 - x0, 1, '#c8c8d8'); r(x0, 4, x1 - x0, 1, '#c8c8d8');
+        for (let x = 1; x < 16; x += 4) if (x >= x0 - 1 && x + 2 <= x1 + 1) { r(x, -6, 2, 14, '#e6e6f0'); r(x, -6, 1, 14, '#ffffff'); }
+      }
+      if (corner) { r(6, -7, 4, 15, '#e6e6f0'); r(6, -7, 1, 15, '#ffffff'); r(9, -7, 1, 15, '#a8a8b8'); r(5, -8, 6, 2, '#ffffff'); } // the corner post on top
     };
     // Brown plank fence 'I' (like ZAMN's Level 5): tall wooden boards, taller than you, in fence lines that join up
     // (east-west or north-south). 'V' is a broken stretch of it: a board missing, one hanging loose, splinters at its
@@ -3020,16 +3029,26 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     };
     // Keycard gate: a steel security gate as tall as a brick wall, chunky posts, bars you can see through, a
     // hazard stripe and a glowing red card reader, so it can't be mistaken for a gap in the wall.
+    // Keycard gate: a barred gate set into the wall like a doorway (3D, the wall's own perspective). Two steel pillars
+    // the full depth of the wall frame it (a top as high as the wall's top, a front face); the gate stands between
+    // them halfway through the wall, so its top is level with the middle of the wall's top and its foot is mid-cell,
+    // with the doorway's floor in front of it. Above the gate you see past it, like any gap in a wall.
     const gateUp = (r, tx, ty, room) => {
       const [c, l] = G.CARD_COLORS[room ? G.cardColor(room, tx, ty) : 'red']; // the reader glows the color of card it takes
-      r(2, -22, 12, 36, '#141622');                                         // dark behind the bars
-      for (let x = 3; x < 13; x += 3) { r(x, -20, 2, 34, '#8a90a8'); r(x, -20, 1, 34, '#c8ccd8'); } // bars
-      r(0, -24, 16, 3, '#5a6078'); r(0, -24, 16, 1, '#a8aec4');             // top rail
-      for (let x = 0; x < 16; x += 4) { r(x, -1, 2, 3, '#ffd23a'); r(x + 2, -1, 2, 3, '#1a1a1a'); } // hazard stripe
-      r(0, -24, 3, 40, '#3a3e52'); r(0, -24, 1, 40, '#7a80a0');             // posts
-      r(13, -24, 3, 40, '#3a3e52'); r(15, -24, 1, 40, '#22263a');
-      r(4, -14, 8, 9, '#1a1028'); r(5, -13, 6, 7, c); r(6, -12, 2, 2, l);   // card reader, glowing its color
-      r(6, -8, 4, 1, '#1a1028');                                            // the card slot
+      const top = -TALL, mid = -TALL + 8, foot = 8; // wall top (back edge), the gate's top (mid-depth), the gate's foot
+      const L = room && room.at(tx - 1, ty) === 'D', R = room && room.at(tx + 1, ty) === 'D'; // gates side by side: one wide gate, pillars only at its ends
+      const x0 = L ? 0 : 3, x1 = R ? 16 : 13, w = x1 - x0;
+      r(x0, foot, w, 8, '#24242e'); r(x0, foot, w, 1, '#14141c'); r(x0, 14, w, 2, '#30303c'); // the doorway's floor, in the gate's shadow
+      r(x0, mid, w, foot - mid, '#141622'); // dark behind the bars
+      for (let x = x0 + 1; x < x1 - 1; x += 3) { r(x, mid + 2, 2, foot - mid - 2, '#8a90a8'); r(x, mid + 2, 1, foot - mid - 2, '#c8ccd8'); } // bars
+      r(x0, mid, w, 2, '#5a6078'); r(x0, mid, w, 1, '#a8aec4'); // top rail
+      for (let x = x0; x < x1; x += 4) { r(x, foot - 3, Math.min(2, x1 - x), 3, '#ffd23a'); if (x + 2 < x1) r(x + 2, foot - 3, Math.min(2, x1 - x - 2), 3, '#1a1a1a'); } // hazard stripe along the foot
+      r(5, mid + 5, 6, 8, '#1a1028'); r(6, mid + 6, 4, 6, c); r(7, mid + 7, 1, 2, l); r(6, mid + 10, 4, 1, '#1a1028'); // card reader, glowing its color
+      for (const x of [...(L ? [] : [0]), ...(R ? [] : [13])]) { // the pillars: a top surface the depth of the wall, then a front face down to the ground
+        r(x, top, 3, 16, '#6a7088'); r(x, top, 3, 1, '#a8aec4'); r(x + (x ? 2 : 0), top, 1, 16, x ? '#4a4e64' : '#8a90a8');
+        r(x, top + 16, 3, 16 - (top + 16), '#3a3e52'); r(x + (x ? 2 : 0), top + 16, 1, 16 - (top + 16), x ? '#22263a' : '#7a80a0');
+        r(x, 14, 3, 2, '#22263a');
+      }
     };
     // Latch gate: a wooden garden gate. Side-by-side latch tiles make one gate: planks and rails run straight across,
     // hinges on the outside posts, braces mirrored into a V, and a single brass latch where the halves meet.
@@ -3524,7 +3543,17 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (let x = x0 + 4; x < x1 - 2; x += 8) bag(x, 4, Math.min(8, x1 - 2 - x)); // top row, staggered
       if (!L) bag(1, 4, 4);
     };
-    const barricadeUp = (r) => {
+    const barricadeUp = (r, tx, ty, room) => {
+      const B = (x, y) => room && room.at(x, y) === ')', N = B(tx, ty - 1), S = B(tx, ty + 1);
+      if ((N || S) && !B(tx - 1, ty) && !B(tx + 1, ty)) { // a north-south run: one long striped rail, seen end-on, no gaps
+        const y0 = N ? -6 : 0, y1 = S ? 10 : 6;
+        r(6, y0, 4, y1 - y0 + 1, '#2a1a10');
+        for (let y = y0; y < y1; y += 4) { const k = ((y - y0) >> 2) & 1; r(7, y, 2, 2, k ? '#f0f0f0' : '#ff7a20'); r(7, y + 2, 2, 2, k ? '#ff7a20' : '#f0f0f0'); }
+        r(7, y0, 1, y1 - y0, 'rgba(255,255,255,.3)');
+        for (let i = 0; i < 8; i++) { const o = i >> 1; r(5 - o, 8 + i, 2, 1, '#3a2a1a'); r(9 + o, 8 + i, 2, 1, '#3a2a1a'); r(6 - o, 8 + i, 1, 1, '#6a4a2a'); r(10 + o, 8 + i, 1, 1, '#6a4a2a'); } // an A-frame of legs under the rail
+        if (!N) { r(7, -3, 2, 2, '#ff3a20'); r(7, -3, 1, 1, '#ffd0a0'); } // the warning lamp at the end
+        return;
+      }
       r(1, 6, 2, 10, '#3a2a1a'); r(13, 6, 2, 10, '#3a2a1a'); r(2, 7, 1, 9, '#6a4a2a'); r(14, 7, 1, 9, '#6a4a2a'); // legs
       r(0, 5, 16, 5, '#2a1a10');
       for (let x = 0; x < 16; x += 4) { r(x + 1, 6, 2, 3, '#ff7a20'); r(x + 3, 6, 2, 3, '#f0f0f0'); } // stripes
@@ -3572,16 +3601,19 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       t: { rise: 32, draw: treeUp, wide: 12 }, Y: { rise: 114, draw: bigTreeUp, wide: 32 }, o: { rise: 16, draw: trampolineUp }, l: { rise: 25, draw: lampUp }, m: { rise: 2, draw: mailUp }, g: { rise: 2, draw: canUp },
       c: { rise: CAR_RISE, draw: carUp }, w: { rise: TALL, draw: brickTallUp }, x: { rise: TALL, draw: crackUp }, v: { rise: TALL, draw: ventUp },
       H: { rise: 16, draw: wallUp }, K: { rise: 16, draw: wallUp }, O: { rise: 16, draw: doorUp }, W: { rise: 16, draw: wallInUp }, '^': { rise: 16, draw: plasterUp },
-      q: { rise: 6, draw: couchUp }, k: { rise: 10, draw: kitchenUp }, z: { rise: 3, draw: bedUp },
+      q: { rise: 6, draw: couchUp }, k: { rise: 2, draw: kitchenUp }, z: { rise: 3, draw: bedUp },
       '@': { rise: 14, draw: crowdUp, wide: 2 }, '!': { rise: 12, draw: fireUp },
       '<': { rise: 10, draw: plantUp }, a: { rise: 6, draw: coffeeTableUp }, s: { rise: 20, draw: bookshelfUp }, j: { rise: 14, draw: tvUp }, '[': { rise: 16, draw: cabinetUp }, '%': { rise: 8, draw: junkUp },
     };
     // Collision footprint inside the cell [x, y, w, h]; null = the whole cell
     const box = (ch, tx, ty, room) => {
       switch (ch) {
-        case 'f': { const { hor, ver } = fenceDir(tx, ty, room); return hor && ver ? null : ver ? [6, 0, 4, 16] : [0, 4, 16, 5]; }
+        case 'f': { const { hor, ver } = fenceDir(tx, ty, room); return hor && ver ? [3, 1, 10, 10] : ver ? [6, 0, 4, 16] : [0, 4, 16, 5]; } // a corner: its post (the runs' boxes reach it)
         case 'I': case 'V': { const { hor, ver } = plankDir(tx, ty, room); return hor && ver ? null : ver ? [5, 0, 6, 16] : [0, 4, 16, 6]; }
         case 'w': case 'x': case 'v': case 'u': return null; // brick blocks fill their cell
+        // a house's front wall is half a tile deep (its south half): inside, you can walk right up to it. Where it turns
+        // a corner (a wall above or below it) it fills the cell, so a wall line never leaks
+        case 'H': case 'K': { const wall = (c) => c === 'H' || c === 'K' || c === 'W' || c === '^' || c === 'O'; return room && (wall(room.at(tx, ty - 1)) || wall(room.at(tx, ty + 1))) ? null : [0, 8, 16, 8]; }
         case 'W': case '^': return thinBox(INWALLF)(tx, ty, room);
         case 't': return [5, 9, 6, 7];
         case 'Y': return room && G.pieceAnchor(room, tx, ty)[1] === ty ? [] : null; // a big tree blocks along its front row only (1 high, 2 wide): walk behind the trunk, under the crown
@@ -3595,7 +3627,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         case '[': return [1, 4, 14, 12];
         case '%': return [0, 4, 16, 10];
         case '(': return [0, 4, 16, 10];
-        case ')': return [0, 7, 16, 5];
+        case ')': { const B = (x, y) => room && room.at(x, y) === ')'; return (B(tx, ty - 1) || B(tx, ty + 1)) && !B(tx - 1, ty) && !B(tx + 1, ty) ? [5, 0, 6, 16] : [0, 7, 16, 5]; }
         case '/': return [0, 4, 16, 8];
         case '{': return [3, 7, 10, 9];
         case '}': return [6, 11, 4, 5];
@@ -11922,7 +11954,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       for (const s of this.spawners) if (s.type) s.drawFloor(ctx, v, this.t); // typed spawners: pads, glitches, cracked dirt
       G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players, ...(this.critters || [])]);
       G.drawSmoke(ctx, this, v); // smoke from wrecks and burning drums
-      this.drawGlints(ctx, v); // a glint now and then on whatever holds something (placed loot)
+      this.drawLocks(ctx, v); // locks shimmer now and then
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
       // shots and sparks under the roofs; roofs on top of everything in the world; then x-ray and hints
       for (const o of this.props) if (o.dart) this.drawDart(ctx, o, cx, cy); else this.drawPhone(ctx, o, cx, cy);
@@ -12002,16 +12034,25 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
     // The tell for placed loot: every few seconds a glint on each unopened thing that holds something (a trash can, a
     // cabinet, a car's trunk, a pile of leaves), so players learn which ones to open. Looks only.
-    drawGlints(ctx, v) {
-      const R = this.room;
-      for (const k in R.loot) {
-        const [tx, ty] = k.split(',').map(Number), ch = R.at(tx, ty), ph = (this.t + tx * 53 + ty * 29) % 200;
-        if (ph > 14 || R.searched.has(ty * R.w + tx) || !G.lootable(R.theme, ch) || G.cellKind(R, tx, ty) === 'knocked') continue;
-        const car = R.theme.blocks && R.theme.blocks.has(ch), up = R.theme.up && R.theme.up[ch], rise = up ? up.rise || 0 : 0;
-        const x = tx * 16 + (car ? 12 : 10) - v.x, y = ty * 16 + 5 - Math.min(rise, 14) - v.y, s = ph < 4 || ph > 10 ? 1 : 2;
+    // Locks shimmer so you can tell them from a plain door: a glint sweeps across every padlock (a locked garden gate)
+    // and lock plate (a locked house door) now and then. (Containers don't glint: you search to find out.)
+    drawLocks(ctx, v) {
+      const R = this.room, spots = [];
+      for (const d of R.doors) if (d.latch && d.locked && !d.open && R.at(d.tx + 1, d.ty) === 'G') spots.push([d.tx * 16 + 12, d.ty * 16 + 5, d.tx, d.ty]);
+        else if (d.latch && d.locked && !d.open && R.at(d.tx - 1, d.ty) !== 'G') spots.push([d.tx * 16 + 10, d.ty * 16 + 5, d.tx, d.ty]);
+      for (const d of R.hdoors || []) if (d.locked && !(d.anim > 0)) { const [lx, ly] = d.cells[d.cells.length - 1]; spots.push([lx * 16 + 7, ly * 16 + 5, lx, ly]); }
+      for (const [x0, y0, tx, ty] of spots) {
+        const x = x0 - v.x, y = y0 - v.y, ph = (this.t + tx * 37 + ty * 17) % 90;
         if (x < -8 || y < -8 || x > G.W + 8 || y > G.H + 8) continue;
-        ctx.fillStyle = '#fff6c0'; ctx.fillRect(x, y, 1, 1);
-        ctx.fillRect(x - s, y, s, 1); ctx.fillRect(x + 1, y, s, 1); ctx.fillRect(x, y - s, 1, s); ctx.fillRect(x, y + 1, 1, s);
+        if (ph < 10) { // a bright streak sweeping across the lock
+          ctx.fillStyle = 'rgba(255,255,240,.9)';
+          for (let k = 0; k < 5; k++) { const sx = x - 2 + ph - k; if (sx >= x && sx < x + 6) ctx.fillRect(sx, y + k, 1, 1); }
+        }
+        if (ph >= 6 && ph < 16) { // then a little star over it
+          const s = ph < 9 || ph > 13 ? 1 : 2, sx = x + 5, sy = y - 1;
+          ctx.fillStyle = '#fff6c0'; ctx.fillRect(sx, sy, 1, 1);
+          ctx.fillRect(sx - s, sy, s, 1); ctx.fillRect(sx + 1, sy, s, 1); ctx.fillRect(sx, sy - s, 1, s); ctx.fillRect(sx, sy + 1, 1, s);
+        }
       }
     }
     // A spot near (x, y) that someone can stand on to grab what's there: if it's inside something solid (the far end

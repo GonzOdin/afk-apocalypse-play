@@ -168,14 +168,15 @@ body.debugging:not(.editing) #debugpanel { display: block; }
 #debugpanel .dp-kind.on { border-color: #ffd23a; background: #22183a; }
 #debugpanel .dp-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; }
 #debugpanel .dp-row span { width: 92px; color: #9a8ec0; white-space: nowrap; }
+#debugpanel .dp-row.lab span { white-space: normal; line-height: 1.15; }
 #debugpanel .dp-row b { flex: 1; text-align: center; font-weight: normal; }
 #debugpanel button { font: inherit; color: #e8e0ff; background: #221636; border: 1px solid #3a2f58; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
 #debugpanel button:hover { border-color: #3ad0ff; }
 #debugpanel button.primary { background: #3a2a10; border-color: #ffd23a; padding: 4px 14px; }
 #debugpanel .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 #dp-dirty { color: #ffd23a; } #dp-msg { min-height: 14px; margin-top: 6px; }
-#dp-tabs { display: flex; gap: 3px; margin: 8px 0 2px; }
-#dp-tabs button { flex: 1; padding: 4px 0; font-size: 10px; letter-spacing: 0; }
+#dp-tabs { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0 2px; }
+#dp-tabs button { flex: 1 0 auto; padding: 4px 3px; font-size: 10px; letter-spacing: 0; }
 #debugpanel .dp-spawn { display: flex; flex-wrap: wrap; gap: 4px; }
 #debugpanel .dp-spawn button { font-size: 10px; padding: 3px 6px; }
 #dp-tabs button.on { background: #3a2a10; border-color: #ffd23a; color: #ffd23a; }
@@ -233,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-08 12:27 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-08 12:30 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -9749,7 +9750,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
  *   click empty ground     deselect
  *
  * Side panel (while debug is on), in tabs: SPAWN (this level's spawning and mix, plus buttons that put any enemy near
- * you), SIGHT, MOVE, FIGHT and TRICKS (every enemy kind's numbers), each with - / + buttons. Save writes them all to src/tuning.js through the dev server (refused if
+ * you), SIGHT, MOVE, FIGHT and TRICKS (every enemy kind's numbers), PLAYER (the player, the crew, the full-HP perk) and
+ * LAB (weapons, items, skills: the Tuning Lab's rows, G.TUNABLES), each with - / + buttons. Save writes them all to src/tuning.js through the dev server (refused if
  * tuning.js changed since this page loaded, like map saves). Rows come from the TABS table below: to make another
  * number tunable, put it in tuning.js and add a row.
  *
@@ -9973,7 +9975,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
 
   // ===== Side panel: tabs of numbers with - / + buttons, and Save =====
   let panel = null, savedSig = null, version = null, shownSig = null;
-  const sig = () => JSON.stringify([G.ENEMY_TUNING, G.ENEMY_SPAWN]);
+  const sig = () => JSON.stringify([G.ENEMY_TUNING, G.ENEMY_SPAWN, G.TUNABLES.map((t) => t.o[t.k])]); // (the Tuning Lab's numbers too: PLAYER and LAB tabs)
   fetch('__tuning-version').then((r) => (r.ok ? r.text() : null)).then((v) => { version = v; }).catch(() => {});
   // What players call an archetype: the names of the enemy types built on it (PHONE TEEN for shambler...)
   const labelOf = (kind) => Object.values(G.ENEMY_TYPES).filter((t) => t.archetype === kind).map((t) => t.name).join(', ') || kind.toUpperCase();
@@ -10011,11 +10013,20 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
     st.enemyCfg = { ...G.ENEMY_DEFAULTS, ...c };
   };
-  const TAB_NAMES = ['SPAWN', 'SIGHT', 'MOVE', 'FIGHT', 'TRICKS'];
+  const TAB_NAMES = ['SPAWN', 'SIGHT', 'MOVE', 'FIGHT', 'TRICKS', 'PLAYER', 'LAB'];
+  // The Tuning Lab's rows (G.TUNABLES), group by group: PLAYER has the player, the crew and the full-HP perk; LAB the
+  // weapons, items and skills. Same numbers as the Tuning Lab, saved the same way (LAB_TUNING in tuning.js).
+  const PLAYER_GROUP = (g) => g === 'PLAYER' || g.startsWith('CREW') || g === 'FULL-HP PERK';
+  const labGroups = (tab) => {
+    const out = new Map();
+    for (const t of G.TUNABLES) if (PLAYER_GROUP(t.group) === (tab === 'PLAYER')) { if (!out.has(t.group)) out.set(t.group, []); out.get(t.group).push(t); }
+    const rank = (g) => (g === 'PLAYER' ? 0 : g.startsWith('CREW') ? 1 : g === 'FULL-HP PERK' ? 2 : 3); // the player first
+    return [...out].sort((a, b) => rank(a[0]) - rank(b[0]));
+  };
   function buildPanel() {
     panel = document.createElement('div');
     panel.id = 'debugpanel';
-    panel.innerHTML = '<h1>ENEMY TUNING</h1><div id="dp-tabs"></div><div id="dp-body"></div>' +
+    panel.innerHTML = '<h1>TUNING</h1><div id="dp-tabs"></div><div id="dp-body"></div>' +
       '<div class="row"><button id="dp-save" class="primary">Save</button><button id="dp-heights">Heights (H)</button><span id="dp-dirty"></span></div><div id="dp-msg"></div>' +
       '<div class="help">Click an enemy in the game to pick its kind; drag its rings, scroll for its cone. Save writes src/tuning.js (needs the dev server); commit it to keep it on GitHub.</div>';
     document.body.appendChild(panel);
@@ -10026,6 +10037,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (b.id === 'dp-save') return save();
       if (b.id === 'dp-heights') { D.heights = !D.heights; return; }
       if (b.dataset.tab) { D.tab = b.dataset.tab; shownSig = null; try { localStorage.setItem('afk-apocalypse/debug-tab', D.tab); } catch (e) { /* fine */ } }
+      if (b.dataset.lab) { const t = G.TUNABLES.find((q) => q.id === b.dataset.lab); if (t) G.setTune(t, t.o[t.k] + +b.dataset.dir * t.step); }
+      if (b.dataset.jump) { const h = panel.querySelector('[data-group="' + b.dataset.jump + '"]'); if (h) h.scrollIntoView({ block: 'start' }); return; }
       if (b.dataset.kind) { D.kind = kinds().indexOf(b.dataset.kind); D.sel = null; adjust(b.dataset.kind, b.dataset.row, +b.dataset.dir); }
       if (b.dataset.spawn && G.state.def && G.state.def.enemies) adjustSpawn(G.state, b.dataset.spawn, +b.dataset.dir * +b.dataset.step);
       if (b.dataset.spawnnow && G.state instanceof G.Stage && !G.state.remote) { // put one near you (ignores the cap)
@@ -10054,6 +10067,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         '<h2>THE MIX</h2>' + mixRows().map(([f, name, step, fmt]) => row('data-spawn="' + f + '" data-step="' + step + '"', name, fmt(c, st))).join('') + '</div>') +
         '<div class="dp-kind"><h2>PUT ONE NEAR YOU</h2><div class="dp-spawn">' +
         Object.entries(G.ENEMY_TYPES).map(([id, T]) => '<button data-spawnnow="' + id + '">' + T.name + '</button>').join('') + '</div></div>';
+    } else if (D.tab === 'PLAYER' || D.tab === 'LAB') {
+      const groups = labGroups(D.tab);
+      html = (D.tab === 'LAB' ? '<div class="dp-spawn">' + groups.map(([g]) => '<button data-jump="' + g + '">' + g + '</button>').join('') + '</div>' : '') +
+        groups.map(([g, list]) => '<div class="dp-kind" data-group="' + g + '"><h2>' + g + '</h2>' +
+          list.map((t) => row('data-lab="' + t.id + '"', t.label, G.tuneShown(t)).replace('dp-row', 'dp-row lab')).join('') + '</div>').join('');
     } else {
       html = kinds().map((k, i) => {
         const t = tuneOf(k), rows = TABS[D.tab].filter((r) => holder(t, r) && (r.cone || !r.optional || holder(t, r)[r.k] !== undefined));

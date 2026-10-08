@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-08 12:30 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-08 13:25 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -4833,10 +4833,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     },
     can: {
       update(s, st) {
+        const R = st.room, roofAt = (x, y) => { const tx = Math.floor(x / 16), ty = Math.floor(y / 16); return R.overAt(tx, ty) === 'R' ? (R.region ? R.region[ty * R.w + tx] : -1) : null; };
+        if (s.home === undefined) { const h = roofAt(s.x, s.y); s.home = h === null ? -1 : h; } // thrown from inside a house: which one
         s.t++; s.x += s.vx; s.y += s.vy; s.z += s.vz; s.vz -= 0.2;
         // a lob sails over walls, hedges and fences; only a solid ceiling (a roof, solid hedge fill) stops it, so you
-        // can't lob one into a house. A leaf canopy isn't solid: it falls through.
-        const R = st.room, over = R.overAt(Math.floor(s.x / 16), Math.floor(s.y / 16)), wall = over === 'R' || over === 'M';
+        // can't lob one into a house. A leaf canopy isn't solid: it falls through. Thrown inside a house, its own roof
+        // is the ceiling it flies under: the house's walls stop it instead (and another house's roof, out a door).
+        const over = R.overAt(Math.floor(s.x / 16), Math.floor(s.y / 16)), roof = roofAt(s.x, s.y);
+        const indoors = s.home >= 0 && roof === s.home;
+        const wall = over === 'M' || (roof !== null && !indoors) || (indoors && R.blocksShot(s.x, s.y));
         if (wall || s.z <= 0 || (s.z < 16 && hitTarget(st, s.x, s.y, 7))) {
           st.explode(s.x - (wall ? s.vx * 2 : 0), s.y - (wall ? s.vy * 2 : 0), s.r, s.dmg, { fizz: true });
           return false;
@@ -5249,10 +5254,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "J..........t.J.foo.f.........t.....h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
         "J...........ZJ.fffff.............ooh......l::==-===::.::::::::::::::::.....cc.........cc.......J",
         "J...WWWWOOWWWW..............Z......h.......::======::.::::::::::::::::.....cc.........cc.......J",
-        "J...Wqq<nnkksW.....................J::::::.::==-===::...............::::::::::::::::::::::::::.J",
-        "JJJJWnaynnnnzWJJJJJJJJJJJJJJJJJJJJJJ.......::======::.....cc........::::::::::::::::::::::::::.J",
-        "J...Wjnnnnnn[W.........Zh...........h.Z..h.::==-===::.....cc...cc..............................J",
-        "J...HHHHOOHHHH..........h...........h.t..h.::cc====::..........cc.....Z.........l..t....Z....g.J",
+        "J...Wqq<nnkksW.....................J::::::.::==-===::..ccc.ccc.ccc..::::::::::::::::::::::::::.J",
+        "JJJJWnaynnnnzWJJJJJJJJJJJJJJJJJJJJJJ.......::======::..ccc.ccc.ccc..::::::::::::::::::::::::::.J",
+        "J...Wjnnnnnn[W.........Zh...........h.Z..h.::==-===::..........................................J",
+        "J...HHHHOOHHHH..........h...........h.t..h.::cc====::.................Z.........l..t....Z....g.J",
         "J...I.5I..dddd......................h....hm::cc-===::.h..Z...wDDwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
         "J..mI..I..l.........................h....h.::======::.h......w.................................J",
         "J...IIVI..........Z.....~~~.......t.hfffff.::==-===Z:lh......w.::::::::::::::::::.WWWWWWWWWWW..J",
@@ -5274,11 +5279,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "J.dddd..dddddIIVIIIdddd..dddddIIVIIIJ..:================:m...w.....................V......Z....J",
         "J...............f...................J..:================:....wt.......l............I.....F.....J",
         "J..,,,..........f.........,,,.......Jg.::==============:Z....w...N..........g......w...........J",
-        "J.....N.............................J...:==============:..g..w......Q..........Z...w.uuuuuu....J",
-        "J......................N............J.l..::==========::......w.....................w........9..J",
-        "J..t............f...........l.......J.....:::==E===:::...Z.l.w.g....%.....Z........w....%......J",
+        "J.....N.............................b...:==============:..g..w......Q..........Z...w.uuuuuu....J",
+        "J......................N............e.l..::==========::......w.....................w........9..J",
+        "J..t............f...........l.......e.....:::==E===:::...Z.l.w.g....%.....Z........w....%......J",
         "J.............Z.f...................J....Z...::::::..........w..................t..w...........J",
-        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+        "JJJJJJJJJJJJeeeJJJJeeJJJeeJJJJeeeeJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
       ],
       over: [
         "................................................................................................",
@@ -5347,7 +5352,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "................................................................................................",
       ],
       kinds: { "20,2": "painting", "92,2": "dog", "42,9": "painting", "71,13": "jacks", "37,16": "knocked", "38,20": "mower", "21,23": "baby", "56,25": "busted", "83,26": "teacher", "44,29": "left/red/wreck/shut", "3,30": "stretch", "89,30": "locked", "90,30": "locked", "86,32": "left/green/sedan/open", "6,33": "photo", "85,40": "photo", "72,41": "left/blue/wreck/open", "3,42": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "5,51": "painting", "11,51": "photo", "21,51": "painting", "65,58": "dog", "6,59": "gnome" },
-      floors: { "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "68,61": ".", "88,61": "." },
+      floors: { "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "55,34": ".", "56,34": ".", "57,34": ".", "59,34": ".", "60,34": ".", "61,34": ".", "63,34": ".", "64,34": ".", "65,34": ".", "6,35": "y", "55,35": ".", "56,35": ".", "57,35": ".", "59,35": ".", "60,35": ".", "61,35": ".", "63,35": ".", "64,35": ".", "5,36": "n", "12,36": "n", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "68,61": ".", "88,61": "." },
       loot: { "8,2": "ammo", "59,2": "i:pie", "46,10": "w:plates", "86,10": "empty", "21,20": "i:coffee", "31,28": "ammo", "72,31": "i:pie", "93,37": "burger", "3,39": "ammo", "88,61": "teen" },
     },
     "galleria": {
@@ -5870,7 +5875,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
  * (1 unit = 16 px = 2.5 ft) and ft/s. */
 (function () {
   window.G.ENEMY_TUNING = {
-    shambler: { hp: 3, speed: 0.34, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { pace: 0.55, chance: 0.01 }, hurry: { chance: 0.25, mul: 1.6 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
+    shambler: { hp: 3, speed: 0.96, sight: { notice: 70, giveUp: 80, cone: 60, feel: 24, neighbors: 90 }, grip: { drag: 0.3 }, mosey: { chance: 0.01, pace: 0.6 }, hurry: { chance: 0.05, mul: 1.1 }, phone: { chance: 0.004, notice: 26 }, swipe: { reach: 15, windup: 18, cooldown: 55, dmg: 1 } },
     rusher: { hp: 2, speed: 0.78, sight: { notice: 80, giveUp: 110, neighbors: 90 }, grip: { drag: 0.1 }, mosey: { pace: 0.55, chance: 0.01 }, swipe: { reach: 15, windup: 12, cooldown: 40, dmg: 1 }, lunge: { range: 56, speed: 2.2, windup: 14, cooldown: 120 } },
     flyer: { hp: 2, speed: 0.6, sight: { notice: 110, giveUp: 170, neighbors: 0 }, mosey: { pace: 0.6, chance: 0.01 }, hover: { dist: 36, height: 20 }, drop: { reach: 70, windup: 48, cooldown: 240, radius: 16, dmg: 2, lead: 0.4, red: 5, blue: 3, green: 2, fuse: 150, fuseRadius: 26, fuseDmg: 3, open: 40, pool: 'level' } },
     hound: { hp: 3, speed: 0.9, sight: { notice: 100, giveUp: 150, cone: 70, feel: 30, neighbors: 0 }, grip: { drag: 0.15 }, mosey: { pace: 0.5, chance: 0.012 }, lunge: { range: 64, speed: 2.6, windup: 18, cooldown: 110, dmg: 1 }, circle: { dist: 44 }, retreat: { time: 36 }, bark: { radius: 130, cooldown: 360, hunt: 240 }, fetch: { range: 120 } },
@@ -5879,7 +5884,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
   };
   window.G.ENEMY_SPAWN = {
-    culdesac: { cap: 6, every: [150, 260], near: [40, 140], ring: [24, 120], rest: 320, hunt: 480, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
+    culdesac: { cap: 6, every: [150, 260], near: [40, 140], ring: [24, 120], rest: 320, hunt: 480, linger: 1800, types: { phoneTeen: 8, sprinter: 1 } },
     mansion: { water: { every: [600, 1000], max: 2 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
     root: { water: { every: [600, 1000], max: 2 }, cap: 9, every: [120, 210], near: [40, 140], ring: [24, 120], rest: 280, hunt: 480, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
     core: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [125, 220], near: [40, 140], ring: [24, 120], rest: 280, hunt: 480, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
@@ -5887,6 +5892,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     galleria: { water: { every: [600, 1000], max: 1 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
   };
   window.G.LAB_TUNING = {
+    "CREW: JUNE.HEALTH (HP)": 3,
+    "CREW: JUNE.SPEED (SPD)": 4,
+    "CREW: PIXEL.HEALTH (HP)": 2,
+    "PLAYER.WALK SPEED": 1.6,
   };
 })();
 </script>
@@ -6042,6 +6051,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   // Things the engine renamed: old name -> new name. Old tweaks follow the rename when they load.
   T.RENAMED = { tunables: {}, archetypes: {}, maps: {} };
+  // Map tweaks Claude already merged into src/maps.js by hand (cell by cell onto a newer map, so the tweak no longer
+  // matches the game's map and would otherwise keep overriding it): skipped on load. By content (T.mapSig), per map.
+  T.BAKED_MAPS = { culdesac: ['ko3e90'] }; // James's 10-07 Level 1 edit (three cars in a row, patchy edge hedges), baked 10-08
+  const canon = (o) => (Array.isArray(o) ? '[' + o.map(canon).join(',') + ']' : o && typeof o === 'object' ? '{' + Object.keys(o).sort().map((k) => JSON.stringify(k) + ':' + canon(o[k])).join(',') + '}' : JSON.stringify(o));
+  T.mapSig = (m) => T.sig(canon(m)); // (key order doesn't matter: the artifact's db may hand fields back sorted)
   // Bring any tweaks file up to this engine: returns { t, notes } (notes: what was upgraded or skipped)
   T.migrate = (raw) => {
     const notes = [];
@@ -6121,6 +6135,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     for (const [id, m] of Object.entries(t.maps || {})) {
       if (m.deleted) { if (G.MAPS[id]) delete G.MAPS[id]; continue; }
       if (!T.mapOk(m.map, G.THEMES)) { notes.push('map ' + id + ': damaged or an unknown tileset, skipped'); continue; }
+      if ((T.BAKED_MAPS[id] || []).includes(T.mapSig(m.map))) { notes.push('map ' + id + ': already in the game, skipped'); continue; }
       if (shipped.maps[id] && m.base && T.sig(shipped.maps[id]) !== m.base && !same(shipped.maps[id], m.map)) T.conflicts.push(id);
       G.MAPS[id] = clone(m.map);
     }
@@ -9170,8 +9185,19 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
     // The center of the neighboring cell that's one step closer to a player, or null (no path / already there)
     stepFrom(px, py) {
-      const R = this.room, W = R.w, x = Math.floor(px / 16), y = Math.floor(py / 16), here = this.dist[y * W + x];
-      let best = here >= 0 ? here : 32767, bx = -1, by = -1;
+      const R = this.room, W = R.w;
+      let x = Math.floor(px / 16), y = Math.floor(py / 16), bx = -1, by = -1;
+      if (this.dist[y * W + x] < 0 && x >= 0 && y >= 0 && x < W && y < R.h) { // pressed into a fence's tile (it only blocks part of it): count from
+        let bd = Infinity, ox = x, oy = y; // the open tile nearest your feet, so the path never points through the fence
+        for (const [dx, dy, d] of [[0, -1, py - y * 16], [0, 1, (y + 1) * 16 - py], [-1, 0, px - x * 16], [1, 0, (x + 1) * 16 - px]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= R.h || this.dist[ny * W + nx] < 0 || d >= bd) continue;
+          bd = d; ox = nx; oy = ny;
+        }
+        if (ox !== x || oy !== y) { x = ox; y = oy; bx = x; by = y; } // (step out to it if nothing there is better)
+      }
+      const here = this.dist[y * W + x];
+      let best = here >= 0 ? here : 32767;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const nx = x + dx, ny = y + dy;
         if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= W || ny >= R.h) continue;

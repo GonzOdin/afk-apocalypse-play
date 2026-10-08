@@ -233,7 +233,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 22:23 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 22:36 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -4514,7 +4514,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     { group: 'BLOWER', label: 'CANNON CHARGE', o: W.blower, k: 'cannonCharge', min: 10, max: 180, step: 5, note: (v) => perSec(v) },
     { group: 'BLOWER', label: 'CANNON SPEED', o: W.blower, k: 'cannonMax', min: 2, max: 12, step: 0.5, unit: 'fts' },
     { group: 'BLOWER', label: 'DRONE TOSS', o: W.blower, k: 'droneToss', min: 1, max: 10, step: 0.5, note: (v) => 'X' + v + ' A TEEN' },
-    { group: 'BLOWER', label: 'DRONE SPEED', o: W.blower, k: 'droneSpeed', min: 0.5, max: 12, step: 0.25, unit: 'fts', note: (v) => '= ' + Math.round((v / G.PLAYER_SPEED) * 100) + '% OF YOU' },
+    { group: 'BLOWER', label: 'DRONE SPEED', o: W.blower, k: 'droneSpeed', min: 0.5, max: 12, step: 0.25, unit: 'fts' },
     { group: 'BLOWER', label: 'DRONE GLIDE', o: W.blower, k: 'droneGlide', min: 0.6, max: 0.99, step: 0.005, note: (v) => '~' + G.ft(W.blower.droneSpeed / (1 - v)) + ' FT' },
     { group: 'BLOWER', label: 'DRONE CRASH HIT', o: W.blower, k: 'droneHit', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'RANGE', o: W.blower, k: 'range', min: 4, max: 40, step: 1 },
@@ -6347,7 +6347,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     hurtInv: 120,     // ticks you can't be hurt after a hit (2 s)
     respawnInv: 180,  // ... after losing a life (3 s)
   };
-  Object.defineProperty(G, 'PLAYER_SPEED', { get: () => G.PLAYER.walk, configurable: true }); // the yardstick enemy speeds are shown against
+  // A fixed yardstick (the original walk speed, 10.3 ft/s) for things that scale with speed, like how fast an enemy
+  // turns. Fixed on purpose: tuning the player never changes the enemies.
+  G.PLAYER_SPEED = 1.1;
   // How fast the player turns, in radians per tick: around in 4 frames, which feels instant (the player's facing
   // still snaps). It's the yardstick enemies turn by: an enemy at 31% of the player's speed turns at 31% of this.
   G.PLAYER_TURN = Math.PI / 4;
@@ -6360,7 +6362,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // waits this many ticks before turning from a diagonal to a straight direction, so you stay pointed diagonally.
   const DIAG_HOLD = 2;
   const isDiagonal = (x, y) => Math.abs(x) > 0.38 && Math.abs(y) > 0.38; // within ~22 degrees of a 45
-  // A crew member's stats (crew.js, 1-5) as real numbers: walk speed in px/tick (Pixel's SPD 5 = G.PLAYER_SPEED),
+  // A crew member's stats (crew.js, 1-5) as real numbers: walk speed in px/tick (SPD 5 = G.PLAYER.walk),
   // and max health in half-hearts (HP 3 = 4 hearts, HP 5 = 6)
   G.crewSpeed = (def) => G.PLAYER.walk + ((def.stats ? def.stats.SPD : 5) - 5) * G.PLAYER.perSpd;
   G.crewHp = (def) => ((def.stats ? def.stats.HP : 3) + 1) * 2;
@@ -9450,10 +9452,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       { g: 'sight', k: 'neighbors', label: 'NEIGHBORS', step: 10, min: 0, max: 300, show: (v) => (v ? px(v) : 'ignores them') },
     ],
     MOVE: [
-      { k: 'speed', label: 'SPEED', step: 0.02, min: 0.05, max: 2, show: (v) => G.fts(v) + ' ft/s = ' + Math.round((v / G.PLAYER_SPEED) * 100) + '% of you' },
+      { k: 'speed', label: 'SPEED', step: 0.02, min: 0.05, max: 2, show: (v, t) => G.fts(v) + ' ft/s' + (t.hurry ? ' (' + G.fts(v * t.hurry.mul) + ' hurrying)' : '') },
       { g: 'mosey', k: 'pace', label: 'MOSEY PACE', step: 0.05, min: 0.1, max: 1, show: pct },
       { g: 'hurry', k: 'chance', label: 'HURRY CHANCE', step: 0.05, min: 0, max: 1, show: pct },
-      { g: 'hurry', k: 'mul', label: 'HURRY SPEED', step: 0.1, min: 1, max: 3, show: (v) => '\u00d7' + v.toFixed(1) },
+      { g: 'hurry', k: 'mul', label: 'HURRY SPEED', step: 0.1, min: 1, max: 3, show: (v, t) => '\u00d7' + v.toFixed(1) + ' = ' + G.fts(t.speed * v) + ' ft/s' },
       { g: 'grip', k: 'drag', label: 'SLOWS YOU', step: 0.05, min: 0, max: 1, show: (v) => (v >= 1 ? 'holds you' : pct(v) + ' each') }, // within swipe reach
       { g: 'hover', k: 'dist', label: 'KEEPS AWAY', step: 4, min: 8, max: 120, show: px },
       { g: 'hover', k: 'height', label: 'FLIES AT', step: 2, min: 8, max: 48, show: (v) => v + ' px up' },
@@ -9725,7 +9727,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       html = kinds().map((k, i) => {
         const t = tuneOf(k), rows = TABS[D.tab].filter((r) => holder(t, r) && (r.cone || !r.optional || holder(t, r)[r.k] !== undefined));
         return '<div class="dp-kind' + (i === D.kind ? ' on' : '') + '"><h2>' + (i + 1) + ' ' + labelOf(k) + '</h2>' +
-          (rows.length ? rows.map((r) => row('data-kind="' + k + '" data-row="' + rowId(r) + '"', r.label, r.show(r.cone ? holder(t, r).cone : holder(t, r)[r.k]))).join('') : '<div class="help">nothing to tune here</div>') + '</div>';
+          (rows.length ? rows.map((r) => row('data-kind="' + k + '" data-row="' + rowId(r) + '"', r.label, r.show(r.cone ? holder(t, r).cone : holder(t, r)[r.k], t))).join('') : '<div class="help">nothing to tune here</div>') + '</div>';
       }).join('');
     }
     panel.querySelector('#dp-body').innerHTML = html;

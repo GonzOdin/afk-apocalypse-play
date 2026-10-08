@@ -203,7 +203,7 @@ body.mouseaim #screen { cursor: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-07 16:37 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-07 17:40 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1866,7 +1866,7 @@ body.mouseaim #screen { cursor: none; }
   //   solid, shots (blocks shots), breakable (rockets and soda bombs clear them), chop (the machete cuts them),
   //   patchy (the obvious breakables, for the NEEDS ROCKETS hint), secret (PDA shimmer),
   //   vent (crew with the vent gate can pass), rubble { ch: leftover tile }
-  //   water, bounce, searchable, jumpBlock, road (street tiles, for the editors' layout checks)
+  //   seeThrough (uprights you see people through: glass, sparse hedge), water, bounce, searchable, jumpBlock, road (street tiles, for the editors' layout checks)
   //   stamps { ch: [w, h] }       multi-tile pieces the editors place whole (a 2x1 trampoline)
   //   heights { ch: px, over: { ch: px } }  how tall solid things stand (the debug overlay's height view)
   //   tile(r, ch, tx, ty, room)       ground art for one cell, drawn with r(x, y, w, h, color)
@@ -1949,6 +1949,9 @@ body.mouseaim #screen { cursor: none; }
   // Every cell you can walk to from (sx, sy) without opening anything (no keycards, rockets, bombs or jumps).
   // Returns a Uint8Array, 1 = reachable, indexed y * w + x. A latch gate opens only from a cell outside this set:
   // it's the way back out of somewhere locked, never a way in.
+  // Is the tile at (tx, ty) a secret (theme.secret, and not a lock on the way to a neighbor or the exit: room.secrets,
+  // from G.EditKit.secretCells)? ch: the tile, if it's already been replaced (a wall just broken)
+  G.isSecret = (R, tx, ty, ch = R.at(tx, ty)) => !!R.theme.secret && R.theme.secret.has(ch) && (!R.secrets || R.secrets.has(ty * R.w + tx));
   G.footReach = (R, sx, sy) => {
     const W = R.w, H = R.h, out = new Uint8Array(W * H), q = [sy * W + sx];
     out[q[0]] = 1;
@@ -2278,7 +2281,7 @@ body.mouseaim #screen { cursor: none; }
   // f picket fence  h hedge  S secret hedge (bomb it)  t tree  l lamppost  m mailbox  g garbage can  c parked car
   // p pool  w brick wall  x cracked brick (bomb it)  v crawlspace vent (vent crew only)  D locked gate (keycard)
   {
-    const SOLID = new Set([...'RHKOWqkzfhJSetlmgcpwxvuDbGYIVasj[%^@!()/{}']); // ( sandbags ) barricade / razor wire { burning drum } sign // @ zombie crowd, ! fire: crew gates (June, Dot) // ^ cracked plaster wall // a s j [ : furniture; % junk pile // O (house door) is solid only while closed
+    const SOLID = new Set([...'RHKOWqkzfhJSetlmgcpwxvuDbGYIVasj[%^@!()/{}<']); // < potted plant // ( sandbags ) barricade / razor wire { burning drum } sign // @ zombie crowd, ! fire: crew gates (June, Dot) // ^ cracked plaster wall // a s j [ : furniture; % junk pile // O (house door) is solid only while closed
     const STREET = new Set(['=', '-']);
     // Ground tiles get variety from G.hash (deterministic per cell, so a map always looks the same). Large soft
     // patches use world-space noise so they flow across cell borders; small details are rare one-offs per cell.
@@ -2682,7 +2685,32 @@ body.mouseaim #screen { cursor: none; }
         if (k > 0.45) r(x, y, 1, 1, k > 0.85 ? '#7ad884' : k > 0.65 ? '#4fae5a' : '#2e8a44');
       }
     };
-    const wallInUp = (r, tx, ty, room) => drawThin(r, thinParts(INWALLF, tx, ty, room).filter(() => true), 16, INWALL, tx, ty);
+    const wallInUp = (r, tx, ty, room) => {
+      const parts = thinParts(INWALLF, tx, ty, room);
+      drawThin(r, parts, 16, INWALL, tx, ty);
+      const k = room && G.cellKind(room, tx, ty);
+      if ((k === 'painting' || k === 'photo') && parts[0].face) wallArt(r, k, parts, tx, ty);
+    };
+    // Something hung on an inside wall's face (the map's kinds on a W: 'painting', a landscape in a gold frame, or
+    // 'photo', a family photo in a dark frame). Only on a face you can see (the room is south of the wall).
+    const wallArt = (r, kind, parts, tx, ty) => {
+      const wide = parts.some((q) => q.face && q.x === 0) && parts.some((q) => q.face && q.x === 12), x = wide ? 3 : 5, w = wide ? 10 : 6, y = -1, h = wide ? 7 : 6;
+      if (kind === 'painting') {
+        r(x, y, w, h, '#c8a040'); r(x, y, w, 1, '#f0d070'); r(x + 1, y + 1, w - 2, h - 2, '#4a7ab0'); // gold frame, sky
+        r(x + 1, y + h - 3, w - 2, 2, '#3a7a3a'); r(x + 2, y + h - 4, 2, 1, '#4a9a48'); r(x + w - 4, y + 2, 2, 1, '#f0e0a0'); // hills, a sun
+      } else {
+        r(x, y, w, h, '#2a1a12'); r(x + 1, y + 1, w - 2, h - 2, '#d8c8a8'); // a dark frame, an old print
+        for (let i = 0; i < (wide ? 3 : 2); i++) { const px = x + 2 + i * 3; r(px, y + 2, 2, 2, ['#e0b090', '#c08060', '#f0c8a0'][i]); r(px, y + 4, 2, h - 5, ['#3a70c0', '#c03040', '#40a060'][i]); } // the family
+      }
+      r(x + (w >> 1), y - 2, 1, 2, '#3a2a30'); // the nail
+    };
+    // A potted plant: a terracotta pot and a leafy fern (inside houses, on porches). Solid at its pot.
+    const plantUp = (r, tx, ty) => {
+      const k = G.hash(tx * 5, ty * 3);
+      r(4, 7, 8, 7, '#b0583a'); r(4, 7, 8, 1, '#d07850'); r(5, 13, 6, 1, '#7a3a24'); r(4, 9, 8, 1, '#8a4430'); // the pot
+      const leaf = ['#2e8a44', '#4fae5a', '#1f6a34', '#6ac46a'];
+      for (let i = 0; i < 9; i++) { const a = -2.4 + i * 0.6 + k * 0.3, len = 5 + ((i * 7 + Math.floor(k * 10)) % 4); for (let d = 1; d <= len; d++) r(8 + Math.round(Math.cos(a) * d * 0.9) - 1, 7 + Math.round(Math.sin(a) * d * 0.8) - (d >> 1) - 1, 2, 1, leaf[(i + d) % 4]); }
+    };
     // Cracked plaster '^': an inside wall with cracks running across it and plaster flaked off at its foot. Only a soda
     // bomb breaks it (theme.bombable): a secret way through a house.
     const plasterUp = (r, tx, ty, room) => {
@@ -3417,7 +3445,7 @@ body.mouseaim #screen { cursor: none; }
       H: { rise: 16, draw: wallUp }, K: { rise: 16, draw: wallUp }, O: { rise: 16, draw: doorUp }, W: { rise: 16, draw: wallInUp }, '^': { rise: 16, draw: plasterUp },
       q: { rise: 6, draw: couchUp }, k: { rise: 10, draw: kitchenUp }, z: { rise: 3, draw: bedUp },
       '@': { rise: 14, draw: crowdUp, wide: 2 }, '!': { rise: 12, draw: fireUp },
-      a: { rise: 6, draw: coffeeTableUp }, s: { rise: 20, draw: bookshelfUp }, j: { rise: 14, draw: tvUp }, '[': { rise: 16, draw: cabinetUp }, '%': { rise: 8, draw: junkUp },
+      '<': { rise: 10, draw: plantUp }, a: { rise: 6, draw: coffeeTableUp }, s: { rise: 20, draw: bookshelfUp }, j: { rise: 14, draw: tvUp }, '[': { rise: 16, draw: cabinetUp }, '%': { rise: 8, draw: junkUp },
     };
     // Collision footprint inside the cell [x, y, w, h]; null = the whole cell
     const box = (ch, tx, ty, room) => {
@@ -3432,6 +3460,7 @@ body.mouseaim #screen { cursor: none; }
         case 'm': return [6, 9, 4, 6];
         case 'g': return G.cellKind(room, tx, ty) === 'knocked' ? [1, 7, 14, 8] : [3, 7, 10, 8];
         case 'a': return [1, 6, 14, 8];
+        case '<': return [4, 8, 8, 6];
         case 's': return [0, 6, 16, 10];
         case 'j': return [1, 6, 14, 9];
         case '[': return [1, 4, 14, 12];
@@ -3448,13 +3477,13 @@ body.mouseaim #screen { cursor: none; }
       label: 'SUBURB (NIGHT)',
       palette: [
         ['.', 'GRASS'], [',', 'FLOWERS'], ['d', 'FLOWER BED'], ['~', 'FALLEN LEAVES (THE BLOWER CLEARS THEM)'], [':', 'SIDEWALK'], ['=', 'STREET'], ['-', 'STREET LINE'], ['R', 'ROOF'],
-        ['H', 'FRONT WALL (BLUE, 2 TALL)'], ['K', 'FRONT WALL (TAN, 2 TALL)'], ['O', 'HOUSE DOOR (2 TALL, PAINT 2 SIDE BY SIDE; CLICK ONE AGAIN TO LOCK IT)'], ['W', 'INSIDE WALL'], ['^', 'CRACKED PLASTER WALL (A SODA BOMB BREAKS IT)'],
-        ['n', 'WOOD FLOOR'], ['y', 'RUG'], ['q', 'COUCH'], ['k', 'KITCHEN COUNTER'], ['z', 'BED'], ['a', 'COFFEE TABLE'], ['s', 'BOOKSHELF'], ['j', 'TV'], ['[', 'CABINET'], ['f', 'PICKET FENCE'], ['I', 'PLANK FENCE (TALL, WOOD)'], ['V', 'BROKEN PLANK FENCE (A FEW WHACKS BREAK IT: A SMALL SECRET)'], ['h', 'SHORT HEDGE (FULL TILE, SHOOT OVER)'], ['J', 'TALL HEDGE (FULL TILE, 1 TALL)'], ['i', 'SPARSE HEDGE (WALK/SEE THROUGH)'], ['b', 'BRICK HEDGE (HEDGE OVER BRICK, UNBREAKABLE)'], ['r', 'BUSTED HEDGE (BLOWN OPEN, WALKABLE)'],
+        ['H', 'FRONT WALL (BLUE, 2 TALL)'], ['K', 'FRONT WALL (TAN, 2 TALL)'], ['O', 'HOUSE DOOR (2 TALL, PAINT 2 SIDE BY SIDE; CLICK ONE AGAIN TO LOCK IT)'], ['W', 'INSIDE WALL (CLICK ONE AGAIN: A PAINTING, A PHOTO)'], ['^', 'CRACKED PLASTER WALL (A SODA BOMB BREAKS IT)'],
+        ['n', 'WOOD FLOOR'], ['y', 'RUG'], ['q', 'COUCH'], ['k', 'KITCHEN COUNTER'], ['z', 'BED'], ['a', 'COFFEE TABLE'], ['s', 'BOOKSHELF'], ['j', 'TV'], ['[', 'CABINET'], ['<', 'POTTED PLANT'], ['f', 'PICKET FENCE'], ['I', 'PLANK FENCE (TALL, WOOD)'], ['V', 'BROKEN PLANK FENCE (A FEW WHACKS BREAK IT: A SMALL SECRET)'], ['h', 'SHORT HEDGE (FULL TILE, SHOOT OVER)'], ['J', 'TALL HEDGE (FULL TILE, 1 TALL)'], ['i', 'SPARSE HEDGE (WALK/SEE THROUGH)'], ['b', 'BRICK HEDGE (HEDGE OVER BRICK, UNBREAKABLE)'], ['r', 'BUSTED HEDGE (BLOWN OPEN, WALKABLE)'],
         ['S', 'SECRET TALL HEDGE (BOMB IT)'], ['e', 'PATCHY TALL HEDGE (ROCKETS/BOMBS BREAK IT)'], ['t', 'TREE'], ['Y', 'BIG TREE (2X2 OBSTACLE: ONE CLICK PLACES IT)'], ['l', 'STREETLIGHT (CLICK ONE AGAIN: BUSTED)'], ['m', 'MAILBOX'], ['g', 'TRASH CAN (CLICK ONE AGAIN: KNOCKED OVER)'], ['%', 'JUNK PILE (SEARCH IT)'], ['*', 'SPORTS GEAR (WALK OVER IT)'],
         ['(', 'SANDBAGS (LOW WALL: SHOOT OVER IT)'], [')', 'BARRICADE (STRIPED SAWHORSE)'], ['/', 'RAZOR WIRE (BLOCKS YOU AND THE POGO)'], ['{', 'BURNING OIL DRUM (SMOKES, LIGHTS THE GROUND)'], ['}', 'PROPAGANDA SIGN (STAY ONLINE)'], ['?', 'RUBBLE (WALKABLE)'],
         ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'LATCH GATE (OPENS ONLY FROM THE LOCKED SIDE)'],
       ],
-      groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj['], ['HEDGES & WALLS', 'hJbiSerfIVwuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*'], ['DYSTOPIA', '()/{}?']],
+      groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj[<'], ['HEDGES & WALLS', 'hJbiSerfIVwuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*'], ['DYSTOPIA', '()/{}?']],
       // border: what's past the map edge: a tall hedge, fully solid (a tree would only block at its trunk)
       // shots: tall things only; shots fly over short hedges, fences, short walls, cars, furniture
       border: 'J', ground: '.', solid: SOLID, shots: new Set([...'RHKOWtlwxDGvJSebYIVs[^@']),
@@ -3473,11 +3502,10 @@ body.mouseaim #screen { cursor: none; }
         const trunk = b.w >= b.h ? (p.facing === 'left' ? cx === cw - 1 : cx === 0) : p.facing === 'up' ? cy === chh - 1 : cy === 0;
         return trunk ? [b.x0, b.y0] : null;
       },
-      searchLoot: { k: { teen: 0, empty: 0.35, plates: 0.45 }, '[': { teen: 0.05, empty: 0.25, plates: 0.55 }, c: { teen: 0.06, empty: 0.25 } }, // kitchens: dinner plates (G.WEAPONS.plates); the rest is loot
       ballAt: (room, tx, ty) => (room.at(tx, ty) === '*' ? ['basket', 'soccer'][gearKind(tx, ty)] || null : null), // a ball on the lawn (G.launchBall)
       leaves: new Set(['~']), leafBare: '.', // fallen leaves: a blower gust blows them off, leaving grass // a knocked-over can (kinds 'knocked') can't be searched
       // objects sit on a floor (the map's `floors` remembers which; deleting one in the editor puts that floor back)
-      objects: new Set([...'otYlmgcqkzasj[%*@!(){}/']), floors: new Set([...'.,d:=-nyr~?']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
+      objects: new Set([...'otYlmgcqkzasj[%*@!(){}/<']), floors: new Set([...'.,d:=-nyr~?']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
       road: new Set(['=', '-']), // street tiles (the editors' layout check keeps the street small)
       jumpBlock: new Set([...'RHKOWwxvDGcY^@!']), // a trampoline launch can't clear these: houses, brick, gates, cars, big trees
       pogoBlock: new Set([...'RHKOWwxvDGcYJSebIV^@!/']), // the pogo only clears half-height things: tall hedges stop it too
@@ -3492,8 +3520,8 @@ body.mouseaim #screen { cursor: none; }
       bombable: new Set(['^']), // only a soda bomb breaks these (cracked plaster); what's left is wood floor (rubble)
       pound: new Set(['x', '^']), // Lou's ground pound (Order Up!) smashes cracked brick and cracked plaster beside him
       melee: new Set(['V']), meleeHits: 3, // whack these (fire facing it, a bat, a machete) this many times and they break
-      up: UPRIGHT, box,
-      interior: new Set([...'WnyqkzOasj[^']), // ground tiles that belong to a house (for roof regions)
+      up: UPRIGHT, box, seeThrough: new Set(['i']), // sparse hedge: you see who's behind it (the hidden-neighbor check)
+      interior: new Set([...'WnyqkzOasj[^<']), // ground tiles that belong to a house (for roof regions)
       roofLift: 16, // roofs sit on top of 1-unit walls, so they're drawn 16px higher than their cells
       overTile(r, ch, tx, ty, room) { if (ch === 'R') roofArt(r, tx, ty, (x, y) => room.overAt(x, y) === 'R'); },
       // Top-layer hedge fills over path cells, painted by the editor.
@@ -3577,6 +3605,7 @@ body.mouseaim #screen { cursor: none; }
           case 'm': floorUnder(r, tx, ty, room); return shadow(r, 5, 14, 6, 2);
           case 'g': floorUnder(r, tx, ty, room); return shadow(r, 2, 13, 12, 3);
           case 'a': case 's': case 'j': case '[': return floorUnder(r, tx, ty, room);
+          case '<': floorUnder(r, tx, ty, room); return shadow(r, 4, 13, 9, 2);
           case '%': floorUnder(r, tx, ty, room); return shadow(r, 1, 12, 15, 3);
           case '@': case '!': return floorUnder(r, tx, ty, room);
           case '*': floorUnder(r, tx, ty, room); return sportsGear(r, tx, ty);
@@ -3649,7 +3678,7 @@ body.mouseaim #screen { cursor: none; }
      e cracked glass (rockets, a soda bomb or the machete break it)  x cracked wall (rockets or a soda bomb)
      S hollow panel: a secret (a slightly brighter seam; rockets, a soda bomb or the machete)  v vent (Pixel)
      D security door (keycard)  G turnstile (one way: opens from the locked side)
-   Things: c cooling unit  u UPS cabinet (low: shoot over)  k desk with a terminal (search it)  m locker (search it)
+   Things: c cooling unit  u UPS cabinet (low: shoot over)  k desk with a terminal  m locker (search it)
      j the FEED on a big screen  l floor light  % a pile of cables and dead drives (search it)  o jump pad (2x1)
      ( sandbags  ) barricade */
 (function () {
@@ -3674,9 +3703,9 @@ body.mouseaim #screen { cursor: none; }
   };
   const lobby = (r, tx, ty) => { // polished stone tiles, 8px, with a faint sheen and the odd reflected light
     const k = h(tx, ty);
-    r(0, 0, 16, 16, '#262a3e');
-    for (const [x, y] of [[0, 0], [8, 0], [0, 8], [8, 8]]) { const q = h(tx * 2 + x, ty * 2 + y, 3); r(x, y, 8, 8, q < 0.3 ? '#22263a' : q > 0.8 ? '#2a3044' : '#262a3e'); r(x, y, 8, 1, '#30364c'); r(x, y, 1, 8, '#2e3448'); }
-    if (k > 0.7) { r(3, 10, 6, 1, '#3a4258'); r(5, 11, 3, 1, '#343c52'); }
+    r(0, 0, 16, 16, '#4c5066'); // (lighter than the dark wall tops: the contrast rule)
+    for (const [x, y] of [[0, 0], [8, 0], [0, 8], [8, 8]]) { const q = h(tx * 2 + x, ty * 2 + y, 3); r(x, y, 8, 8, q < 0.3 ? '#474b60' : q > 0.8 ? '#52576e' : '#4c5066'); r(x, y, 8, 1, '#5c6278'); r(x, y, 1, 8, '#585e74'); }
+    if (k > 0.7) { r(3, 10, 6, 1, '#6a7290'); r(5, 11, 3, 1, '#62698a'); }
   };
   const coolant = (r, tx, ty, room) => {
     r(0, 0, 16, 16, '#0a5a7a'); r(0, 0, 16, 2, 'rgba(0,0,0,.35)');
@@ -3697,8 +3726,11 @@ body.mouseaim #screen { cursor: none; }
     if (P.left) r(0, -TALL, 1, 16, look.side);
     if (P.right) r(15, -TALL, 1, 16, look.lo);
   };
+  // A steel wall's top is dark with a diagonal hatch, so it never reads as floor (the floor is a lighter #3a4054):
+  // the contrast rule in docs/design/level-rules.md, checked by the tests
   const wallLook = (tx, ty, extra) => ({
-    cap: '#3a4058', hi: '#6a7aa0', side: '#4a5270', lo: '#262a3a',
+    cap: '#151926', hi: '#8a9ac0', side: '#4a5270', lo: '#0a0c14',
+    capDetail: (r, x, y) => { for (let k = 1; k < 15; k++) for (let yy = 1; yy < 15; yy++) if ((k - yy + 64) % 5 === 0) r(x + k, y + yy, 1, 1, '#262c40'); }, // diagonal hatch
     face: (r, x, y, w, hh) => {
       r(x, y, w, hh, '#2a3048'); r(x, y, w, 1, '#1a1e2c');
       r(x, y + 6, w, 1, '#38d0f0'); r(x, y + 7, w, 1, 'rgba(56,208,240,.35)'); // a cyan light strip
@@ -3832,13 +3864,14 @@ body.mouseaim #screen { cursor: none; }
       ['.', 'RAISED FLOOR'], [',', 'FLOOR, CABLE RUN'], [':', 'HAZARD WALKWAY'], ['=', 'LOBBY FLOOR'], ['p', 'COOLANT (SWIM IN IT)'],
       ['#', 'STEEL WALL (2 TALL)'], ['s', 'SERVER RACK (2 TALL)'], ['i', 'GLASS WALL (SEE AND SHOOT THROUGH)'], ['e', 'CRACKED GLASS (ROCKETS, A SODA BOMB OR THE MACHETE)'],
       ['x', 'CRACKED WALL (ROCKETS OR A SODA BOMB)'], ['S', 'HOLLOW PANEL: SECRET (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['D', 'SECURITY DOOR (KEYCARD; CLICK ONE AGAIN: COLOR)'], ['G', 'TURNSTILE (OPENS ONLY FROM THE LOCKED SIDE)'],
-      ['c', 'COOLING UNIT'], ['u', 'UPS CABINET (LOW: SHOOT OVER)'], ['k', 'DESK (SEARCH IT)'], ['m', 'LOCKER (SEARCH IT)'], ['j', 'THE FEED ON A BIG SCREEN'], ['l', 'FLOOR LIGHT'], ['%', 'CABLES AND DEAD DRIVES (SEARCH IT)'],
+      ['c', 'COOLING UNIT'], ['u', 'UPS CABINET (LOW: SHOOT OVER)'], ['k', 'DESK'], ['m', 'LOCKER (SEARCH IT)'], ['j', 'THE FEED ON A BIG SCREEN'], ['l', 'FLOOR LIGHT'], ['%', 'CABLES AND DEAD DRIVES (SEARCH IT)'],
       ['o', 'JUMP PAD (2X1: ONE CLICK)'], ['(', 'SANDBAGS (LOW)'], [')', 'BARRICADE'],
     ],
     groups: [['GROUND', '.,:=p'], ['WALLS', '#sieSxvDG'], ['GET AROUND', 'o'], ['THINGS', 'cukmjl%()']],
     border: '#', ground: '.', solid: SOLID, shots: new Set([...'#sexSvDGmj']),
     water: new Set(['p']), bounce: new Set(['o']), stamps: { o: [2, 1] },
-    searchable: new Set(['k', 'm', '%']), searchLoot: { k: { teen: 0.04, empty: 0.3 }, m: { teen: 0.08, empty: 0.25 } },
+    seeThrough: new Set(['i', 'e']), // glass: you see who's behind it (the hidden-neighbor check)
+    searchable: new Set(['m', '%']), // lockers and junk piles (what's in them: the map's loot); desks are just desks
     // who works here: mostly night-shift techs, a delivery driver at the loading dock, a cat that got in somewhere
     people: (R, tx, ty, pick) => (R.at(tx, ty) === '=' ? pick(['delivery', 'teacher', 'tech']) : pick(['tech', 'tech', 'tech', 'cat', 'driver'])),
     road: new Set(), objects: new Set(), floors: new Set([...'.,:=']),
@@ -4059,6 +4092,7 @@ body.mouseaim #screen { cursor: none; }
       held: { can: { body: '#5a3018', band: '#ffffff', lid: '#202028' } }, // a diner coffee pot
       dmg: 0.4, rate: 5, range: 15, perk: 20, perkMax: 300, // tunable: damage per drop, fire delay, ticks a drop flies; speed-up ticks a drop gives a teammate, most it builds to
       spillLife: 600, spillSlow: 0.55, // tunable: a spill where coffee lands lasts this many ticks; the living wade through it at this speed (mop bots come to clean it)
+      spillBurn: 0.25, spillEvery: 40, // tunable: it's hot: an enemy standing in it takes this much every this many ticks (a teen lasts about 8 s)
       cd() { return this.rate; },
       fire(p, st, dx, dy, w) {
         const base = Math.atan2(dy, dx);
@@ -4117,7 +4151,7 @@ body.mouseaim #screen { cursor: none; }
       name: 'BLOWER', icon: 'blower',
       held: { len: 8, thick: 2, butt: '#d8c040', body: '#8a8aa0', tip: '#3a3a48', tipLen: 1 }, // yellow motor, grey tube
       ammo: 160, max: 320, dmg: 0.12, rate: 2, range: 20, // tunable
-      push: 0.9, leafLoot: 0.12, phone: 0.05, fall: 1.5, ballDmg: 4, ballPop: 1.5, // tunable: shove per gust, chance a leaf pile hides loot, chance per gust a phone flies, damage landing off a trampoline, a ball's hit, its pop
+      push: 0.9, phone: 0.05, fall: 1.5, ballDmg: 4, ballPop: 1.5, // tunable: shove per gust, chance per gust a phone flies, damage landing off a trampoline, a ball's hit, its pop
       droneToss: 3, droneSpeed: 2, droneGlide: 0.975, droneTumble: 120, droneHit: 2, // tunable: a drone's shove (x a teen's), its top drift speed (px/tick), how far it glides (speed kept per tick), most ticks it tumbles, damage to each enemy it crashes into
       ballHits: 3, // tunable: hits a ball takes before it pops
       // The ball cannon: stand on a ball with the blower out and it's sucked into the tube (p.ballKind). Then fire
@@ -4258,44 +4292,22 @@ body.mouseaim #screen { cursor: none; }
   G.perkOf = (p) => (p && !p.dead && p.hp >= p.maxHp && G.PERKS[G.opts().perk] ? G.opts().perk : 'off');
   G.PICKUP_STATS = { burger: { heal: 6 }, ammo: { amount: 60 } }; // tunable. (Everyone in this game is vegan: it's a veggie burger.)
 
-  // ===== Loot: weights for random packages and zombie drops (higher = more common) =====
-  // Keycards are never random: each level places exactly the keycards its doors need.
-  G.LOOT = { burger: 3, ammo: 8, 'i:pie': 6, 'i:coffee': 3, 'w:blower': 3, 'w:bat': 3, 'w:machete': 1, 'i:pogo': 2, 'w:rockets': 0.5, 'i:bomb': 2, 'w:soda': 1, quarter: 1 }; // tunable: burgers (3 hearts) and rockets are rare finds
-  G.SEARCH = { teen: 0.15, empty: 0.15 }; // tunable: searching a trash can or mailbox: a teen jumps out / nothing; else loot
-  // Searching a kitchen counter or a cabinet (theme.searchLoot): dinner plates likely, a teen almost never
-  G.LOOT_CHANCE = { zombie: 10 }; // tunable: % chance a zombie drops loot
-  // ===== Mercy: random loot leans toward what you're short of. Never guaranteed, just likelier =====
-  // Multipliers on G.LOOT weights (tunable). Darts low, or out with other weapons left: a little more ammo. Out of
-  // everything: a lot more ammo, and enemies drop loot more often. Low on health: more food; full health: less.
-  G.LOOT_MERCY = { lowAmmo: 1.5, noAmmo: 4, lowHealth: 2.5, fullHealth: 0.5, desperateDrops: 2 };
+  // ===== Loot is placed, never random (ZAMN-style): what a trash can, cabinet, car trunk or pile of leaves holds is
+  // written in the map's `loot` { "x,y": key } (a car: its top-left cell). Only those open; the rest is scenery.
+  // Keys: anything a package can hold, plus 'teen' (one jumps out) and 'empty' (a decoy). Keycards are never loot.
+  G.LOOT_KINDS = ['ammo', 'i:pie', 'i:coffee', 'burger', 'quarter', 'w:plates', 'w:soda', 'i:bomb', 'w:blower', 'w:bat', 'w:machete', 'i:pogo', 'w:rockets', 'teen', 'empty'];
+  G.LOOT_TAGS = { ammo: 'AM', 'i:pie': 'PI', 'i:coffee': 'CF', burger: 'BG', quarter: '25', 'w:plates': 'PL', 'w:soda': 'SO', 'i:bomb': 'BM', 'w:blower': 'BL', 'w:bat': 'BT', 'w:machete': 'MC', 'i:pogo': 'PG', 'w:rockets': 'RK', teen: '!', empty: '-' }; // the editor's short labels
+  G.lootAt = (room, tx, ty) => (room.loot && room.loot[tx + ',' + ty]) || null;
+  // Can this cell hold loot? Searchables (theme.searchable), leaves (theme.leaves) and a car (at its top-left cell)
+  G.lootable = (theme, ch) => !!((theme.searchable && theme.searchable.has(ch)) || (theme.leaves && theme.leaves.has(ch)) || (theme.blocks && theme.blocks.has(ch)));
+  // The one safety net: out of darts with nothing else in hand, an enemy you take down sometimes drops a box of darts
+  G.LOOT_CHANCE = { desperate: 20 }; // tunable: % chance
   // Player p is out of darts and has no other weapon: only the bonk left
-  G.desperate = (p) => !!p && !G.WEAPONS[p.weapons[0].id].returns && p.weapons[0].ammo <= 0 && p.weapons.length <= 1;
-  // { lootKey: multiplier } for player p's situation (empty = no change)
-  G.lootNeeds = (p) => {
-    const M = G.LOOT_MERCY, need = {};
-    if (!p) return need;
-    const sig = p.weapons[0];
-    if (G.WEAPONS[sig.id].returns || G.WEAPONS[sig.id].keeps) need.ammo = 0; // the skillet always comes back, the hockey stick never breaks: no ammo boxes
-    else if (G.desperate(p)) need.ammo = M.noAmmo;
-    else if (sig.ammo <= G.WEAPONS[sig.id].ammo * 0.2) need.ammo = M.lowAmmo; // low, or out with other weapons in hand
-    if (p.hp <= p.maxHp / 4) need.burger = need['i:pie'] = M.lowHealth;
-    else if (p.hp >= p.maxHp) need.burger = need['i:pie'] = M.fullHealth;
-    return need;
-  };
-  // A random loot key, weighted by G.LOOT and (if given) what player p needs
-  G.rollLoot = (p) => {
-    const need = G.lootNeeds(p);
-    const entries = Object.entries(G.LOOT).map(([k, w]) => [k, w * (need[k] || 1)]).filter(([, w]) => w > 0);
-    let total = entries.reduce((a, [, w]) => a + w, 0), r = G.rng.next() * total;
-    for (const [k, w] of entries) { if ((r -= w) <= 0) return k; }
-    return 'burger';
-  };
+  G.desperate = (p) => !!p && !G.WEAPONS[p.weapons[0].id].returns && !G.WEAPONS[p.weapons[0].id].keeps && p.weapons[0].ammo <= 0 && p.weapons.length <= 1;
 
   // ===== Tuning Lab definitions =====
   const W = G.WEAPONS, IT = G.ITEMS;
-  const pct = (k) => () => { const tot = Object.values(G.LOOT).reduce((a, b) => a + b, 0) || 1; return Math.round((G.LOOT[k] / tot) * 100) + '%'; };
   const perSec = (v) => (60 / v).toFixed(1) + '/S';
-  const rarity = (group, k) => ({ group, label: 'RARITY', o: G.LOOT, k, min: 0, max: 30, step: 1, note: pct(k) });
   G.TUNABLES = [
     { group: 'DARTS', label: 'DAMAGE', o: W.darts, k: 'dmg', min: 0.25, max: 10, step: 0.25 },
     { group: 'DARTS', label: 'HOLD DELAY', o: W.darts, k: 'cdBase', min: 3, max: 40, step: 1, note: (v) => perSec(v) },
@@ -4334,6 +4346,8 @@ body.mouseaim #screen { cursor: none; }
     { group: 'COFFEE POT (DOT)', label: 'DAMAGE', o: W.splash, k: 'dmg', min: 0.05, max: 5, step: 0.05 },
     { group: 'COFFEE POT (DOT)', label: 'FIRE DELAY', o: W.splash, k: 'rate', min: 1, max: 20, step: 1 },
     { group: 'COFFEE POT (DOT)', label: 'RANGE', o: W.splash, k: 'range', min: 4, max: 50, step: 1 },
+    { group: 'COFFEE POT (DOT)', label: 'SPILL BURN', o: W.splash, k: 'spillBurn', min: 0, max: 2, step: 0.05 },
+    { group: 'COFFEE POT (DOT)', label: 'BURN EVERY', o: W.splash, k: 'spillEvery', min: 10, max: 120, step: 5, note: (v) => (v / 60).toFixed(1) + 'S' },
     { group: 'SODA', label: 'DAMAGE', o: W.soda, k: 'dmg', min: 0.5, max: 30, step: 0.5 },
     { group: 'SODA', label: 'SPLASH', o: W.soda, k: 'radius', min: 6, max: 60, step: 2 },
     { group: 'SODA', label: 'THROW NEAR', o: W.soda, k: 'near', min: 10, max: 100, step: 5, note: () => 'PX' },
@@ -4342,11 +4356,9 @@ body.mouseaim #screen { cursor: none; }
     { group: 'SODA', label: 'FIRE DELAY', o: W.soda, k: 'rate', min: 4, max: 90, step: 2, note: (v) => perSec(v) },
     { group: 'SODA', label: 'AMMO/PICKUP', o: W.soda, k: 'ammo', min: 1, max: 30, step: 1 },
     { group: 'SODA', label: 'MAX AMMO', o: W.soda, k: 'max', min: 1, max: 99, step: 1 },
-    rarity('SODA', 'w:soda'),
     { group: 'BLOWER', label: 'DAMAGE', o: W.blower, k: 'dmg', min: 0.05, max: 3, step: 0.05 },
     { group: 'BLOWER', label: 'FIRE DELAY', o: W.blower, k: 'rate', min: 1, max: 10, step: 1 },
     { group: 'BLOWER', label: 'SHOVE', o: W.blower, k: 'push', min: 0, max: 3, step: 0.1 },
-    { group: 'BLOWER', label: 'LOOT IN LEAVES', o: W.blower, k: 'leafLoot', min: 0, max: 1, step: 0.02, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'PHONE BLOWN AWAY', o: W.blower, k: 'phone', min: 0, max: 0.5, step: 0.01, note: (v) => Math.round(v * 100) + '%' },
     { group: 'BLOWER', label: 'BALL HIT', o: W.blower, k: 'ballDmg', min: 0, max: 20, step: 0.5 },
     { group: 'BLOWER', label: 'BALL LASTS', o: W.blower, k: 'ballHits', min: 1, max: 9, step: 1, note: () => 'HITS' },
@@ -4360,29 +4372,22 @@ body.mouseaim #screen { cursor: none; }
     { group: 'BLOWER', label: 'RANGE', o: W.blower, k: 'range', min: 4, max: 40, step: 1 },
     { group: 'BLOWER', label: 'FUEL/PICKUP', o: W.blower, k: 'ammo', min: 10, max: 400, step: 10 },
     { group: 'BLOWER', label: 'MAX FUEL', o: W.blower, k: 'max', min: 10, max: 900, step: 10 },
-    rarity('BLOWER', 'w:blower'),
     { group: 'ROCKETS', label: 'DAMAGE', o: W.rockets, k: 'dmg', min: 0.5, max: 30, step: 0.5 },
     { group: 'ROCKETS', label: 'BLAST', o: W.rockets, k: 'radius', min: 6, max: 80, step: 2 },
     { group: 'ROCKETS', label: 'FIRE DELAY', o: W.rockets, k: 'rate', min: 6, max: 90, step: 2, note: (v) => perSec(v) },
     { group: 'ROCKETS', label: 'AMMO/PICKUP', o: W.rockets, k: 'ammo', min: 1, max: 30, step: 1 },
     { group: 'ROCKETS', label: 'MAX AMMO', o: W.rockets, k: 'max', min: 1, max: 99, step: 1 },
-    rarity('ROCKETS', 'w:rockets'),
     { group: 'PIE', label: 'HEAL', o: IT.pie, k: 'heal', min: 1, max: 8, step: 1, note: (v) => v / 2 + ' HRT' },
-    rarity('PIE', 'i:pie'),
     { group: 'COFFEE', label: 'DURATION', o: IT.coffee, k: 'dur', min: 1, max: 30, step: 1, note: () => 'SEC' },
     { group: 'COFFEE', label: 'MOVE BOOST', o: IT.coffee, k: 'speed', min: 0, max: 150, step: 5, note: () => '%' },
     { group: 'COFFEE', label: 'FIRE BOOST', o: IT.coffee, k: 'rate', min: 0, max: 80, step: 5, note: () => '%' },
-    rarity('COFFEE', 'i:coffee'),
     { group: 'SODA BOMB', label: 'DAMAGE', o: IT.bomb, k: 'dmg', min: 1, max: 60, step: 1 },
     { group: 'SODA BOMB', label: 'RADIUS', o: IT.bomb, k: 'radius', min: 16, max: 160, step: 4 },
-    rarity('SODA BOMB', 'i:bomb'),
     { group: 'POGO', label: 'STOMP DAMAGE', o: IT.pogo, k: 'stomp', min: 1, max: 30, step: 1 },
     { group: 'POGO', label: 'STOMP REACH', o: IT.pogo, k: 'stompR', min: 6, max: 40, step: 2 },
     { group: 'POGO', label: 'JUMPS/PICKUP', o: IT.pogo, k: 'per', min: 1, max: 9, step: 1 },
     { group: 'VEGGIE BURGER', label: 'HEAL', o: G.PICKUP_STATS.burger, k: 'heal', min: 1, max: 8, step: 1, note: (v) => v / 2 + ' HRT' },
-    rarity('VEGGIE BURGER', 'burger'),
-    rarity('QUARTER (1UP)', 'quarter'),
-    { group: 'ZOMBIES', label: 'DROP CHANCE', o: G.LOOT_CHANCE, k: 'zombie', min: 0, max: 100, step: 5, note: () => '%' },
+    { group: 'ZOMBIES', label: 'DARTS WHEN OUT', o: G.LOOT_CHANCE, k: 'desperate', min: 0, max: 100, step: 5, note: () => '%' },
     { group: 'PLATES', label: 'DAMAGE', o: W.plates, k: 'dmg', min: 0.5, max: 20, step: 0.5 },
     { group: 'PLATES', label: 'FLIGHT', o: W.plates, k: 'range', min: 8, max: 90, step: 2, note: (v) => Math.round(v * W.plates.speed) + 'PX' },
     { group: 'PLATES', label: 'PER STACK', o: W.plates, k: 'ammo', min: 1, max: 16, step: 1 },
@@ -4528,7 +4533,8 @@ body.mouseaim #screen { cursor: none; }
         const R = st.room, W = G.WEAPONS.blower;
         if (R.theme.leaves && R.theme.leaves.has(R.at(lx, ly)) && st.scatterLeaves) {
           st.scatterLeaves(lx, ly, s.vx, s.vy);
-          if (G.chance(W.leafLoot)) { st.dropLoot(lx * 16 + 8, ly * 16 + 10); st.floater(lx * 16 + 8, ly * 16 - 6, 'UNDER THE LEAVES!', '#ffd23a'); }
+          const hid = G.lootAt(R, lx, ly); // something placed under these leaves (the map's loot)
+          if (hid && hid !== 'empty' && hid !== 'teen') { st.dropLoot(lx * 16 + 8, ly * 16 + 10, hid); st.floater(lx * 16 + 8, ly * 16 - 6, 'UNDER THE LEAVES!', '#ffd23a'); }
         }
         if (G.launchBall(st, lx, ly, s.vx, s.vy) || G.kickBall(st, s.x, s.y, s.vx, s.vy)) return false; // a ball on the lawn: off it goes
         if (--s.life <= 0 || R.blocksShot(s.x, s.y)) return false;
@@ -4860,14 +4866,14 @@ body.mouseaim #screen { cursor: none; }
         "J.oo.h...wwwww...f.......h.........J...b....U.....b..h.......J..J..J...........JZ.J..J.....J..JJ",
         "Jhhhhh......ww...f....Z..h...t.....J...b..........b..h...YY..J..Jg.J...........J..J..J.....J..JJ",
         "J................f.......h.........J...b..........b..h...YY..J..J..JJJJJJJJJJ..J..J..JJJJ..J..JJ",
-        "J................f.......h.........J...b..........b..h.......J..JZ....J.....Z........Z.....J..JJ",
+        "J................f.......h.........J...b..........b..h.......J..JZ....J.......Z......Z.....J..JJ",
         "J...YY.........oof..3....h.........JZ..b..........b..h.......J..J.....J....................J..JJ",
         "J...YY...........fhhhhh..h..hhhhhh.J...bWWWWOOWWWWb..h.......J..JJJJ..J..JJJJJJJJJJJJJJJJJJJ..JJ",
-        "J.t..............f.......h.........J....WqqnnnkksW...h.......J..J..J..J...............g..Z....JJ",
+        "J.t..............f.......h.........J....Wqq<nnkksW...h.......J..J..J..J...............g..Z....JJ",
         "J........t.......f.......h.........J....WnaynnNnzW...h.......J..J..J..J.......................JJ",
         "J................f.......h........ZJ.t..Wjnnnnnn[W...........J..J..J..JJJJJJJJJJJJJJJJJJJJJJ..JJ",
-        "J.Z..............f..t............g.J....KKKKOOKKKK..........tJ..J..J............6.J........J..JJ",
-        "J...pppppppp.....f.................J....dddd..dddd...........J..J..J...N.....pp...J........J..JJ",
+        "J.Z..............f..t............g.J....KKKKOOKKKK..........tJ..J..J...N........6.J........J..JJ",
+        "J...pppppppp.....f.................J....dddd..dddd...........J..J..J.........pp...J........J..JJ",
         "J...pppNppppZ....f........oo.......J.....~~~l.......fffffff..J..J..JJJJJJJ...pp...JJJJJJJ..J..JJ",
         "J...pppppppp.....ffffffffffffffffffJ.g.~~YY~~...Z...f,,,,,fZ.J...........J...pp.Z.......J..J..JJ",
         "J...pppppppp.....f............h....J...~~YY~~.Z.....f,,,,,f..J...........J..............J..JZ.JJ",
@@ -4887,14 +4893,14 @@ body.mouseaim #screen { cursor: none; }
         "J..........fffffff........h........h....Z..::======N:...t.......l.......g...Z.............Z.l..J",
         "J..t.......Z.....f........h.t....ooh......l::==-===::.::::::::::::::::.....cc.........cc.......J",
         "J...WWWWOOWWWW...f........h........h.......::======::.::::::::::::::::.....cc.........cc.......J",
-        "J...WqqnnnkksW...f........h........J::::::.::==-===::...............::::::::::::::::::::::::::.J",
+        "J...Wqq<nnkksW...f........h........J::::::.::==-===::...............::::::::::::::::::::::::::.J",
         "JJJJWnaynnnnzWJJJJJJJJJJJJJJJJJJJJJJ.......::======::.....cc........::::::::::::::::::::::::::.J",
         "J...Wjnnnnnn[W.........Zh...........h.Z..h.::==-===::.....cc...cc..............................J",
         "J...HHHHOOHHHH..........h...........h.t..h.::cc====::..........cc.....Z.........l..t....Z....g.J",
         "J...dddd..dddt..........h.g.........h....hm::cc-===::.h..Z...wDwwwwwwwwwwwwwwwGGwwwwwwwwwwwwwwwJ",
         "J..m......Z.l.........m.h..hhthh....h....h.::======::.h......w.................................J",
         "J...............g...*~~~h...........hfffff.::==-===Z:lh......w.::::::::::::::::::.WWWWWWWWWWW..J",
-        "J..........h.......~~YY~h...........hf4..f.::======::.h......w.:::::cc::cc:::::::.WqqnnnnkksW..J",
+        "J..........h.......~~YY~h...........hf4..f.::======::.h......w.:::::cc::cc:::::::.Wqqnnn<kksW..J",
         "J....~~.~..h.......~~YY~h...........hf...f.::==-===::.h..t...w.:::::cc::cc:::::::.WnaynBnnnzW..J",
         "J...~~YY.g.h........~~~.............hf.oof.::====cc::.h......w.::::::::::::::::::.Wjnnnnnnn[W.ZJ",
         "J..N.~YY~..h........0....l..........hfffff.::==-=cc::m....g..w.:::::::Z::::::::::.KKKKOOKKKKK..J",
@@ -4984,8 +4990,9 @@ body.mouseaim #screen { cursor: none; }
         "................................................................................................",
         "................................................................................................",
       ],
-      kinds: { "92,2": "dog", "71,14": "jacks", "37,16": "knocked", "38,20": "mower", "2,23": "knocked", "56,25": "busted", "83,26": "teacher", "23,27": "baby", "3,29": "stretch", "44,29": "left/red/wreck/shut", "86,32": "left/green/sedan/open", "72,41": "left/blue/wreck/open", "3,44": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "65,58": "dog", "17,59": "gnome" },
-      floors: { "3,2": ".", "14,3": ".", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "20,40": ".", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "10,48": ".", "30,50": ".", "68,61": ".", "88,61": "." },
+      kinds: { "92,2": "dog", "42,9": "painting", "71,13": "jacks", "37,16": "knocked", "38,20": "mower", "2,23": "knocked", "56,25": "busted", "83,26": "teacher", "23,27": "baby", "3,29": "stretch", "44,29": "left/red/wreck/shut", "86,32": "left/green/sedan/open", "6,33": "photo", "85,40": "photo", "72,41": "left/blue/wreck/open", "3,44": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "65,58": "dog", "17,59": "gnome" },
+      floors: { "3,2": ".", "14,3": ".", "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "6,35": "y", "5,36": "n", "12,36": "n", "20,40": ".", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "10,48": ".", "30,50": ".", "68,61": ".", "88,61": "." },
+      loot: { "3,2": "ammo", "59,2": "i:pie", "46,10": "w:plates", "86,10": "empty", "19,18": "i:coffee", "32,26": "ammo", "72,31": "i:pie", "93,37": "burger", "3,39": "ammo", "88,61": "teen" },
     },
     "galleria": {
       name: "GALLERIA MALL", theme: "suburb",
@@ -4994,12 +5001,12 @@ body.mouseaim #screen { cursor: none; }
         "w:::::::::::::Z::::::::::::::w.....................J......w...........................lw",
         "w:l:::::::::::::w:::::::::B::w.......h............hJ...9N.w.N.........t................w",
         "w::::N::::::::::w::::::::N:::w.......h..hhh.t.hhh.hJ......w...t.................t......w",
-        "w???????????::::w???{????????w...t...h.........Z..hJJSJJJJw.......................Z....w",
+        "w???????????::::w???{????????w...t...h.........Z..hJJeJJJJw.......................Z....w",
         "w???????g???::::w????????????e.......h............h.......w.........Z..................w",
         "w??g????????::::?%???????????e...Z...h...a..8..a..h.......w............................w",
         "w???????????::::????????g????w.JJJJJJJ............JJJJJJJ.w............................w",
         "w???uuuuuuuu:::Z??Z??????????w....Z...t..........t........w...WWWWWWWWWWWWWWWWW........w",
-        "w?????????%?::Q:?????????????w.........::::::::::.........w...WkknnnWnnnnnnnnjW........w",
+        "w?????????%?::Q:?????????????w.........::::::::::.........w...Wkk<nnWnnnnnnnnjW........w",
         "w??g????????::::?uuuuuuuuuu??w.........::::::::::.........w...Wn+nnnWnsnnsnnsnW........w",
         "w???????????::::?????????????w.YY......::pppppp::.........w...WnnnnnWnsnnsnnsNW........w",
         "wwvww?{Zw???::::??????????g??w.YY......::pppppp::....lZ...w...WnnnnnWnsnnsnnsnW........w",
@@ -5010,7 +5017,7 @@ body.mouseaim #screen { cursor: none; }
         "w::::::::::::::::::::::::::::wJ..J.....::::::::::.........w...WnnnnnWnnnnnnnnnW........w",
         "w:::::::::::::::::::?????Z???wJ4.J.....:::::::::Z.........w...KKKKKKKKKKKKOOKKK........w",
         "w:WWWWWWWWWWWWWWOOWW?????????wJ..J....t..........t........w......Z.....................w",
-        "w:WkkkkkknnWnkknnn[W????g????wJJ.J......hhh...hhh.........w.....................Zh.....w",
+        "w:Wkkkkkkn<Wnkknnn[W????g????wJJ.J......hhh...hhh.........w.....................Zh.....w",
         "w:WnnnnnnnnWnnnnnnnW???????%?w.JJJJJJJ.....l......JJJJJJJ.w............t.........h..t..w",
         "w:WnannnnannnnnnannW?????????w.......h..Z.........h.......w......................h.....w",
         "w:WnnnnnnnnWnnnnnNnW???{?????w.......h...a.....a..h.......w.....hhhhhh...........h.....w",
@@ -5047,8 +5054,8 @@ body.mouseaim #screen { cursor: none; }
         "w=-=-=-=-=):{::::::fffffff:::h::::::::a::::::::::a::::::::w?////??????:::::?(???//////?w",
         "w=========(::::::::f::9::f:::h:::::::::::::::::::::::Z::::w???????????::l::?(??????????w",
         "w======{==(::::::::foo:::fN::h::::lZ:::::::::::::::::l::::w???g???????:::::?(g?????????w",
-        "w=========(:{::::::fffffff:::h:::::::g::::::E:::::g:::::::w???????B???:::::?????????N??w",
-        "w:::::::Z::::::::Z:::::::::::h::::::::::::::::::::::::::::w??N????????:::::????????????w",
+        "w=========(:{::::::fffffff:::h:::::::g::::::E:::::g:::::::w??N????B???:::::?????????N??w",
+        "w:::::::Z::::::::Z:::::::::::h::::::::::::::::::::::::::::w???????????:::::????????????w",
         "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
       ],
       over: [
@@ -5113,7 +5120,9 @@ body.mouseaim #screen { cursor: none; }
         "........................................................................................",
         "........................................................................................",
       ],
-      kinds: { "14,1": "mopbot", "82,4": "drone", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
+      kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "82,52": "up//burnt/shut" },
+      floors: { "65,9": "n", "10,20": "n" },
+      loot: { "3,6": "i:pie", "63,9": "w:plates", "26,12": "i:coffee", "77,16": "w:plates", "13,20": "w:plates", "66,24": "teen", "1,30": "burger", "84,37": "ammo", "9,44": "i:pie", "77,56": "ammo" },
     },
     "mansion": {
       name: "FOUNDER'S MANSION", theme: "suburb",
@@ -5125,7 +5134,7 @@ body.mouseaim #screen { cursor: none; }
         "J..J.....J..J..J..............w::::Z::::::::::::g::::::::::.::::::::::::::::::WddddddddW:J",
         "J..J.....J..J..J..............w::::::::::::::::::::::::::::.::::::::::::::::::WdddddBddW:J",
         "J..J..J..J..J..JJJJJJJJJJ..J..w..WWWWWOOWWWWWWWWWWWWWWWWW..w:::::::::::Z::::::WdNddddddW:J",
-        "J..J........J..J..J......N.J..w..WkknnnnWnnnnjnnnnWnqqnnW..w:::Z::::::::::::::WddddddddW:J",
+        "J..J........J..J..J......N.J..w..WkknnnnWnnn<jnnnnWnqqnnW..w:::Z::::::::::::::WddddddddW:J",
         "J..J........J..J..J........J..w..WnnnnnnWnnnnQnnnnWnnnnnW..w:::l::::::::::::l:KKKOOKKKKK:J",
         "J..J..J..J..J..J..J..JJJJ..J..w..WnnnnnnWyyyyyyyyyWnnBnzW..w::::pppppppppppp:::::::::::::J",
         "J..J..J...Z......ZJ........J..w..WWW^WWWnnnnnnnnnnWnnnnnW..w::::pppppppppppp:::::h:::::::J",
@@ -5167,12 +5176,12 @@ body.mouseaim #screen { cursor: none; }
         "J..hgddh..hdddh..hdddYY.hdddh....:====....pppppp....====:..w:::::::::::::::::ccc:::::::::J",
         "J..hdddh..hdddh..hdddYY.hdddh....:=====...pppppp...==cc=:..w::::::::::l::::::ccc:::::::::J",
         "J..hh.hh..hh.hh..hh.hh..hh.hh.....:====..t......t..==cc:...w::::WWWWWWWWW::::::::::::::::J",
-        "J............Z............N...J...:=====..........===cc:Z..w::::WqqnnkknW::::::::::::::g:J",
+        "J............Z............N...J...:=====..........===cc:Z..w::::Wqqnnkk<W::::::::::::::g:J",
         "J.fffff......l................J.g..:====t=......======:....w::::WnNynnnzW::::::::::::::::J",
         "J.f,,,fh..hh.hh..hh.hh..hh.hh.J...JJ.J==========l====::....w::::WnnnnnnnW:::N::::::::::::J",
         "J.f,9ZfYY.hdddh..hdddh.JJJJJh.J...J.mJ======P=======:......w::::HHHOOHHHH:::::::::::wvww:J",
         "J.f,,,fYY.hdddh..hdddh.JhddJh.J...J..J::=========WWWWWWW...w:::::::::::::::uuuuuuu::w..w:J",
-        "J.f,,,fh..hh.hh..hh.hh.Jhh..h.J..ZJ1.J..:::::::::Wjnnn[W...w::::::::::::::::::::::::wZAw:J",
+        "J.f,,,fh..hh.hh..hh.hh.Jhh..h.J..ZJ1.J..:::::::::Wj<nn[W...w::::::::::::::::::::::::wZAw:J",
         "J.foo,f................J4..J..J...JJJJ...........WnnBnnW...w::::::::::::::::::ccc:::wwww:J",
         "J.fffff................JJJJJ..J......ghhhh.......KNOOKKK...w:N::::::::::::::::ccc::::::::J",
         "J.l..............N..........l.J..l..........E...........l..w:::::::::::::g::::::9::l:::::J",
@@ -5241,7 +5250,9 @@ body.mouseaim #screen { cursor: none; }
         "..........................................................................................",
         "..........................................................................................",
       ],
-      kinds: { "49,1": "drone", "88,3": "robodog", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "78,55": "left//burnt/shut" },
+      kinds: { "49,1": "drone", "88,3": "robodog", "36,6": "photo", "43,6": "painting", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "65,48": "photo", "68,48": "painting", "53,53": "photo", "78,55": "left//burnt/shut" },
+      floors: { "44,7": "n", "71,49": "n", "51,54": "n" },
+      loot: { "32,1": "teen", "62,3": "i:pie", "48,4": "burger", "39,13": "w:plates", "57,19": "teen", "86,20": "ammo", "32,26": "ammo", "4,46": "i:coffee", "87,49": "ammo", "73,57": "i:pie" },
     },
     "serverfarm": {
       name: "SERVER FARM", theme: "servers",
@@ -5268,7 +5279,7 @@ body.mouseaim #screen { cursor: none; }
         "#.i......i....s.....i......i..#...0...........l........N...#:::::::::::::::::::::::::::::#",
         "#Zi.Q..k.i.c..s..c..i.....mi..#............................#:m:::::::::::::::::Z::8::::::#",
         "#.i......i....s.....i...8..i..#s...ssssssssssssssssssss...s#::::::::::N::::::::::::::::::#",
-        "#.im.....i....s.....ik.....i..#........Z...................#:::::::::::::::::::::::::::::#",
+        "#.im.....i....s.%...ik.....i..#........Z...................#:::::::::::::::::::::::::::::#",
         "#.i......i....s.....i......i..#.......c...........c.......m#::::uuuuuu::::::uuuuuuuu:::::#",
         "#.iii..iii..........iiiiiiii..#............................#:::::::::::::::::::::::::::::#",
         "#..........::::::::...........#ssssssssssss....ssssssssssss#:::::::::::::::::::::::::::::#",
@@ -5308,6 +5319,7 @@ body.mouseaim #screen { cursor: none; }
         "##########################################################################################",
       ],
       kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "3,35": "clone", "81,38": "robodog" },
+      loot: { "47,3": "i:pie", "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "ammo", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo", "10,57": "ammo" },
     },
     "core": {
       name: "THE CORE", theme: "servers",
@@ -5378,6 +5390,7 @@ body.mouseaim #screen { cursor: none; }
         "############################################################################################",
       ],
       kinds: { "2,1": "clone", "89,7": "mopbot", "81,21": "blue", "17,28": "clone", "15,31": "blue", "84,33": "robodog", "3,47": "drone", "54,56": "clone", "72,56": "drone", "38,57": "robodog" },
+      loot: { "5,2": "i:pie", "21,2": "ammo", "90,22": "ammo", "1,33": "burger", "70,39": "teen", "35,49": "i:coffee", "90,49": "teen", "83,59": "i:coffee", "52,61": "i:pie", "12,62": "ammo" },
     },
     "root": {
       name: "/ROOT", theme: "root",
@@ -5385,7 +5398,7 @@ body.mouseaim #screen { cursor: none; }
         "########################################################################",
         "#::Z::::::::::::::::::::#...j....j....j....j...#.............Z.........#",
         "#:B::::::::::::::::::::m#m....................B#.......................#",
-        "#:::::::::::N:::::::::::#............Z.........#m.c........l...........#",
+        "#:::::::::::::::::::::::#............Z.........#m.c........l...........#",
         "#:::::::::::::::::::::::#......................#.....................N.#",
         "#::ccc::::ccc::::ccc::::#..kkkkk..kkkk..kkkkk..#....Z..................#",
         "#::ccc::::ccc::::cccZ:::#......................#....ppppppppppppppp....#",
@@ -5440,6 +5453,7 @@ body.mouseaim #screen { cursor: none; }
         "########################################################################",
       ],
       kinds: { "3,1": "clone", "61,1": "clone", "26,8": "drone", "45,17": "robodog", "14,20": "mopbot", "36,22": "blue", "1,23": "clone", "70,23": "clone", "60,28": "blue", "2,42": "robodog", "69,43": "drone" },
+      loot: { "23,2": "ammo", "48,3": "teen", "30,21": "i:pie", "70,22": "burger", "1,26": "ammo", "44,26": "ammo", "55,26": "teen", "3,44": "i:coffee" },
     },
   };
 })();
@@ -5501,12 +5515,12 @@ body.mouseaim #screen { cursor: none; }
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
   };
   window.G.ENEMY_SPAWN = {
-    culdesac: { cap: 10, every: [80, 150], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
-    mansion: { cap: 11, every: [75, 140], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
-    root: { cap: 12, every: [70, 130], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
-    core: { cap: 13, every: [65, 120], near: [40, 140], rest: 170, hunt: 320, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
-    serverfarm: { cap: 12, every: [70, 130], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
-    galleria: { cap: 11, every: [75, 140], near: [40, 140], rest: 180, hunt: 300, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
+    culdesac: { cap: 6, every: [150, 260], near: [40, 140], rest: 320, hunt: 300, linger: 600, types: { phoneTeen: 8, sprinter: 1 } },
+    mansion: { cap: 7, every: [140, 240], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
+    root: { cap: 9, every: [120, 210], near: [40, 140], rest: 280, hunt: 300, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
+    core: { cap: 8, every: [125, 220], near: [40, 140], rest: 280, hunt: 320, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
+    serverfarm: { cap: 8, every: [130, 230], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
+    galleria: { cap: 7, every: [140, 240], near: [40, 140], rest: 300, hunt: 300, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
   };
 })();
 </script>
@@ -5521,14 +5535,14 @@ body.mouseaim #screen { cursor: none; }
   const G = window.G;
 
   G.TEST_ROOM = {
-    id: 'test', name: 'TEST ROOM', theme: G.MAPS.test.theme, test: true, map: G.MAPS.test.rows, kinds: G.MAPS.test.kinds, floors: G.MAPS.test.floors,
+    id: 'test', name: 'TEST ROOM', theme: G.MAPS.test.theme, test: true, map: G.MAPS.test.rows, kinds: G.MAPS.test.kinds, floors: G.MAPS.test.floors, loot: G.MAPS.test.loot,
   };
 
   // The weapon practice range (title: WEAPON PRACTICE; practice.js): every weapon, targets in the lanes, buttons that
   // bring enemies up in the arena. No enemies of its own (cap 0): only the buttons spawn them.
   G.PRACTICE = {
     id: 'range', name: 'WEAPON PRACTICE', theme: G.MAPS.range.theme, test: true, practice: true, enemies: { cap: 0 },
-    map: G.MAPS.range.rows, kinds: G.MAPS.range.kinds, floors: G.MAPS.range.floors,
+    map: G.MAPS.range.rows, kinds: G.MAPS.range.kinds, floors: G.MAPS.range.floors, loot: G.MAPS.range.loot,
   };
 
   // Data disks: one hidden in each of the first five levels (the '+' marker, behind a secret). Find all five and the
@@ -5552,7 +5566,7 @@ body.mouseaim #screen { cursor: none; }
         ['SOMEONE DROPPED A PDA ON THIS BLOCK.', 'FIND IT AND IT WILL MAP EVERY', 'SECRET AND PACKAGE AROUND HERE.'],
         ['THE TIME DOOR OPENS ONCE EVERYONE', 'IS ACCOUNTED FOR. GO!'],
       ],
-      map: G.MAPS.culdesac.rows, over: G.MAPS.culdesac.over, kinds: G.MAPS.culdesac.kinds, floors: G.MAPS.culdesac.floors, // kinds: per-cell variants; floors: the floor under each object
+      map: G.MAPS.culdesac.rows, over: G.MAPS.culdesac.over, kinds: G.MAPS.culdesac.kinds, floors: G.MAPS.culdesac.floors, loot: G.MAPS.culdesac.loot, // kinds: per-cell variants; floors: the floor under each object
     },
     {
       id: 'galleria', num: 2, name: 'GALLERIA MALL', time: [1, 12], theme: G.MAPS.galleria.theme,
@@ -5566,7 +5580,7 @@ body.mouseaim #screen { cursor: none; }
         ['THE LOADING DOCKS NEED A KEYCARD.', 'MALL SECURITY LEFT ONE IN THE', 'GARDEN COURT, PAST THE ALLEY.'],
         ['GET EVERYONE OUT. THE TIME DOOR', 'OPENS IN THE PLAZA. GO!'],
       ],
-      map: G.MAPS.galleria.rows, over: G.MAPS.galleria.over, kinds: G.MAPS.galleria.kinds, floors: G.MAPS.galleria.floors,
+      map: G.MAPS.galleria.rows, over: G.MAPS.galleria.over, kinds: G.MAPS.galleria.kinds, floors: G.MAPS.galleria.floors, loot: G.MAPS.galleria.loot,
     },
     {
       id: 'mansion', num: 3, name: "FOUNDER'S MANSION", time: [2, 20], theme: G.MAPS.mansion.theme,
@@ -5580,7 +5594,7 @@ body.mouseaim #screen { cursor: none; }
         ['THE BLUE KEYCARD TO THE MANSION IS', 'IN THE MIDDLE OF THE MAZE. THE', 'GARDENER LEFT A MACHETE OUT.'],
         ['SAVE THE STAFF AND THE GUESTS.', 'THE TIME DOOR IS ON THE DRIVE. GO!'],
       ],
-      map: G.MAPS.mansion.rows, over: G.MAPS.mansion.over, kinds: G.MAPS.mansion.kinds, floors: G.MAPS.mansion.floors,
+      map: G.MAPS.mansion.rows, over: G.MAPS.mansion.over, kinds: G.MAPS.mansion.kinds, floors: G.MAPS.mansion.floors, loot: G.MAPS.mansion.loot,
     },
     {
       id: 'serverfarm', num: 4, name: 'SERVER FARM', time: [3, 1], theme: G.MAPS.serverfarm.theme,
@@ -5594,7 +5608,7 @@ body.mouseaim #screen { cursor: none; }
         ['ROCKETS ARE IN THE COLD AISLE. THE', 'GLASS INTO THE CONTROL ROOM IS', 'CRACKED. THE KEYCARDS DO THE REST.'],
         ['GET THE TECHS OUT. THE TIME DOOR', 'IS IN THE LOBBY. GO!'],
       ],
-      map: G.MAPS.serverfarm.rows, over: G.MAPS.serverfarm.over, kinds: G.MAPS.serverfarm.kinds, floors: G.MAPS.serverfarm.floors,
+      map: G.MAPS.serverfarm.rows, over: G.MAPS.serverfarm.over, kinds: G.MAPS.serverfarm.kinds, floors: G.MAPS.serverfarm.floors, loot: G.MAPS.serverfarm.loot,
     },
     {
       id: 'core', num: 5, name: 'THE CORE', time: [3, 33], theme: G.MAPS.core.theme,
@@ -5608,7 +5622,7 @@ body.mouseaim #screen { cursor: none; }
         ['A MACHETE BY THE MOAT, ROCKETS IN', 'THE ARCHIVE. THE KEYCARDS ARE IN', 'THE SUBSTATION AND THE TRAINING ROOM.'],
         ['THE TIME DOOR IS BY THE ELEVATOR.', 'BRING EVERYONE UP. GO!'],
       ],
-      map: G.MAPS.core.rows, over: G.MAPS.core.over, kinds: G.MAPS.core.kinds, floors: G.MAPS.core.floors,
+      map: G.MAPS.core.rows, over: G.MAPS.core.over, kinds: G.MAPS.core.kinds, floors: G.MAPS.core.floors, loot: G.MAPS.core.loot,
     },
   ];
 
@@ -5625,7 +5639,7 @@ body.mouseaim #screen { cursor: none; }
       ['THE CLONES LIVE HERE. THEY ARE', 'FAST, AND THEY HAVE YOUR MOVES.', 'SOMETHING GOOD IS IN /DEV/NULL.'],
       ['LOG THEM ALL OUT. THE TIME DOOR', 'IS AT /. GO!'],
     ],
-    map: G.MAPS.root.rows, over: G.MAPS.root.over, kinds: G.MAPS.root.kinds, floors: G.MAPS.root.floors,
+    map: G.MAPS.root.rows, over: G.MAPS.root.over, kinds: G.MAPS.root.kinds, floors: G.MAPS.root.floors, loot: G.MAPS.root.loot,
   };
 })();
 </script>
@@ -5650,7 +5664,7 @@ body.mouseaim #screen { cursor: none; }
       this.searched = new Set(); // trash cans and mailboxes already searched (cell indexes)
       this.wallHit = new Map(); // whacks taken so far by breakable-by-melee walls (theme.melee), per cell index
       this.over = def.over ? def.over.map((r) => [...r]) : null; // overhead layer (roofs), '.' = nothing
-      this.kinds = def.kinds || {}; this.floors = def.floors || {}; // floors: what's under each object ("x,y": floor tile) // per-cell variants: gate and keycard colors, locked doors, neighbor kinds (G.cellKind)
+      this.kinds = def.kinds || {}; this.floors = def.floors || {}; this.loot = def.loot || {}; // loot: what each searchable holds (G.lootAt) // floors: what's under each object ("x,y": floor tile) // per-cell variants: gate and keycard colors, locked doors, neighbor kinds (G.cellKind)
       rows.forEach((row, y) => {
         if (row.length !== this.w) throw new Error('Room row ' + y + ' has length ' + row.length);
         [...row].forEach((ch, x) => {
@@ -5721,14 +5735,15 @@ body.mouseaim #screen { cursor: none; }
     blocksJump(px, py, pogo = false) { return G.jumpBlockedCell(this, Math.floor(px / 16), Math.floor(py / 16), pogo); }
     // Is the point (feet) in water? (the player swims there)
     waterAt(px, py) { return !!this.theme.water && this.theme.water.has(this.at(Math.floor(px / 16), Math.floor(py / 16))); }
-    // An unsearched trash can or mailbox that entity e's box, nudged `reach` px along (dx, dy), touches: { tx, ty } or null
+    // An unsearched trash can or mailbox that holds something (the map's loot: the others are scenery) that entity e's
+    // box, nudged `reach` px along (dx, dy), touches: { tx, ty } or null
     searchTouching(e, dx, dy, reach = 2) {
       const m = Math.hypot(dx, dy);
       if (!m || !this.theme.searchable) return null;
       const x = e.x + (dx / m) * reach, y = e.y + (dy / m) * reach, l = x - e.hw, r = x + e.hw, t = y - e.hh, b = y;
       for (let ty = Math.floor(t / 16); ty <= Math.floor((b - 0.01) / 16); ty++) for (let tx = Math.floor(l / 16); tx <= Math.floor((r - 0.01) / 16); tx++) {
         const key = this.theme.searchable.has(this.at(tx, ty)) ? [tx, ty] : this.theme.searchCell ? this.theme.searchCell(this, tx, ty) : null; // (a car's trunk: its car's key cell)
-        if (!key || this.searched.has(key[1] * this.w + key[0]) || G.cellKind(this, key[0], key[1]) === 'knocked') continue; // a knocked-over can is empty
+        if (!key || !G.lootAt(this, key[0], key[1]) || this.searched.has(key[1] * this.w + key[0]) || G.cellKind(this, key[0], key[1]) === 'knocked') continue; // nothing in it, or a knocked-over can
         const rs = this.solidRects(tx, ty, null);
         if (rs && rs.some((R) => l < R[0] + R[2] && r > R[0] && t < R[1] + R[3] && b > R[1])) return { tx: key[0], ty: key[1] };
       }
@@ -8023,7 +8038,10 @@ body.mouseaim #screen { cursor: none; }
       this.steerX = this.steerY = 0; this.speedMul = 1;
       let held = false;
       for (const [name, o] of this.brain) if (B[name].update(this, st, o)) { held = true; break; }
-      if (!this.bot && !this.flying && G.spillAt(st, this.x, this.y)) this.speedMul *= G.WEAPONS.splash.spillSlow; // sticky coffee underfoot
+      if (!this.bot && !this.flying && G.spillAt(st, this.x, this.y)) { // sticky, hot coffee underfoot: slows them, and a little burn now and then
+        this.speedMul *= G.WEAPONS.splash.spillSlow;
+        if ((this.burnT = (this.burnT || 0) + 1) >= G.WEAPONS.splash.spillEvery) { this.burnT = 0; this.scald(st); if (this.dead) return; }
+      } else this.burnT = 0;
       if (!held) this.steer(st);
       if (!(this.ally > 0)) st.keepOutOfSafeZone(this);
       if (this.moving) this.anim++;
@@ -8095,6 +8113,13 @@ body.mouseaim #screen { cursor: none; }
       if (this.bot && kind === 'zap') ticks *= 1.5; // robots: an EMP fries them for longer
       this.stunT = Math.max(this.stunT || 0, Math.round(ticks)); this.stunKind = kind;
     }
+    // A little burn from a hot coffee spill: no knockback, no fuss, just a wisp of steam (it doesn't even notice you)
+    scald(st) {
+      if (!this.hittable()) return;
+      this.hp -= G.WEAPONS.splash.spillBurn; this.flash = 2;
+      st.burst(this.x, this.y - 6, 2, ['#ffffff', '#e8dcc8'], 0.4, 14, 16);
+      if (this.hp <= 0) this.kill(st);
+    }
     hit(st, dmg, x, y) {
       if (!this.hittable()) return;
       if (this.stunT > 0 && this.stunKind === 'sleep') { dmg *= G.WEAPONS.tranq.sleepMul; if (this.flash <= 0) st.burst(this.x, this.y - 14, 3, ['#c8a8ff', '#ffffff'], 0.8, 14, 10); } // June's team play: a sleeping teen takes double
@@ -8122,8 +8147,8 @@ body.mouseaim #screen { cursor: none; }
         G.sfx.play('logoff');
       }
       if (this.bag && this.bag.length) st.floater(this.x, this.y - 36, 'ALL YOUR STUFF!', '#6aaee0');
-      const p = st.nearestPlayer(this.x, this.y), mercy = G.desperate(p) ? G.LOOT_MERCY.desperateDrops : 1; // out of everything: drops come more often
-      if (G.chance((G.LOOT_CHANCE.zombie * mercy) / 100)) st.dropLoot(this.x, this.y, p);
+      // no random drops (loot is placed); the one safety net: out of everything, sometimes a box of darts
+      if (G.desperate(st.nearestPlayer(this.x, this.y)) && G.chance(G.LOOT_CHANCE.desperate / 100)) st.dropLoot(this.x, this.y, 'ammo');
     }
     draw(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
@@ -8284,7 +8309,7 @@ body.mouseaim #screen { cursor: none; }
   };
   G.DIFF_ORDER = Object.keys(G.DIFFICULTY);
   G.diff = () => G.DIFFICULTY[G.opts().diff] || G.DIFFICULTY.normal;
-  G.ENEMY_DEFAULTS = { cap: 6, every: [80, 160], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, types: { phoneTeen: 1 } };
+  G.ENEMY_DEFAULTS = { cap: 6, every: [140, 240], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, types: { phoneTeen: 1 } };
   class Spawner {
     constructor(x, y, type) { this.x = x; this.y = y; this.rest = 0; this.type = G.ENEMY_TYPES[type] ? type : null; } // type: a typed spawner (only that type)
     // A typed spawner shows on the floor, so you learn where they come from: robots beam down onto a charging pad
@@ -9739,7 +9764,7 @@ body.mouseaim #screen { cursor: none; }
       line(k === d ? 'ok' : k < d ? 'bad' : 'warn', `${C} gates: ${d} · ${C.toLowerCase()} keycards: ${k}` + (pkgCards[col] ? ` (${pkgCards[col]} in packages)` : '') + (k < d ? ` — not enough ${col} keycards!` : k > d ? ` — more ${col} keycards than ${col} gates` : ''));
     }
     if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked ? 'bad' : 'warn', `Locked house doors: ${locked} · keys: ${hkeys}` + (hkeys < locked ? ' — not enough keys!' : hkeys > locked ? ' — more keys than locked doors' : ''));
-    if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras are random)`);
+    if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras hold a dart box)`);
     line(count('Q') <= 1 ? 'ok' : 'warn', `PDA: ${count('Q')}`);
     if (level && G.DISK_LEVELS().includes(mapId)) line(count('+') === 1 ? 'ok' : 'warn', `Data disk: ${count('+')} (one per level, behind a secret)`);
     K.traps = [];
@@ -9756,6 +9781,17 @@ body.mouseaim #screen { cursor: none; }
         const T = room.theme, sideways = [];
         grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'D' || c === 'G') && T.solid.has(room.at(x, y - 1)) && T.solid.has(room.at(x, y + 1))) sideways.push([x, y]); }));
         for (const [x, y] of sideways.slice(0, 3)) line('warn', `The gate at ${x},${y} is in a north-south wall, so the wall in front hides it. Put gates in east-west walls, facing the camera`);
+        const hid = K.hiddenNeighbors(room, grid);
+        if (!hid.length) line('ok', 'Neighbors in plain sight (none hidden behind something tall)');
+        for (const h of hid.slice(0, 4)) line('warn', `The neighbor at ${h.x},${h.y} is ${Math.round(h.cover * 100)}% hidden behind something tall in front of them: move them out into view (unless it's on purpose)`);
+        if (hid.length > 4) line('warn', `...and ${hid.length - 4} more hidden neighbors`);
+        const crit = K.criticalSecrets(room, grid, level);
+        if (!crit.length) line('ok', 'Secrets stay optional (no neighbor or the exit needs one)');
+        for (const c of crit.slice(0, 4)) line('bad', `The secret at ${c.x},${c.y} is on the way to the ${c.what}: a secret must be optional. Use a breakable wall with a tell instead (patchy hedge, cracked wall)`);
+        if (level && level.num <= 2) {
+          const brk = K.criticalBreaks(room, grid, level);
+          line(!brk.length ? 'ok' : 'warn', !brk.length ? 'No breaking on the critical path (early level)' : `Early level: ${brk.length} neighbor${brk.length > 1 ? 's' : ''}/exit only reachable by breaking a wall, first the ${brk[0].what} at ${brk[0].x},${brk[0].y}: keep breaking off the critical path in Levels 1-2`);
+        }
         const leaks = K.leakyLocks(room, grid);
         if (!leaks.length) line('ok', 'Locks hold (no keycard gate or breakable wall can be skipped by jumping round it)');
         for (const l of leaks.slice(0, 4)) line('bad', `The ${l.what} at ${l.x},${l.y} can be skipped: a pogo or trampoline gets you past it. Make the walls beside it tall (tall hedge, brick) or move it`);
@@ -9817,6 +9853,42 @@ body.mouseaim #screen { cursor: none; }
   const jumpLandings = (R, x, y) => landingsFrom(R, x * 16 + 8, y * 16 + 8, DIRS8, true);
   // A trampoline: launched from the middle of its mat, where the game launches you (G.TRAMP), up, down, left or right
   const trampLandings = (R, x, y) => { const [ax, ay] = G.trampAnchor(R, x, y); return landingsFrom(R, ax * 16 + 16, ay * 16 + G.TRAMP.feet, DIRS4, false); };
+  // Which secret-looking tiles (theme.secret: secret hedges, hollow panels, cracked walls...) really are secrets: the
+  // ones off the way to every neighbor and the exit. A cracked wall you have to break to finish is a lock, not a
+  // secret: no SECRET FOUND!, no PDA blink (James's playtest). A quick flood from the start with every door, gate and
+  // breakable open and trampolines (no pogo), sealing one run of secret tiles at a time. Returns a Set of cell indexes.
+  K.secretCells = (R) => {
+    const W = R.w, H = R.h, T = R.theme, sec = T.secret, out = new Set();
+    const start = R.spawns.find((s) => s.ch === 'P');
+    if (!sec || !sec.size || !start) return out;
+    const goals = R.spawns.filter((s) => s.ch === 'N' || s.ch === 'E').map((s) => s.ty * W + s.tx), cells = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (sec.has(R.at(x, y))) cells.push(y * W + x);
+    if (!cells.length) return out;
+    const opens = (ch) => ch === 'D' || ch === 'O' || [T.breakable, T.bombable, T.melee, T.scatter, T.douse].some((S) => S && S.has(ch));
+    const foot = G.footReach(R, start.tx, start.ty); // a latch gate or turnstile opens only from the far side of this
+    const flood = (sealed) => {
+      const seen = new Uint8Array(W * H), q = [start.ty * W + start.tx]; seen[q[0]] = 1;
+      while (q.length) {
+        const i = q.pop(), x = i % W, y = (i - x) / W, next = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+        if (T.bounce && T.bounce.has(R.at(x, y))) next.push(...trampLandings(R, x, y));
+        for (const [nx, ny] of next) {
+          const j = ny * W + nx;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen[j] || sealed.has(j)) continue;
+          if (walkableCell(R, nx, ny) || opens(R.at(nx, ny)) || (R.at(nx, ny) === 'G' && !foot[i])) { seen[j] = 1; q.push(j); }
+        }
+      }
+      return seen;
+    };
+    const base = flood(new Set()), want = goals.filter((g) => base[g]), done = new Set();
+    for (const i of cells) {
+      if (done.has(i)) continue;
+      const run = [], q = [i]; done.add(i);
+      while (q.length) { const j = q.pop(), x = j % W; run.push(j); for (const k of [x > 0 ? j - 1 : -1, x < W - 1 ? j + 1 : -1, j - W, j + W]) if (k >= 0 && !done.has(k) && sec.has(R.at(k % W, Math.floor(k / W)))) { done.add(k); q.push(k); } }
+      const r = flood(new Set(run));
+      if (want.every((g) => r[g])) for (const j of run) out.add(j); // nothing the level needs is behind it: a secret
+    }
+    return out;
+  };
   K.findTraps = (R, start) => {
     const W = R.w, H = R.h, T = R.theme, N = W * H;
     const walkable = (x, y) => walkableCell(R, x, y) || !!(T.melee && T.melee.has(R.at(x, y))); // loose boards: you can always whack your way out
@@ -9885,7 +9957,8 @@ body.mouseaim #screen { cursor: none; }
   // cracked brick; each keycard opens one gate next to where you've been. Repeat until nothing new opens up.
   // grid: the raw map (markers included). Returns { missing: [{ ch, x, y }], cells: Set of reached cells }.
   const NEEDED = { N: 'neighbor', B: 'package', E: 'exit', 8: 'keycard', Q: 'PDA', '+': 'data disk' };
-  K.solve = (R, grid, level) => {
+  // sealed: cells treated as walls that never open (the secret-on-the-critical-path check)
+  K.solve = (R, grid, level, sealed) => {
     const W = R.w, H = R.h, T = R.theme, N = W * H;
     const sy = grid.findIndex((r) => r.includes('P'));
     if (sy < 0) return { missing: [], cells: new Set() };
@@ -9896,6 +9969,7 @@ body.mouseaim #screen { cursor: none; }
     const foot = G.footReach(R, grid[sy].indexOf('P'), sy); // latch gates open only from outside this
     const passable = (x, y) => {
       if (x < 0 || y < 0 || x >= W || y >= H) return false;
+      if (sealed && sealed.has(y * W + x)) return false;
       if (walkableCell(R, x, y)) return true;
       const ch = R.at(x, y), i = y * W + x;
       if (ch === 'D' || ch === 'O') return opened.has(i); // a gate opened with its keycard, a locked door with a key
@@ -9970,6 +10044,55 @@ body.mouseaim #screen { cursor: none; }
       if ((K.MARK.has(c) && c !== 'P' && c !== 'Z') && reached.has(i) && !firstReach.has(i)) comeBack.push({ ch: c, x, y });
     }));
     return { missing, comeBack, cells: reached };
+  };
+  // ---- Neighbors in plain sight: anything tall drawn in front of a neighbor (2.5D: an upright in a row below theirs,
+  // a roof, a hedge-fill block) that covers half their body or more hides them. Glass and sparse hedge don't
+  // (theme.seeThrough). A neighbor inside a house (under its roof) is fine: you find them by going in.
+  K.hiddenNeighbors = (R, grid) => {
+    const T = R.theme, out = [];
+    grid.forEach((row, y) => row.forEach((c, x) => {
+      if (c !== 'N' || R.overAt(x, y) === 'R') return;
+      const bx0 = x * 16 + 4, bx1 = x * 16 + 12, by0 = y * 16 + 12 - G.PERSON_Y, by1 = y * 16 + 12, cov = new Set();
+      for (let cy = y + 1; cy <= y + 4; cy++) for (let cx = x - 3; cx <= x + 3; cx++) {
+        const ch = R.at(cx, cy), u = T.up && T.up[ch], top = R.overAt(cx, cy), lift = top === 'R' ? (T.roofLift || 16) : 0;
+        let rx0, rx1, ry0, ry1 = cy * 16 + 16;
+        if (top === 'R' || top === 'M') { rx0 = cx * 16; rx1 = rx0 + 16; ry0 = cy * 16 - 16 - lift; }
+        else if (u && u.rise >= 14 && !(T.seeThrough && T.seeThrough.has(ch))) { rx0 = cx * 16 - (u.wide || 0); rx1 = cx * 16 + 16 + (u.wide || 0); ry0 = cy * 16 - u.rise; }
+        else continue;
+        for (let py = Math.max(by0, ry0); py < Math.min(by1, ry1); py++) for (let px = Math.max(bx0, rx0); px < Math.min(bx1, rx1); px++) cov.add(py * 4096 + px);
+      }
+      if (cov.size >= ((bx1 - bx0) * (by1 - by0)) / 2) out.push({ x, y, cover: cov.size / ((bx1 - bx0) * (by1 - by0)) });
+    }));
+    return out;
+  };
+  // ---- Secrets stay optional: with every secret wall (S) sealed for good, every neighbor and the exit can
+  // still be reached. Returns the secret runs that block something the level needs ({ x, y, what }). ----
+  K.criticalSecrets = (R, grid, level) => {
+    const T = R.theme, sec = new Set(['S']), W = R.w, cells = []; // S: a secret wall that looks like any other (a cracked wall shows its cracks: that's a lock)
+    grid.forEach((row, y) => row.forEach((c, x) => { if (sec.has(c)) cells.push(y * W + x); }));
+    if (!cells.length) return [];
+    const needs = (m) => m.ch === 'N' || m.ch === 'E';
+    if (!K.solve(R, grid, level, new Set(cells)).missing.some(needs)) return [];
+    const runs = [], seen = new Set(); // which runs: seal each on its own
+    for (const i of cells) {
+      if (seen.has(i)) continue;
+      const run = [], q = [i]; seen.add(i);
+      while (q.length) { const j = q.pop(), x = j % W, y = (j - x) / W; run.push(j); for (const k of [j - 1, j + 1, j - W, j + W]) if (!seen.has(k) && cells.includes(k) && Math.abs((k % W) - x) <= 1) { seen.add(k); q.push(k); } }
+      const miss = K.solve(R, grid, level, new Set(run)).missing.filter(needs);
+      if (miss.length) runs.push({ x: run[0] % W, y: Math.floor(run[0] / W), what: miss.map((m) => m.what + ' at ' + m.x + ',' + m.y).slice(0, 2).join(', ') });
+    }
+    return runs;
+  };
+  // ---- Breaking on the way: the breakable walls (and crew gates) you must break to save every neighbor and reach
+  // the exit. Early levels keep breaking off the critical path (James, after the playtest) ----
+  K.criticalBreaks = (R, grid, level) => {
+    const T = R.theme, W = R.w, cells = [];
+    const br = (c) => (T.breakable && T.breakable.has(c)) || (T.bombable && T.bombable.has(c)) || (T.melee && T.melee.has(c));
+    grid.forEach((row, y) => row.forEach((c, x) => { if (br(c)) cells.push(y * W + x); }));
+    if (!cells.length) return [];
+    const needs = (m) => m.ch === 'N' || m.ch === 'E';
+    const all = K.solve(R, grid, level, new Set(cells)).missing.filter(needs);
+    return all;
   };
   // ---- Locks hold: can a lock be skipped by jumping round it? ----
   // Jumping over fences and short hedges is fine, but not when it gets you past a lock without its opener: a pogo
@@ -10092,12 +10215,15 @@ body.mouseaim #screen { cursor: none; }
       for (const r of m.rows) out.push('        ' + JSON.stringify(r) + ',');
       out.push('      ],');
       if (m.over) { out.push('      over: ['); for (const r of m.over) out.push('        ' + JSON.stringify(r) + ','); out.push('      ],'); }
-      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$Z'.includes(m.rows[y][x]); }) // only cells that still have a variant
+      const kinds = Object.keys(m.kinds || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && 'N8DOcgl$ZW'.includes(m.rows[y][x]); }) // only cells that still have a variant
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (kinds.length) out.push('      kinds: { ' + kinds.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.kinds[k])).join(', ') + ' },');
       const T = G.THEMES[m.theme], floors = Object.keys(m.floors || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && T.objects && T.objects.has(m.rows[y][x]); })
         .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
       if (floors.length) out.push('      floors: { ' + floors.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.floors[k])).join(', ') + ' },'); // only cells that still hold an object
+      const loot = Object.keys(m.loot || {}).filter((k) => { const [x, y] = k.split(',').map(Number); return m.rows[y] && G.lootable(T, m.rows[y][x]); })
+        .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number); return ay - by || ax - bx; });
+      if (loot.length) out.push('      loot: { ' + loot.map((k) => JSON.stringify(k) + ': ' + JSON.stringify(m.loot[k])).join(', ') + ' },'); // only cells that can still hold it
       out.push('    },');
     }
     out.push('  };', '})();', '');
@@ -10320,6 +10446,15 @@ body.mouseaim #screen { cursor: none; }
       }
       return;
     }
+    if (!top && to !== 'c' && G.lootable(st.room.theme, to) && st.raw[c.y][c.x] === to) { // clicking a trash can, cabinet, junk pile or leaves again: what it holds (the map's loot)
+      if (E.cycled) return;
+      E.cycled = true;
+      const L = lootCycle(to), from = lootState(st, c.x, c.y), next = L[(L.indexOf(from) + 1) % L.length];
+      setLootState(st, c.x, c.y, next);
+      E.stroke.push({ x: c.x, y: c.y, lootc: true, from, to: next }); setDirty(true);
+      msg(labelAt(st, c.x, c.y));
+      return;
+    }
     if (!top && VARIANTS[to] && st.raw[c.y][c.x] === to) { // clicking a neighbor, gate, keycard or door again: its next variant (once per click)
       if (E.cycled) return;
       E.cycled = true;
@@ -10340,11 +10475,11 @@ body.mouseaim #screen { cursor: none; }
   // Per-cell variants: the level's { "x,y": value } (G.MAPS[id].kinds, saved with the map). Click a cell again with
   // the same brush to step it: a neighbor's kind (else picked from where it stands, G.neighborKind), a gate's or
   // keycard's color (else red), a house door locked or not (every cell of the door together).
-  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'],
+  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
-  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : G.cardColor(st.room, x, y); };
+  const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
     m.kinds = m.kinds || {}; st.def.kinds = m.kinds; R.kinds = m.kinds;
@@ -10353,7 +10488,7 @@ body.mouseaim #screen { cursor: none; }
     for (const cx of cells) { if (kind === plainKind(st, cx, y)) delete m.kinds[cx + ',' + y]; else m.kinds[cx + ',' + y] = kind; } // the default needs no entry
     if (ch === 'N' || ch === '8' || ch === '$' || ch === 'Z') { removeAt(st, x, y); spawnAt(st, x, y, ch); }
     if (ch === 'D') { const d = R.doors.find((q) => q.tx === x && q.ty === y); if (d) d.color = kind; G.redrawRoomTiles(R, x, y, x, y); }
-    if (ch === 'g') G.rebuildUpright(R, x, y);
+    if (ch === 'g' || ch === 'W') G.rebuildUpright(R, x, y);
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
     if (ch === 'O') {
       const d = R.hdoorAt(x, y); if (d) d.locked = kind === 'locked';
@@ -10361,6 +10496,18 @@ body.mouseaim #screen { cursor: none; }
       const start = R.spawns.find((s) => s.ch === 'P'); if (start) R.outside = G.footReach(R, start.tx, start.ty); // which side latch gates open from
     }
   }
+  // ===== Loot: what a searchable holds (the map's loot { "x,y": key }; G.LOOT_KINDS). A trash can's cycle ends with
+  // knocked over (its kinds), which holds nothing. A car's is in its panel (at its top-left cell).
+  const lootOf = (st) => { const m = G.MAPS[st.def.id]; m.loot = m.loot || {}; st.def.loot = m.loot; st.room.loot = m.loot; return m.loot; };
+  const lootCycle = (ch) => ['nothing', ...G.LOOT_KINDS, ...(ch === 'g' ? ['knocked'] : [])];
+  const lootState = (st, x, y) => (st.raw[y][x] === 'g' && G.cellKind(st.room, x, y) === 'knocked' ? 'knocked' : G.lootAt(st.room, x, y) || 'nothing');
+  function setLootState(st, x, y, v) {
+    const L = lootOf(st), ch = st.raw[y][x];
+    if (G.LOOT_KINDS.includes(v)) L[x + ',' + y] = v; else delete L[x + ',' + y];
+    if (ch === 'g' && (v === 'knocked') !== (G.cellKind(st.room, x, y) === 'knocked')) setKind(st, x, y, v === 'knocked' ? 'knocked' : 'up');
+    if (st.edit && st.edit.car) showCar(st, st.edit.car);
+  }
+  const lootName = (v) => (v === 'nothing' ? 'NOTHING IN IT' : v === 'knocked' ? 'KNOCKED OVER' : v === 'teen' ? 'A TEEN JUMPS OUT' : v === 'empty' ? 'EMPTY (A DECOY)' : 'HOLDS ' + v.replace(/^[wi]:/, '').toUpperCase());
   // ===== The car panel: facing, color, style, trunk of the selected car (the map's kinds at its top-left cell) =====
   const carKey = (p) => [p.facing, p.color, p.style, p.trunk].join('/');
   function showCar(st, at) {
@@ -10373,7 +10520,10 @@ body.mouseaim #screen { cursor: none; }
     panel.querySelector('#ep-car-rows').innerHTML = Object.keys(G.CAR_PROPS).map((k) =>
       '<div class="row" style="margin-top:3px;align-items:center"><span style="width:56px">' + k.toUpperCase() + '</span>' +
       '<button data-carprop="' + k + '" data-dir="-1">\u25c0</button><b style="width:70px;text-align:center">' + props[k].toUpperCase() + '</b>' +
-      '<button data-carprop="' + k + '" data-dir="1">\u25b6</button></div>').join('');
+      '<button data-carprop="' + k + '" data-dir="1">\u25b6</button></div>').join('') +
+      '<div class="row" style="margin-top:3px;align-items:center"><span style="width:56px">LOOT</span>' + // what's in its trunk (the map's loot)
+      '<button data-carprop="loot" data-dir="-1">\u25c0</button><b style="width:70px;text-align:center">' + lootState(st, at[0], at[1]).replace(/^[wi]:/, '').toUpperCase() + '</b>' +
+      '<button data-carprop="loot" data-dir="1">\u25b6</button></div>';
   }
   function setCar(st, x, y, key) { // the car whose top-left cell is (x, y): its properties ("facing/color/style/trunk"; null = defaults)
     const m = G.MAPS[st.def.id];
@@ -10385,6 +10535,11 @@ body.mouseaim #screen { cursor: none; }
   function changeCar(st, prop, dir) {
     const E = st && st.edit;
     if (!E || !E.car) return;
+    if (prop === 'loot') { // what's in its trunk
+      const [ax, ay] = E.car, L = lootCycle('c'), from = lootState(st, ax, ay), next = L[(L.indexOf(from) + dir + L.length) % L.length];
+      setLootState(st, ax, ay, next); E.undo.push([{ x: ax, y: ay, lootc: true, from, to: next }]); E.redo = []; setDirty(true); commit(st);
+      return;
+    }
     const [ax, ay] = E.car, { box, props } = G.carAt(st.room, ax, ay), side = box.w >= box.h;
     const L = G.CAR_PROPS[prop];
     const next = L[(L.indexOf(props[prop]) + dir + L.length) % L.length], np = { ...props, [prop]: next };
@@ -10408,7 +10563,8 @@ body.mouseaim #screen { cursor: none; }
   }
   const labelAt = (st, x, y) => {
     const ch = st.raw[y][x], label = K.labelOf(st.room.theme, ch);
-    if (ch === 'c') { const { props: p } = G.carAt(st.room, x, y); return 'CAR (' + [p.color, p.style, 'facing ' + p.facing, p.trunk === 'open' ? 'trunk open' : ''].filter(Boolean).join(', ').toUpperCase() + ')'; }
+    if (ch === 'c') { const [ax, ay] = G.pieceAnchor(st.room, x, y), { props: p } = G.carAt(st.room, x, y), l = G.lootAt(st.room, ax, ay); return 'CAR (' + [p.color, p.style, 'facing ' + p.facing, p.trunk === 'open' ? 'trunk open' : '', l ? 'trunk: ' + l.replace(/^[wi]:/, '') : ''].filter(Boolean).join(', ').toUpperCase() + ')'; }
+    if (G.lootable(st.room.theme, ch)) return label.replace(/ \(.*\)$/, '') + ' (' + lootName(lootState(st, x, y)) + ')';
     if (!VARIANTS[ch]) return label;
     return label.replace(/ \(.*CLICK.*\)$/, '') + ' (' + (ch === 'N' ? G.NEIGHBOR_KINDS[kindAt(st, x, y)].name : ch === 'Z' && G.ENEMY_TYPES[kindAt(st, x, y)] ? G.ENEMY_TYPES[kindAt(st, x, y)].name : kindAt(st, x, y).toUpperCase()) + ')';
   };
@@ -10444,7 +10600,7 @@ body.mouseaim #screen { cursor: none; }
     st.edit.stroke = null;
   });
   function replay(st, s, back) {
-    for (const c of back ? [...s].reverse() : s) (c.car ? setCar : c.floor ? setFloor : c.kind ? setKind : c.top ? applyTop : applyCell)(st, c.x, c.y, back ? c.from : c.to);
+    for (const c of back ? [...s].reverse() : s) (c.car ? setCar : c.lootc ? setLootState : c.floor ? setFloor : c.kind ? setKind : c.top ? applyTop : applyCell)(st, c.x, c.y, back ? c.from : c.to);
     setDirty(true); commit(st);
   }
   window.addEventListener('keydown', (e) => {
@@ -10527,6 +10683,12 @@ body.mouseaim #screen { cursor: none; }
         o.globalAlpha = 1;
         if (ch === 'Z') G.text('Z', tx * 16 - v.x + 12, ty * 16 - v.y - 6, '#ff3a5a', { shadow: '#140c1c' });
       }
+      // loot: a short tag on everything that holds something (G.LOOT_TAGS)
+      for (const [k, val] of Object.entries(st.room.loot || {})) {
+        const [lx, ly] = k.split(',').map(Number);
+        if (lx * 16 + 16 < v.x || ly * 16 + 16 < v.y || lx * 16 > v.x + VW || ly * 16 > v.y + VH || !G.lootable(st.room.theme, st.raw[ly][lx])) continue;
+        G.text(G.LOOT_TAGS[val] || '?', lx * 16 - v.x + 8, ly * 16 - v.y + 4, val === 'teen' ? '#ff3a5a' : '#ffd23a', { align: 'center', shadow: '#140c1c' });
+      }
       // jump traps (from the checks): shaded red, pulsing
       if (K.traps && K.traps.length) {
         o.fillStyle = (G.tick >> 4) & 1 ? 'rgba(255,58,90,.35)' : 'rgba(255,58,90,.2)';
@@ -10592,6 +10754,7 @@ body.mouseaim #screen { cursor: none; }
       this.def = def; this.crewId = crewId; this.test = !!def.test; this.pausable = true; this.started = false;
       this.seed = seed; G.rng.seed(seed);
       this.room = new G.Room(def);
+      this.room.secrets = G.EditKit.secretCells(this.room); // which secret-looking tiles really are secrets (not locks on the way: G.isSecret)
       this.players = []; this.shots = []; this.dummies = []; this.pickups = []; this.chests = [];
       this.neighbors = []; this.enemies = []; this.spawners = []; this.mowers = []; this.buttons = [];
       this.practice = !!def.practice; // the weapon practice range (practice.js): everything, never running out
@@ -10620,7 +10783,7 @@ body.mouseaim #screen { cursor: none; }
           case 'Z': this.spawners.push(tag(new G.Spawner(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // enemies rise here, again and again (a typed one: only its type)
           case '$': this.buttons.push(tag(new G.SpawnButton(s.x, s.y, (def.kinds || {})[s.tx + ',' + s.ty]))); break; // step on it: an enemy rises (practice.js)
           case 'N': this.neighbors.push(tag(G.makeNeighbor(this.room, s.tx, s.ty, def.kinds))); break; // its kind: neighbors.js
-          case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || G.weightedPick(G.LOOT)))); break;
+          case 'B': this.chests.push(tag(new G.Chest(s.x, s.y, (def.packages || [])[pkg++] || 'ammo'))); break;
           case 'E': this.exit = tag(new ExitDoor(s.x, s.y)); break;
           default: this.pickups.push(tag(new G.Pickup(G.PICKUP_CHARS[s.ch], s.x, s.y, { respawn: this.test, needed: !this.test && G.isBreaker(this.room.theme, G.PICKUP_CHARS[s.ch]), color: G.cardColor(this.room, s.tx, s.ty) }))); // a breaker the level needs comes back if it's used up
         }
@@ -10797,7 +10960,7 @@ body.mouseaim #screen { cursor: none; }
           if (th.douse && th.douse.has(ch)) { this.burst(tx * 16 + 8, ty * 16 + 6, 10, ['#ffffff', '#c8c8d8', '#8a8aa0'], 0.8, 10, 30); G.sfx.play('fizz'); } // steam
           else if (th.scatter && th.scatter.has(ch)) this.burst(tx * 16 + 8, ty * 16 + 6, 8, ['#7ff0ff', '#ffffff', '#3a3a48'], 1.6, 8, 20);
           else this.burst(tx * 16 + 8, ty * 16 + 10, 12, ['#8a3a30', '#1c5a2c', '#5a2420', '#2c7a3c', '#6a4a28'], 1.8, 6, 30, true);
-          if (th.secret.has(ch)) secret = true;
+          if (G.isSecret(this.room, tx, ty, ch)) secret = true;
         }
         if (hit.size) this.mapChanged();
         if (secret) { this.floater(x, y - 40, 'SECRET FOUND!', '#7ff0ff'); G.sfx.play('secret'); }
@@ -10867,7 +11030,7 @@ body.mouseaim #screen { cursor: none; }
       this.mapChanged();
     }
     // Random loot pops out at (x, y), leaning toward what `forP` (default: the nearest player) is short of
-    dropLoot(x, y, forP = this.nearestPlayer(x, y)) { this.pickups.push(new G.Pickup(G.rollLoot(forP), x, y, { pop: true })); }
+    dropLoot(x, y, key) { this.pickups.push(new G.Pickup(key, x, y, { pop: true })); } // pops out of something
     nearestPlayer(x, y) {
       let best = null, bd = Infinity;
       for (const p of this.players) { if (p.dead) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } }
@@ -11022,6 +11185,7 @@ body.mouseaim #screen { cursor: none; }
       for (const s of this.spawners) if (s.type) s.drawFloor(ctx, v, this.t); // typed spawners: pads, glitches, cracked dirt
       G.drawSorted(ctx, this.room, v, [...this.chests, ...this.pickups, ...this.mowers, ...this.dummies, ...this.neighbors, ...this.enemies, ...this.players, ...(this.critters || [])]);
       G.drawSmoke(ctx, this, v); // smoke from wrecks and burning drums
+      this.drawGlints(ctx, v); // a glint now and then on whatever holds something (placed loot)
       for (const b of this.beams) this.drawBeam(ctx, b, cx, cy);
       // shots and sparks under the roofs; roofs on top of everything in the world; then x-ray and hints
       for (const o of this.props) if (o.dart) this.drawDart(ctx, o, cx, cy); else this.drawPhone(ctx, o, cx, cy);
@@ -11078,28 +11242,40 @@ body.mouseaim #screen { cursor: none; }
       ctx.fillStyle = M.left ? '#ff8a2a' : '#ffffff';
       ctx.fillRect(x - 3, y, 2, 1); ctx.fillRect(x + 2, y, 2, 1); ctx.fillRect(x, y - 3, 1, 2); ctx.fillRect(x, y + 2, 1, 2);
     }
-    // Search a trash can or mailbox: usually loot pops out, sometimes a phone teen jumps out, sometimes it's empty
-    // `by`: who's searching (loot pops out on their side, never behind the can)
+    // Search a trash can, mailbox, cabinet or car trunk: what it holds is placed (the map's loot), never random: a
+    // pickup pops out, a phone teen jumps out ('teen'), or it's empty. `by`: who's searching (it pops out their side)
     search(tx, ty, by) {
       const R = this.room, i = ty * R.w + tx;
       if (R.searched.has(i)) return;
       R.searched.add(i); G.rebuildUpright(R, tx, ty); // the lid comes off / the flap drops
       if (R.at(tx, ty) === 'c') { for (const [a, b] of G.pieceCells(R, tx, ty)) G.rebuildUpright(R, a, b); this.floater(tx * 16 + 16, ty * 16 - 10, 'TRUNK!', '#c8c0a8'); } // a car's trunk pops open
-      const x = tx * 16 + 8, y = ty * 16 + 14, roll = G.rng.next(), T = (R.theme.searchLoot || {})[R.at(tx, ty)], S = T || G.SEARCH;
+      const x = tx * 16 + 8, y = ty * 16 + 14, what = G.lootAt(R, tx, ty);
       this.burst(x, y - 10, 8, ['#6a7a6a', '#a89878', '#ffffff'], 1.2, 10, 18, true);
       G.sfx.play('open');
       const out = (d) => { // where something comes out: d px toward the searcher, slid on out of anything solid (a car)
         const dx = by ? by.x - x : 0, dy = by ? by.y - y : 1, n = Math.hypot(dx, dy) || 1;
         return this.freeSpot(x + (dx / n) * d, y + (dy / n) * d * 0.85, by);
       };
-      if (roll < S.teen) { // surprise!
+      if (what === 'teen') { // surprise!
         const [ex, ey] = out(6), e = new G.Enemy('phoneTeen', ex, ey); e.rise = 0; e.aggro = true; e.alert = 30;
         this.enemies.push(e);
         this.floater(x, y - 26, '!?', '#ff3a5a');
-      } else if (roll < S.teen + S.empty) this.floater(x, y - 26, 'EMPTY', '#9a8ec0');
-      else if (T && T.plates && roll < S.teen + S.empty + T.plates) { // a kitchen: a stack of dinner plates
-        const [lx, ly] = out(12); this.pickups.push(new G.Pickup('w:plates', lx, ly, { pop: true }));
-      } else { const [lx, ly] = out(12); this.dropLoot(lx, ly, by); }
+      } else if (!what || what === 'empty') this.floater(x, y - 26, 'EMPTY', '#9a8ec0');
+      else { const [lx, ly] = out(12); this.dropLoot(lx, ly, what); }
+    }
+    // The tell for placed loot: every few seconds a glint on each unopened thing that holds something (a trash can, a
+    // cabinet, a car's trunk, a pile of leaves), so players learn which ones to open. Looks only.
+    drawGlints(ctx, v) {
+      const R = this.room;
+      for (const k in R.loot) {
+        const [tx, ty] = k.split(',').map(Number), ch = R.at(tx, ty), ph = (this.t + tx * 53 + ty * 29) % 200;
+        if (ph > 14 || R.searched.has(ty * R.w + tx) || !G.lootable(R.theme, ch) || G.cellKind(R, tx, ty) === 'knocked') continue;
+        const car = R.theme.blocks && R.theme.blocks.has(ch), up = R.theme.up && R.theme.up[ch], rise = up ? up.rise || 0 : 0;
+        const x = tx * 16 + (car ? 12 : 10) - v.x, y = ty * 16 + 5 - Math.min(rise, 14) - v.y, s = ph < 4 || ph > 10 ? 1 : 2;
+        if (x < -8 || y < -8 || x > G.W + 8 || y > G.H + 8) continue;
+        ctx.fillStyle = '#fff6c0'; ctx.fillRect(x, y, 1, 1);
+        ctx.fillRect(x - s, y, s, 1); ctx.fillRect(x + 1, y, s, 1); ctx.fillRect(x, y - s, 1, s); ctx.fillRect(x, y + 1, 1, s);
+      }
     }
     // A spot near (x, y) that someone can stand on to grab what's there: if it's inside something solid (the far end
     // of a car whose trunk you opened, a counter), slide toward `by` (the searcher) until it's clear
@@ -11267,7 +11443,7 @@ body.mouseaim #screen { cursor: none; }
       const th = this.room.theme, x0 = Math.floor(v.x / 16), y0 = Math.floor(v.y / 16);
       for (let ty = Math.max(0, y0); ty <= Math.min(this.room.h - 1, y0 + 15); ty++) {
         for (let tx = Math.max(0, x0); tx <= Math.min(this.room.w - 1, x0 + 17); tx++) {
-          if (!th.secret.has(this.room.at(tx, ty))) continue;
+          if (!G.isSecret(this.room, tx, ty)) continue;
           // marching dotted outline around the secret tile
           const bx = tx * 16 - v.x, by = ty * 16 - v.y, off = (this.t >> 2) % 4;
           ctx.globalAlpha = 0.75 + 0.25 * Math.sin(this.t / 8);
@@ -11304,7 +11480,7 @@ body.mouseaim #screen { cursor: none; }
       };
       const th = this.room.theme;
       if (blink) for (let ty = 0; ty < this.room.h; ty++) for (let tx = 0; tx < this.room.w; tx++) {
-        if (th.secret.has(this.room.at(tx, ty))) { ctx.fillStyle = '#7ff0ff'; ctx.fillRect(x0 + tx * s, y0 + ty * s, s, s); }
+        if (G.isSecret(this.room, tx, ty)) { ctx.fillStyle = '#7ff0ff'; ctx.fillRect(x0 + tx * s, y0 + ty * s, s, s); }
       }
       for (const c of this.chests) if (!c.open) dot(c.x, c.y, '#ffd23a', 2);
       for (const z of this.enemies) dot(z.x, z.y, '#ff3a5a');
@@ -12611,7 +12787,7 @@ body.mouseaim #screen { cursor: none; }
     'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
-    'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', // (the clones')
+    'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', 'burnT', // (the clones'; burnT: a coffee spill's burn timer)
     'allyHitCd', 'messT', 'idleT', 'spinT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle and spin counters)
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;

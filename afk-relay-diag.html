@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relay diagnostic</title>
+<style>
+body { font-family: ui-monospace, Menlo, monospace; background: #111; color: #eee; padding: 16px; max-width: 600px; margin: auto; }
+#myid { font-size: 26px; color: #ffd23a; word-break: break-all; }
+input { font-size: 20px; width: 12em; padding: 6px; }
+button { font-size: 20px; padding: 8px 18px; margin-left: 6px; }
+#log { white-space: pre-wrap; background: #000; padding: 10px; min-height: 220px; margin-top: 12px; font-size: 13px; }
+.good { color: #38f0a0; } .bad { color: #ff5ab0; }
+</style>
+</head>
+<body>
+<h2>RELAY DIAGNOSTIC</h2>
+<div>1. Open this page on <b>both</b> devices.</div>
+<div>2. Type the other device's ID below and tap PING, on both sides.</div>
+<p>MY ID: <span id="myid">...</span></p>
+<p><input id="target" placeholder="other device id" autocapitalize="off" autocomplete="off" spellcheck="false"><button id="ping">PING</button></p>
+<div id="log"></div>
+<script>
+const logEl = document.getElementById('log');
+const log = (m, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = m; logEl.appendChild(d); };
+const rnd = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map(v => 'abcdefghijkmnpqrstuvwxyz23456789'[v % 32]).join('');
+// same server, same URL shape, same message envelope the game uses
+const me = 'afkdiag-' + rnd(6);
+document.getElementById('myid').textContent = me;
+const ws = new WebSocket('wss://0.peerjs.com/peerjs?key=peerjs&id=' + me + '&token=' + rnd(10) + '&version=1.5.4');
+let pingTimer = 0;
+ws.onopen = () => log('socket open, waiting for OPEN...');
+ws.onmessage = (e) => {
+  let d; try { d = JSON.parse(e.data); } catch (_) { return; }
+  if (d.type === 'OPEN') { log('registered with the server as ' + me, 'good'); return; }
+  if (d.type === 'ID-TAKEN') { log('ID-TAKEN (should never happen)', 'bad'); return; }
+  if (d.type === 'ERROR') { log('SERVER ERROR: ' + JSON.stringify(d), 'bad'); return; }
+  if (!d.payload) return;
+  if (d.payload.k === 'diag-ping') {
+    log('ping received from ' + d.src + ' -> sending pong');
+    ws.send(JSON.stringify({ type: 'OFFER', dst: d.src, payload: { k: 'diag-pong', t: d.payload.t } }));
+  } else if (d.payload.k === 'diag-pong') {
+    clearTimeout(pingTimer);
+    log('PONG RECEIVED (' + (Date.now() - d.payload.t) + 'ms) - THE SERVER RELAYS FINE', 'good');
+  }
+};
+ws.onerror = () => log('socket error', 'bad');
+ws.onclose = () => log('socket closed', 'bad');
+document.getElementById('ping').onclick = () => {
+  const to = document.getElementById('target').value.trim();
+  if (!to || ws.readyState !== 1) { log('enter the other id first', 'bad'); return; }
+  ws.send(JSON.stringify({ type: 'OFFER', dst: to, payload: { k: 'diag-ping', t: Date.now() } }));
+  log('ping sent to ' + to + ', waiting...');
+  clearTimeout(pingTimer);
+  pingTimer = setTimeout(() => log('NO REPLY AFTER 10s - THE SERVER IS NOT RELAYING', 'bad'), 10000);
+};
+</script>
+</body>
+</html>

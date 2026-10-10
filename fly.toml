@@ -14,7 +14,7 @@
 #     soft_limit = 400
 
 app = "afk-apocalypse-play"
-primary_region = "sea"
+primary_region = "ams"
 
 [http_service]
 auto_start_machines = true

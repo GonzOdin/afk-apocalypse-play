@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-11 06:04 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-11 06:08 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -8058,7 +8058,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   G.codeOf = (run) => C.encode(run, lv(), max);
   G.runOf = (code) => C.decode(code, lv(), max);
   // Save the run on this device (CONTINUE) and return its code
-  G.saveRun = (run) => { const code = G.codeOf(run); G.save.data.run = { code, level: run.level }; G.save.write(); return code; };
+  G.saveRun = (run, taken) => { const code = G.codeOf(run); G.save.data.run = { code, level: run.level, taken: taken || {} }; G.save.write(); return code; }; // taken: per level, what this run took there (going back: no farming)
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -9125,7 +9125,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (this.open) return;
       for (const p of st.players) {
         if (!p.dead && Math.abs(p.x - this.x) < 11 && Math.abs(p.y - this.y) < 10) {
-          this.open = true;
+          this.open = true; if (this.tile && st.took) st.took.add('B' + this.tile);
           st.pickups.push(new Pickup(this.content, this.x, this.y + 6, { pop: true }));
           st.burst(this.x, this.y - 6, 12, ['#d8a86a', '#e8d8a8', '#ffffff'], 1.6, 6, 20, true);
           G.sfx.play('open');
@@ -9232,6 +9232,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
             continue;
           }
           this.apply(p, st);
+          if (this.tile && st.took && !this.respawn) st.took.add(this.tile); // (going back: taken once per run)
           if (this.respawn) this.gone = 600; else if (this.needed) this.waiting = true; else this.taken = true;
           break;
         }
@@ -13770,6 +13771,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.spawnT = this.enemyCfg.grace; // ticks until the next enemy rises
       this.parts = []; this.floaters = []; this.ghosts = []; this.rings = []; this.props = []; // props: looks-only debris (dropped phones)
       this.score = 0; this.targetsDown = 0; this.shakeT = 0; this.shakeA = 0; this.t = 0; this.pda = false;
+      this.took = new Set(); this.runTaken = {}; this.replay = null; // going back: what's been taken (this run), where a replay returns to
       this.exit = null; // the time door: shut until every neighbor is saved or lost
       // Online (net.js): the host runs this stage and logs what guests need (out: one-off looks, cellLog: changed
       // tiles); a guest's stage (remote) runs nothing, it mirrors the host's snapshots (netsync.js)
@@ -13815,6 +13817,22 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (!c) return this;
       this.score = c.score || 0;
       this.players.forEach((p, i) => { const q = c.players.find((x) => x.num !== undefined && x.num === p.num) || (p.num === undefined && c.players[i]); if (!q) return; p.lives = q.lives; p.weapons = q.weapons.map((w) => ({ ...w })); p.items = q.items.map((it) => ({ ...it })); p.wsel = 0; p.isel = 0; });
+      if (c.runTaken) { this.runTaken = c.runTaken; this.applyTaken(c.runTaken[this.def.id]); } // a run: what you already took here stays taken
+      if (c.replay) this.replay = c.replay; // a replay from the level select: afterwards, back to where the run was
+      return this;
+    }
+    // Going back (economy plan, section 4): a run takes each level's placed things once. takenNow: what was taken here
+    // (pickup cells, 'B' + an opened package's cell, 's' + a searched container's cell); applyTaken takes it away again.
+    takenNow() { const R = this.room; return [...this.took, ...[...R.searched].map((i) => 's' + (i % R.w) + ',' + Math.floor(i / R.w))]; }
+    applyTaken(list) {
+      const S = new Set(list || []);
+      if (!S.size) return this;
+      this.pickups = this.pickups.filter((k) => !(k.tile && S.has(k.tile)));
+      for (const c of this.chests) if (c.tile && S.has('B' + c.tile)) c.open = true;
+      for (const t of S) {
+        if (t[0] === 's') { const [x, y] = t.slice(1).split(',').map(Number); this.room.searched.add(y * this.room.w + x); G.rebuildUpright(this.room, x, y); }
+        else this.took.add(t);
+      }
       return this;
     }
     // The crew at the start (x, y): player 2 a tile to the side of player 1 (whichever side is clear)
@@ -14805,14 +14823,17 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.next = !st.test && st.def.kind ? G.nextLevel(st.def, st.ticket) : null; // levelset.js: the next main level, the bonus level if its ticket was found, after the last the secret level if every data disk is found
       this.disk = G.DISK_LEVELS().includes(st.def.id) ? !!(G.save.data.disks || {})[st.def.id] : null;
       if (st.score > (G.save.data.best || 0)) G.save.data.best = st.score;
-      if (this.next && !st.online && !st.practice) this.code = G.saveRun(G.runAfter(st, this.next)); // codes.js: the next level's code, and CONTINUE
+      if (!st.test && st.def.kind && !st.practice) { G.save.data.cleared = G.save.data.cleared || {}; G.save.data.cleared[st.def.id] = 1; } // (the level select replays cleared levels)
+      if (st.replay && G.levelById(st.replay)) this.next = G.levelById(st.replay); // a replay: back to where the run was
+      this.runTaken = { ...st.runTaken, [st.def.id]: [...new Set([...(st.runTaken[st.def.id] || []), ...st.takenNow()])] }; // taken once per run
+      if (this.next && !st.online && !st.practice) this.code = G.saveRun(G.runAfter(st, this.next), this.runTaken); // codes.js: the next level's code, and CONTINUE
       G.save.write();
     }
     update() {
       this.t++;
       if (!(this.t > 60 && (I.menu.confirmP || I.menu.startP || I.taps.length))) return;
       if (!this.next) { G.setState(new Boot()); return; }
-      const carry = this.st.carryOut();
+      const carry = { ...this.st.carryOut(), runTaken: this.runTaken };
       G.setState(this.next.briefing ? new G.states.Briefing(this.next, this.st.crewId, carry) : new Stage(this.next, this.st.crewId).carryIn(carry));
     }
     draw(ctx) {
@@ -14828,7 +14849,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         G.text(k, 56, 96 + i * 14, col, { shadow: '#0e124a' });
         G.text(String(val), 200, 96 + i * 14, col, { align: 'right', shadow: '#0e124a' });
       });
-      if (this.t > 60 && (this.t >> 4) % 2 === 0) G.text(this.next ? 'PRESS START: ON TO ' + this.next.name : 'PRESS START', G.W / 2, 150, '#ffd23a', { align: 'center', shadow: '#0e124a' });
+      if (this.t > 60 && (this.t >> 4) % 2 === 0) G.text(this.next ? (this.st.replay ? 'PRESS START: BACK TO ' : 'PRESS START: ON TO ') + this.next.name : 'PRESS START', G.W / 2, 150, '#ffd23a', { align: 'center', shadow: '#0e124a' });
       if (this.code && this.t > 40) { // the next level's code: write it down (1 PLAYER > ENTER CODE), your stuff comes with it
         G.box(16, 174, 224, 30);
         G.text('LEVEL CODE (KEEPS YOUR STUFF)', G.W / 2, 180, '#9a8ec0', { align: 'center' });
@@ -14838,14 +14859,19 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   }
   // Start a run from a code or CONTINUE: its level (with its briefing) and the crew with their stuff. Player 1's
   // part for one player; a couch co-op code needs both players joined first (2 PLAYERS), else only player 1 plays.
-  G.startRun = (run) => {
-    const def = run && G.levelById(run.level);
-    if (!def) { G.toast('THAT LEVEL IS GONE', 120); return false; }
+  // taken: what this run already took, per level (CONTINUE: the saved run's; a typed code starts clean)
+  G.startRun = (run, taken, replayOf) => {
+    const def = replayOf || (run && G.levelById(run.level));
+    if (!run || !def) { G.toast('THAT LEVEL IS GONE', 120); return false; }
     const crew = run.players.map((p) => p.crew), team = G.coop && crew.length > 1 ? crew.slice(0, 2) : crew[0];
-    const carry = { score: run.score, players: run.players.slice(0, [].concat(team).length).map((p, i) => ({ num: i + 1, lives: p.lives, weapons: p.weapons, items: p.items })) };
-    G.setState(def.briefing ? new G.states.Briefing(def, team, carry) : new Stage(def, team).carryIn(carry));
+    const carry = { score: run.score, runTaken: taken || {}, ...(replayOf ? { replay: run.level } : {}), players: run.players.slice(0, [].concat(team).length).map((p, i) => ({ num: i + 1, lives: p.lives, weapons: p.weapons, items: p.items })) };
+    G.setState(def.briefing && !replayOf ? new G.states.Briefing(def, team, carry) : new Stage(def, team).carryIn(carry));
     return true;
   };
+  // Going back (economy plan, section 4): replay a level you've cleared with the saved run's crew and stuff; what the
+  // run took there stays taken (no farming); clearing it returns you to where the run was
+  G.savedRun = () => { const s = G.save.data.run, run = s && G.runOf(s.code); return run ? { run, taken: s.taken || {} } : null; };
+  G.startReplay = (def) => { const r = G.savedRun(); return !!r && G.startRun(r.run, r.taken, def); };
 
   // ===== Pause / options =====
   // The FULL SCREEN menu row (title and pause, on touch screens): toggles it where the browser allows; on an iPhone
@@ -14930,7 +14956,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const saved = G.save.data.run && G.runOf(G.save.data.run.code), at = saved && G.levelById(saved.level);
     return [
       { label: 'NEW GAME', act: () => G.setState(new G.Recruit()), help: () => 'FROM LEVEL 1' },
-      ...(at ? [{ label: 'CONTINUE', val: () => G.levelLabel(at).replace('LEVEL ', 'LV '), act: () => G.startRun(saved), help: () => at.name + ', WITH YOUR STUFF' }] : []),
+      ...(at ? [{ label: 'CONTINUE', val: () => G.levelLabel(at).replace('LEVEL ', 'LV '), act: () => G.startRun(saved, (G.save.data.run && G.save.data.run.taken) || {}), help: () => at.name + ', WITH YOUR STUFF' }] : []),
       { label: 'ENTER CODE', act: () => G.setState(new G.states.CodeEntry(G.state)), help: () => 'A LEVEL CODE FROM THE CLEAR SCREEN' },
     ];
   };
@@ -15241,9 +15267,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // then its briefing. Shows which data disks you've found.
   const ROWS = 9; // level rows on screen at once (the list scrolls)
   class LevelSelect {
-    constructor() { Object.assign(this, { menu: true, noToast: true, sel: 0, t: 0, top: 0 }); }
+    constructor() { Object.assign(this, { menu: true, noToast: true, sel: 0, t: 0, top: 0, stuff: !!G.savedRun() }); }
+    // With a saved run (CONTINUE), YOUR STUFF: ON replays a level you've cleared with the run's crew and inventory
+    // (game.js: G.startReplay; what the run took there stays taken), then goes back to where the run was
+    replayable(L) { return this.stuff && !!G.savedRun() && !!(G.save.data.cleared || {})[L.id]; }
     items() {
       const D = G.save.data.disks || {}, rows = [];
+      if (G.savedRun()) rows.push({ label: 'YOUR STUFF: ' + (this.stuff ? 'ON' : 'OFF'), stuffRow: true });
       for (const L of G.LEVELS) { // each world's levels, then its secret level
         rows.push({ L, label: L.num + '  ' + L.name, disk: L.disk ? !!D[L.id] : null });
         for (const S2 of G.SECRET_LEVELS) if (S2.after === L.id) rows.push({ L: S2, label: 'X  ' + S2.name, secret: true });
@@ -15266,6 +15296,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       const r = rows[pick];
       G.sfx.play('confirm');
       if (r.back) { G.setState(new S.Boot()); return; }
+      if (r.stuffRow) { this.stuff = !this.stuff; return; }
+      if (this.replayable(r.L)) { G.coop = null; G.startReplay(r.L); return; }
       G.coop = null; I.controllers.length = 0;
       G.setState(new G.Recruit(1, { level: r.L, onBack: () => G.setState(this) }));
     }
@@ -15279,11 +15311,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       all.slice(this.top, this.top + ROWS).forEach((r, k) => {
         const i = this.top + k, y = 56 + k * 16, on = i === this.sel;
         if (on) { ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(20, y - 4, 216, 14); }
-        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.secret ? (G.secretOpen(r.L) ? '#ff9ad0' : '#6a5a8a') : r.bonus ? '#ffd23a' : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
+        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.stuffRow ? '#38f0a0' : r.secret ? (G.secretOpen(r.L) ? '#ff9ad0' : '#6a5a8a') : r.bonus ? '#ffd23a' : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
+        if (r.L && this.replayable(r.L)) G.text('+', 206, y, '#38f0a0'); // replays with your stuff
         if (r.disk !== null && r.disk !== undefined) { ctx.drawImage(G.art.icons.disk, 214, y - 3); if (!r.disk) { ctx.fillStyle = 'rgba(18,8,30,.7)'; ctx.fillRect(214, y - 3, 12, 12); } }
         if (r.secret && !G.secretOpen(r.L)) G.text('LOCKED', 228, y, '#6a5a8a', { align: 'right' });
       });
-      if (this.items()[this.sel] && this.items()[this.sel].L && this.items()[this.sel].L.time) {
+      const cur = this.items()[this.sel];
+      if (cur && cur.stuffRow) G.text(this.stuff ? 'CLEARED LEVELS (+): REPLAY WITH YOUR STUFF' : 'EVERY LEVEL STARTS FRESH', G.W / 2, 206, '#38f0a0', { align: 'center', shadow: '#140c1c' });
+      else if (cur && cur.L && this.replayable(cur.L)) G.text('WITH YOUR STUFF, THEN BACK TO YOUR RUN', G.W / 2, 196, '#38f0a0', { align: 'center', shadow: '#140c1c' });
+      if (cur && cur.L && cur.L.time) {
         const [h, mm] = this.items()[this.sel].L.time;
         G.text((h % 12 || 12) + ':' + String(mm).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM'), G.W / 2, 206, '#ff3a5a', { align: 'center', shadow: '#140c1c' });
       }

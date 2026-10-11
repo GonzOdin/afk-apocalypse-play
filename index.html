@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-10 23:08 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-11 00:16 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -1639,6 +1639,63 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (kind !== 'empty') r(1, 1, 1, 1, '#ffb0c0');
     });
   }
+
+  // ===== Weapons in hand (James 10-10: "they need to look like their pickups, not a colored stick") =====
+  // Each is drawn side-on, pointing right, with its grip at (gx, gy); G.heldArt turns it to any of the 8 aim directions
+  // (pixel-exact rotation about the grip; left-facing ones are mirrored, never upside down) and outlines it. Colors
+  // follow the pickup icons. The soda can and the dinner plates are drawn by Player.drawAim itself.
+  G.HELD = {
+    darts: { w: 14, h: 7, gx: 2, gy: 5, draw(r) { // a foam-dart blaster
+      r(1, 3, 3, 4, '#c85a10'); r(1, 1, 9, 3, '#ff8a2a'); r(1, 1, 9, 1, '#ffb05a'); r(10, 2, 3, 1, '#ffd23a'); r(13, 2, 1, 1, '#3ad0ff');
+      r(5, 4, 2, 2, '#3ad0ff'); r(5, 4, 2, 1, '#8ae8ff'); r(4, 4, 1, 1, '#202028'); r(8, 0, 2, 1, '#3ad0ff'); } },
+    skillet: { w: 12, h: 6, gx: 1, gy: 3, draw(r) { // a cast-iron skillet by its handle
+      r(0, 3, 5, 1, '#6a4a2a'); r(0, 3, 2, 1, '#8a6a3a'); r(5, 1, 7, 4, '#3a3a48'); r(6, 2, 5, 2, '#24242e'); r(6, 1, 5, 1, '#6a6a7a'); r(5, 3, 1, 1, '#3a3a48'); } },
+    tranq: { w: 13, h: 6, gx: 1, gy: 4, draw(r) { // a white dart pistol, a purple-tufted dart loaded
+      r(0, 3, 2, 3, '#8a8aa0'); r(1, 1, 8, 2, '#e8e8f0'); r(1, 1, 8, 1, '#ffffff'); r(9, 1, 3, 1, '#c8c8d8'); r(12, 1, 1, 1, '#c8a8ff'); r(4, 0, 2, 1, '#c8a8ff'); r(3, 3, 1, 1, '#5a5a6a'); } },
+    emp: { w: 9, h: 6, gx: 2, gy: 3, draw(r) { // Root's black box, a little dish on the front glowing green
+      r(0, 1, 6, 4, '#24242e'); r(1, 2, 3, 1, '#38f0a0'); r(1, 3, 1, 1, '#ff3a5a'); r(3, 3, 1, 1, '#ffd23a'); r(4, 0, 1, 1, '#8a8aa0');
+      r(6, 0, 1, 6, '#5a5a6a'); r(7, 1, 1, 4, '#8a8aa0'); r(8, 2, 1, 2, '#38f0a0'); } },
+    hockey: { w: 15, h: 6, gx: 2, gy: 2, draw(r) { // a taped wooden shaft, a black blade
+      r(0, 2, 11, 1, '#c89060'); r(0, 2, 2, 1, '#202028'); r(6, 2, 1, 1, '#ffffff'); r(11, 2, 1, 2, '#202028'); r(12, 3, 3, 2, '#202028'); r(12, 4, 3, 1, '#3a3a48'); r(13, 3, 1, 1, '#5a5a6a'); } },
+    splash: { w: 9, h: 7, gx: 1, gy: 3, draw(r) { // Dot's diner coffee pot: glass, brown coffee, orange handle
+      r(2, 1, 6, 6, '#c8d8e8'); r(2, 4, 6, 3, '#5a3018'); r(3, 4, 1, 2, '#8a5030'); r(3, 0, 4, 1, '#202028'); r(2, 1, 6, 1, '#202028');
+      r(0, 2, 2, 1, '#ff8a2a'); r(0, 2, 1, 3, '#ff8a2a'); r(0, 4, 2, 1, '#ff8a2a'); r(8, 2, 1, 1, '#c8d8e8'); r(7, 2, 1, 1, '#ffffff'); } },
+    blower: { w: 14, h: 6, gx: 2, gy: 1, draw(r) { // a yellow motor, a grey tube
+      r(0, 1, 5, 5, '#ffd23a'); r(0, 5, 5, 1, '#c09010'); r(1, 1, 3, 1, '#fff0a0'); r(1, 0, 3, 1, '#3a3048'); r(5, 3, 8, 2, '#9098b0'); r(5, 3, 8, 1, '#c8d0e0'); r(13, 3, 1, 2, '#5a6070'); } },
+    squirt: { w: 13, h: 7, gx: 2, gy: 5, draw(r) { // an orange pump squirter, a blue tank on top
+      r(0, 3, 11, 2, '#ff8a2a'); r(0, 3, 11, 1, '#ffb070'); r(1, 5, 2, 2, '#c05a10'); r(2, 0, 5, 3, '#3ad0ff'); r(2, 0, 5, 1, '#bff0ff'); r(3, 1, 1, 1, '#ffffff');
+      r(7, 5, 3, 1, '#3a3a48'); r(11, 3, 2, 1, '#ffd23a'); } },
+    bat: { w: 14, h: 4, gx: 2, gy: 2, draw(r) { // a wooden bat: taped handle, knob, a fat barrel
+      r(0, 1, 1, 3, '#3a2a20'); r(1, 2, 4, 1, '#3a2a20'); r(5, 2, 2, 1, '#c8a070'); r(7, 1, 6, 3, '#c8a070'); r(7, 1, 6, 1, '#e0c090'); r(13, 1, 1, 3, '#f0d8a8'); } },
+    machete: { w: 15, h: 5, gx: 2, gy: 3, draw(r) { // a dark handle, a guard, a long silver blade
+      r(0, 2, 4, 2, '#3a2a20'); r(1, 2, 2, 1, '#5a4030'); r(4, 1, 1, 4, '#202028'); r(5, 1, 9, 2, '#d8d8e8'); r(5, 1, 9, 1, '#ffffff'); r(5, 3, 8, 1, '#8a8aa0'); r(14, 1, 1, 1, '#ffffff'); } },
+    rockets: { w: 15, h: 6, gx: 5, gy: 4, draw(r) { // a green launcher tube, a rocket's red nose at the mouth
+      r(0, 1, 13, 3, '#3a8a4e'); r(0, 1, 13, 1, '#5ab06e'); r(0, 1, 1, 3, '#2a2a38'); r(4, 4, 2, 2, '#2a2a38'); r(6, 0, 2, 1, '#2a2a38'); r(13, 1, 2, 3, '#ff3a5a'); r(14, 2, 1, 1, '#ffd23a'); } },
+  };
+  // The weapon `id` turned to angle a (one of 8 directions), outlined: { img, cx, cy } with (cx, cy) its grip in the
+  // image, and the muzzle (tx, ty) relative to the grip. Built once per weapon and direction.
+  const heldCache = {};
+  G.heldArt = (id, a) => {
+    const H = G.HELD[id]; if (!H) return null;
+    const d = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8, key = id + d;
+    if (heldCache[key]) return heldCache[key];
+    const src = G.makeCanvas(H.w, H.h), sx = src.getContext('2d');
+    H.draw((x, y, w, h, c) => { sx.fillStyle = c; sx.fillRect(x, y, w, h); });
+    const px = sx.getImageData(0, 0, H.w, H.h).data;
+    const ang = (d * Math.PI) / 4, left = Math.cos(ang) < -0.01, rot = left ? Math.PI - ang : ang; // left: mirror the right-facing turn
+    const R = Math.ceil(Math.hypot(Math.max(H.gx, H.w - H.gx), Math.max(H.gy, H.h - H.gy))) + 1, S = R * 2 + 1;
+    const out = G.makeCanvas(S, S), ox = out.getContext('2d'), img = ox.createImageData(S, S), c = Math.cos(rot), sn = Math.sin(rot);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { // inverse-rotate each output pixel's center into the source (nearest pixel)
+      const dx = x - R, dy = y - R, u = Math.round(dx * c + dy * sn + H.gx), v = Math.round(-dx * sn + dy * c + H.gy);
+      if (u < 0 || v < 0 || u >= H.w || v >= H.h) continue;
+      const si = (v * H.w + u) * 4; if (!px[si + 3]) continue;
+      const di = (y * S + (left ? S - 1 - x : x)) * 4;
+      img.data[di] = px[si]; img.data[di + 1] = px[si + 1]; img.data[di + 2] = px[si + 2]; img.data[di + 3] = 255;
+    }
+    ox.putImageData(img, 0, 0);
+    const len = H.w - 1 - H.gx;
+    return (heldCache[key] = { img: G.outline(out), cx: R + 1, cy: R + 1, tx: Math.round(Math.cos(ang) * len), ty: Math.round(Math.sin(ang) * len) });
+  };
 
   G.buildArt = () => {
     const A = G.art;
@@ -4317,7 +4374,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       name: 'HOT JOE', icon: 'splash', signature: true,
       ammo: 240, max: 480,
       melee: { dmg: 0.5, reach: 16, cd: 20 },
-      held: { can: { body: '#5a3018', band: '#ffffff', lid: '#202028' } }, // a diner coffee pot
+      held: { art: true }, // the diner coffee pot (G.HELD.splash)
       dmg: 0.4, rate: 5, range: 15, perk: 20, perkMax: 300, // tunable: damage per drop, fire delay, ticks a drop flies; speed-up ticks a drop gives a teammate, most it builds to
       spillLife: 600, spillSlow: 0.55, // tunable: a spill where coffee lands lasts this many ticks; the living wade through it at this speed (mop bots come to clean it)
       spillBurn: 0.25, spillEvery: 40, // tunable: it's hot: an enemy standing in it takes this much every this many ticks (a teen lasts about 8 s)
@@ -5356,7 +5413,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       ],
       kinds: { "20,2": "painting", "92,2": "dog", "42,9": "painting", "71,13": "jacks", "37,16": "knocked", "38,20": "mower", "21,23": "baby", "56,25": "busted", "83,26": "teacher", "44,29": "left/red/wreck/shut", "3,30": "stretch", "89,30": "locked", "90,30": "locked", "86,32": "left/green/sedan/open", "6,33": "photo", "85,40": "photo", "72,41": "left/blue/wreck/open", "3,42": "tourists", "76,45": "right/yellow/sedan/shut", "87,48": "delivery", "64,49": "left/white/burnt/shut", "5,51": "painting", "11,51": "photo", "21,51": "painting", "65,58": "dog", "6,59": "gnome" },
       floors: { "43,10": "n", "48,10": "n", "42,11": "y", "41,12": "n", "48,12": "n", "7,34": "n", "12,34": "n", "55,34": ".", "56,34": ".", "57,34": ".", "59,34": ".", "60,34": ".", "61,34": ".", "63,34": ".", "64,34": ".", "65,34": ".", "6,35": "y", "55,35": ".", "56,35": ".", "57,35": ".", "59,35": ".", "60,35": ".", "61,35": ".", "63,35": ".", "64,35": ".", "5,36": "n", "12,36": "n", "88,41": "n", "91,41": "n", "84,42": "y", "83,43": "n", "91,43": "n", "68,61": ".", "88,61": "." },
-      loot: { "8,2": "ammo", "59,2": "i:pie", "46,10": "w:plates", "86,10": "empty", "21,20": "i:coffee", "31,28": "ammo", "72,31": "i:pie", "93,37": "burger", "3,39": "ammo", "88,61": "teen" },
+      loot: { "8,2": "ammo", "59,2": "i:pie", "13,3": "w:plates", "14,3": "empty", "15,3": "w:plates", "16,3": "i:pie", "65,5": "ammo", "46,10": "w:plates", "47,10": "w:plates", "86,10": "empty", "48,12": "w:plates", "11,14": "i:coffee", "27,15": "i:pie", "31,15": "w:plates", "41,15": "ammo", "27,16": "i:pie", "39,16": "i:pie", "40,16": "i:pie", "43,17": "ammo", "44,17": "quarter", "40,18": "i:pie", "41,18": "ammo", "42,18": "i:pie", "21,20": "i:coffee", "47,21": "i:pie", "46,22": "ammo", "50,22": "ammo", "49,26": "i:pie", "31,28": "ammo", "72,31": "i:pie", "10,34": "i:pie", "11,34": "empty", "12,36": "w:plates", "93,37": "burger", "42,38": "ammo", "3,39": "ammo", "26,40": "i:pie", "89,41": "i:pie", "90,41": "w:plates", "21,42": "ammo", "24,42": "ammo", "91,43": "w:plates", "53,44": "burger", "58,44": "empty", "6,49": "teen", "81,50": "i:pie", "40,51": "teen", "8,52": "i:pie", "9,52": "i:pie", "10,52": "i:pie", "25,52": "i:coffee", "26,52": "i:coffee", "27,52": "w:plates", "28,52": "empty", "57,56": "empty", "37,58": "empty", "76,58": "i:coffee", "58,59": "empty", "63,61": "empty", "68,61": "i:pie", "88,61": "teen" },
     },
     "galleria": {
       name: "GALLERIA MALL", theme: "suburb",
@@ -5486,7 +5543,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       ],
       kinds: { "14,1": "mopbot", "82,4": "drone", "71,8": "painting", "76,8": "photo", "12,19": "photo", "15,19": "photo", "43,28": "locked", "44,28": "locked", "75,28": "blue", "76,28": "blue", "3,31": "right/yellow/sedan/shut", "7,31": "right/yellow/sedan/shut", "11,31": "right/yellow/sedan/shut", "15,31": "left//burnt/shut", "18,31": "left/blue/sedan/shut", "22,31": "left/blue/sedan/shut", "3,36": "left/green/sedan/shut", "7,36": "left/green/sedan/shut", "11,36": "left/green/sedan/shut", "14,36": "left/blue/wreck/shut", "18,36": "right/red/sedan/shut", "22,36": "right/red/sedan/shut", "61,42": "up/white/wagon/shut", "65,42": "up/white/wagon/shut", "78,42": "up//wreck/shut", "3,47": "right/white/sedan/shut", "7,47": "right/white/sedan/shut", "11,47": "right/white/sedan/shut", "15,47": "right//burnt/shut", "18,47": "left/purple/sedan/shut", "22,47": "left/purple/sedan/shut", "72,52": "blue", "82,52": "up//burnt/shut" },
       floors: { "65,9": "n", "10,20": "n" },
-      loot: { "3,6": "i:pie", "63,9": "w:plates", "26,12": "i:coffee", "77,16": "w:plates", "13,20": "w:plates", "66,24": "teen", "1,30": "burger", "84,37": "ammo", "9,44": "i:pie", "77,56": "w:squirt" },
+      loot: { "8,5": "empty", "3,6": "i:pie", "17,6": "ammo", "24,7": "empty", "10,9": "i:coffee", "63,9": "w:plates", "64,9": "i:pie", "3,10": "ammo", "26,12": "i:coffee", "22,13": "ammo", "6,14": "i:pie", "30,15": "i:pie", "19,16": "ammo", "77,16": "w:plates", "3,20": "w:plates", "4,20": "i:pie", "5,20": "w:plates", "6,20": "i:coffee", "7,20": "empty", "8,20": "w:plates", "13,20": "w:plates", "14,20": "i:pie", "18,20": "w:plates", "24,20": "i:pie", "27,21": "empty", "66,24": "teen", "26,25": "ammo", "78,25": "ammo", "43,26": "empty", "1,30": "burger", "27,30": "empty", "44,36": "teen", "60,37": "i:coffee", "84,37": "ammo", "16,39": "ammo", "31,40": "ammo", "56,40": "ammo", "9,44": "i:pie", "85,46": "i:coffee", "36,47": "empty", "51,47": "empty", "68,47": "ammo", "27,49": "ammo", "13,50": "i:pie", "64,53": "empty", "62,56": "empty", "77,56": "w:squirt", "37,57": "i:pie", "50,57": "empty" },
     },
     "mansion": {
       name: "FOUNDER'S MANSION", theme: "suburb",
@@ -5616,7 +5673,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       ],
       kinds: { "49,1": "drone", "88,3": "robodog", "36,6": "photo", "43,6": "painting", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "45,30": "blue", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "65,48": "photo", "68,48": "painting", "53,53": "photo", "78,55": "left//burnt/shut" },
       floors: { "44,7": "n", "71,49": "n", "51,54": "n" },
-      loot: { "32,1": "teen", "62,3": "i:pie", "48,4": "burger", "39,13": "w:plates", "57,19": "teen", "86,20": "ammo", "32,26": "ammo", "4,46": "i:coffee", "87,49": "ammo", "73,57": "i:pie" },
+      loot: { "32,1": "teen", "62,3": "i:pie", "48,4": "burger", "34,7": "empty", "35,7": "empty", "38,12": "ammo", "39,13": "w:plates", "57,19": "teen", "86,20": "ammo", "74,24": "empty", "32,26": "ammo", "45,34": "teen", "26,38": "i:pie", "81,39": "i:pie", "57,41": "burger", "11,44": "i:pie", "61,44": "teen", "4,46": "i:coffee", "69,49": "i:pie", "70,49": "w:plates", "87,49": "ammo", "32,50": "quarter", "36,52": "ammo", "54,54": "w:plates", "37,56": "ammo", "73,57": "i:pie" },
     },
     "serverfarm": {
       name: "SERVER FARM", theme: "servers",
@@ -5683,7 +5740,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "##########################################################################################",
       ],
       kinds: { "19,1": "drone", "82,7": "drone", "67,13": "mopbot", "48,14": "mopbot", "1,20": "robodog", "82,20": "blue", "74,30": "blue", "75,30": "blue", "3,35": "clone", "81,38": "robodog" },
-      loot: { "33,7": "burger", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "16,22": "w:squirt", "88,28": "teen", "1,44": "i:coffee", "88,46": "ammo" },
+      loot: { "33,7": "burger", "31,11": "i:pie", "79,14": "ammo", "1,15": "i:coffee", "26,20": "teen", "61,20": "i:pie", "3,22": "i:pie", "16,22": "w:squirt", "58,23": "i:pie", "28,27": "i:pie", "39,27": "teen", "64,28": "ammo", "88,28": "teen", "20,32": "empty", "82,38": "empty", "1,44": "i:coffee", "32,44": "ammo", "57,45": "empty", "27,46": "ammo", "88,46": "ammo", "55,52": "teen", "70,52": "ammo" },
     },
     "core": {
       name: "THE CORE", theme: "servers",
@@ -5754,7 +5811,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "############################################################################################",
       ],
       kinds: { "2,1": "clone", "89,7": "mopbot", "81,21": "blue", "17,28": "clone", "15,31": "blue", "16,31": "blue", "84,33": "robodog", "3,47": "drone", "54,56": "clone", "72,56": "drone", "38,57": "robodog" },
-      loot: { "90,22": "ammo", "1,33": "burger", "70,39": "teen", "35,49": "i:coffee", "90,49": "teen", "83,59": "i:coffee", "52,61": "i:pie", "12,62": "ammo" },
+      loot: { "29,9": "i:pie", "62,9": "ammo", "60,10": "ammo", "31,18": "i:coffee", "29,20": "ammo", "62,20": "i:coffee", "59,21": "empty", "90,22": "ammo", "1,28": "empty", "86,28": "ammo", "11,29": "empty", "1,33": "burger", "70,39": "teen", "29,42": "ammo", "62,44": "ammo", "31,45": "ammo", "35,49": "i:coffee", "90,49": "teen", "29,50": "ammo", "60,53": "empty", "8,56": "ammo", "83,59": "i:coffee", "52,61": "i:pie", "12,62": "ammo" },
     },
     "root": {
       name: "/ROOT", theme: "root",
@@ -5817,7 +5874,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "########################################################################",
       ],
       kinds: { "3,1": "clone", "61,1": "clone", "26,8": "drone", "45,17": "robodog", "14,20": "mopbot", "36,22": "blue", "1,23": "clone", "70,23": "clone", "60,28": "blue", "61,28": "blue", "2,42": "robodog", "69,43": "drone" },
-      loot: { "23,2": "ammo", "48,3": "teen", "30,21": "i:pie", "70,22": "burger", "1,26": "ammo", "3,44": "i:coffee" },
+      loot: { "23,2": "ammo", "25,2": "empty", "48,3": "teen", "46,12": "ammo", "30,21": "i:pie", "70,22": "burger", "1,26": "ammo", "46,34": "empty", "25,37": "empty", "11,38": "i:pie", "20,39": "ammo", "6,40": "ammo", "16,43": "burger", "3,44": "i:coffee", "9,48": "i:pie", "25,50": "ammo", "18,52": "burger" },
     },
   };
 })();
@@ -5887,12 +5944,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     sweeper: { hp: 8, speed: 0.4, roam: { seek: 0.35, sight: 140 }, bump: { dmg: 1 }, trail: { life: 480, slip: 0.9 }, vacuum: { radius: 10 } },
   };
   window.G.ENEMY_SPAWN = {
-    culdesac: { cap: 6, every: [150, 260], near: [40, 140], ring: [24, 120], rest: 320, hunt: 480, linger: 1800, types: { phoneTeen: 8, sprinter: 1 } },
-    mansion: { water: { every: [600, 1000], max: 2 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
-    root: { water: { every: [600, 1000], max: 2 }, cap: 9, every: [120, 210], near: [40, 140], ring: [24, 120], rest: 280, hunt: 480, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
-    core: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [125, 220], near: [40, 140], ring: [24, 120], rest: 280, hunt: 480, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
-    serverfarm: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
-    galleria: { water: { every: [600, 1000], max: 1 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 480, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
+    culdesac: { cap: 6, every: [150, 260], near: [40, 140], ring: [24, 120], rest: 320, hunt: 900, linger: 1800, types: { phoneTeen: 8, sprinter: 1 } },
+    mansion: { water: { every: [600, 1000], max: 2 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
+    root: { water: { every: [600, 1000], max: 2 }, cap: 9, every: [120, 210], near: [40, 140], ring: [24, 120], rest: 280, hunt: 900, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
+    core: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [125, 220], near: [40, 140], ring: [24, 120], rest: 280, hunt: 900, linger: 600, types: { phoneTeen: 3, sprinter: 2, drone: 2, robodog: 2, mopbot: 1, clone: 3 } },
+    serverfarm: { water: { every: [600, 1000], max: 2 }, cap: 8, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 4, sprinter: 2, drone: 2, robodog: 2, mopbot: 2, clone: 1 } },
+    galleria: { water: { every: [600, 1000], max: 1 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 7, sprinter: 2, drone: 1, mopbot: 1 } },
   };
   window.G.LAB_TUNING = {
     "CREW: JUNE.HEALTH (HP)": 3,
@@ -7323,7 +7380,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ctx.fillStyle = C.lid; ctx.fillRect(x, y, 3, 1);
         return;
       }
-      const pt = (i) => [Math.round(ox + ux * i), Math.round(oy + uy * i)], ready = this.perkReady(); // charged: the tip glints
+      const art = G.heldArt(G.WEAPONS[this.weapon.id].icon, a) || G.heldArt(this.weapon.id, a); // (the weapon itself, as its pickup looks)
+      if (art) {
+        ctx.drawImage(art.img, Math.round(ox) - art.cx, Math.round(oy) - art.cy);
+        if (this.perkReady()) { ctx.fillStyle = (G.tick >> 3) & 1 ? '#ffffff' : '#ffd23a'; ctx.fillRect(Math.round(ox) + art.tx, Math.round(oy) + art.ty, 2, 2); } // charged: the muzzle glints
+        return;
+      }
+      const pt = (i) => [Math.round(ox + ux * i), Math.round(oy + uy * i)], ready = this.perkReady(); // (no art for it: a stick in its colors)
       const px = uy === 0 ? 0 : 1, py = uy === 0 ? 1 : 0; // a second pixel row for thick barrels
       const dot = (x, y, w) => { ctx.fillRect(x - w, y - w, 1 + 2 * w + px * (H.thick - 1), 1 + 2 * w + py * (H.thick - 1)); };
       ctx.fillStyle = '#140c1c'; // outline first, so it reads against anything
@@ -8301,12 +8364,30 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     },
   };
 
+  // Drift (ZAMN's zombies shamble your way): with nobody in sight, an enemy within the level's `drift` px of a player
+  // (by the path, not through walls) shuffles toward them along the flow field at its mosey pace. It doesn't know
+  // where you are, it just wanders that way: it still only goes for you once it sees you (target). Off in the safe
+  // zone at the start, nobody drifts.
+  const drift = (e, st) => {
+    const R = (st.enemyCfg && st.enemyCfg.drift) || 0, F = flowFor(st, e);
+    if (!R || !F || e.placed) return false;
+    let near = Infinity;
+    for (const p of st.players) if (!p.dead && !st.inSafeZone(p.x, p.y)) near = Math.min(near, Math.hypot(p.x - e.x, p.y - e.y));
+    if (near > R || !F.reachable(e.x, e.y - 3)) return false;
+    const step = F.stepFrom(e.x, e.y - 3);
+    if (!step) return false;
+    const dx = step.x - e.x, dy = step.y - (e.y - 3), m = Math.hypot(dx, dy) || 1;
+    e.steerX += (dx / m) * 0.8; e.steerY += (dy / m) * 0.8;
+    e.driftT = 2; // (drifting isn't idling: it doesn't count toward sinking back)
+    return true;
+  };
   // Mosey about when there's nobody to chase: short strolls in random directions at o.pace of normal speed
   B.wander = {
     init(e) { e.wanderT = 0; e.wx = 0; e.wy = 0; },
     update(e, st, o) {
       if (!e.target) e.speedMul *= o.pace || 0.55;
       if (e.wanderT > 0) { e.wanderT--; e.steerX += e.wx * 0.6; e.steerY += e.wy * 0.6; return false; }
+      if (!e.target && !e.flying && !(e.ally > 0) && drift(e, st)) return false; // nobody in sight: shuffle toward the living
       if (!e.target && G.chance(o.chance || 0.01)) {
         const a = G.rand(0, Math.PI * 2);
         e.wx = Math.cos(a); e.wy = Math.sin(a); e.wanderT = G.randi(40, 80);
@@ -9245,7 +9326,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   G.DIFF_ORDER = Object.keys(G.DIFFICULTY);
   G.diff = () => G.DIFFICULTY[G.opts().diff] || G.DIFFICULTY.normal;
-  G.ENEMY_DEFAULTS = { water: { every: [600, 1000], max: 0 }, cap: 6, every: [140, 240], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, types: { phoneTeen: 1 } };
+  G.ENEMY_DEFAULTS = { water: { every: [600, 1000], max: 0 }, cap: 6, every: [140, 240], grace: 240, near: [56, 220], rest: 360, safe: 112, linger: 600, neighborBuffer: 80, flyers: 2, drift: 360, types: { phoneTeen: 1 } }; // drift: px (by path) within which calm enemies shuffle toward a player
   class Spawner {
     constructor(x, y, type) { this.x = x; this.y = y; this.rest = 0; this.type = G.ENEMY_TYPES[type] ? type : null; } // type: a typed spawner (only that type)
     // A typed spawner shows on the floor, so you learn where they come from: robots beam down onto a charging pad
@@ -9295,15 +9376,24 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     const flyFull = G.flyersFull(st), padded = new Set(st.spawners.filter((s) => s.type).map((s) => s.type));
     const mix = {}; // what a plain Z point can send: the mix less the types that have spawners of their own (and flyers, when there are enough)
     for (const [t, w] of Object.entries(cfg.types || {})) if (w > 0 && !padded.has(t) && !(flyFull && G.isFlyingType(t))) mix[t] = w;
-    const ok = st.spawners.filter((s) => {
+    let wide = false; // (second pass: no point just off screen can reach anyone, so take the nearest further out)
+    const okFor = (s) => {
       if (s.rest > 0 || st.inSafeZone(s.x, s.y, 24)) return false; // never in (or right at the edge of) the safe zone
       if (s.type ? flyFull && G.isFlyingType(s.type) : !Object.keys(mix).length) return false; // nothing it could send right now
       if ((st.neighbors || []).some((n) => !n.gone && Math.hypot(n.x - s.x, n.y - s.y) < cfg.neighborBuffer)) return false; // give neighbors a fair chance
+      if (!(s.type && G.isFlyingType(s.type)) && st.flow && !st.flow.reachable(s.x, s.y - 3)) return false; // no way from here to anyone: pointless
+      if (wide) return !st.onScreen(s.x, s.y, 24);
       if (cfg.ring) return justOffScreen(st, s.x, s.y, cfg.ring);
       let near = Infinity;
       for (const p of st.players) if (!p.dead) near = Math.min(near, Math.hypot(p.x - s.x, p.y - s.y));
       return near >= cfg.near[0] && near <= cfg.near[1];
-    });
+    };
+    let ok = st.spawners.filter(okFor);
+    if (!ok.length) { // nothing near can reach you (you're in a fenced-off pocket): the closest reachable ones further out
+      wide = true;
+      const dist = (s) => Math.min(...st.players.filter((p) => !p.dead).map((p) => Math.hypot(p.x - s.x, p.y - s.y)));
+      ok = st.spawners.filter(okFor).sort((a, b) => dist(a) - dist(b)).slice(0, 3);
+    }
     if (!ok.length) return;
     const s = G.pick(ok);
     const e = new Enemy(s.type || G.weightedPick(mix), s.x + G.rand(-4, 4), s.y + G.rand(-2, 2));
@@ -9389,8 +9479,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       e.farT = near > 420 && !e.placed ? e.farT + 1 : 0; // (a placed enemy stays put: it never goes away on its own)
       if (e.farT > 300) e.dead = true;
       // not chasing anyone for cfg.linger ticks: sink back into the ground, so fresh ones can rise near the players
-      e.calmT = e.aggro || e.noLinger || e.placed || e.rise > 0 || e.sink > 0 ? 0 : e.calmT + 1;
+      if (e.driftT > 0) e.driftT--;
+      e.calmT = e.aggro || e.driftT > 0 || e.noLinger || e.placed || e.rise > 0 || e.sink > 0 ? 0 : e.calmT + 1;
       if (e.calmT > cfg.linger && !e.sink) { e.sink = SINK; if (st.onScreen(e.x, e.y)) G.sfx.play('rise'); }
+      // cut off from everyone (no path) and out of sight: sink after 3 s, so its place in the cap goes to one that can come
+      const F = flowFor(st, e);
+      e.cutT = F && !e.placed && !e.sink && !(e.rise > 0) && !F.reachable(e.x, e.y - 3) && !st.onScreen(e.x, e.y, 24) ? (e.cutT || 0) + 1 : 0;
+      if (e.cutT > 180) e.sink = SINK;
     }
     for (const e of st.enemies) if (e.dead && e.bag && e.bag.length) { // a mop bot's loot comes back out, whether it was destroyed or left
       for (const kind of e.bag) st.pickups.push(new G.Pickup(kind, e.x + G.rand(-6, 6), e.y + G.rand(-3, 3), { pop: true }));
@@ -10023,6 +10118,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     ['hunt', 'FRESH ONES HUNT', 60, (c) => (c.hunt ? secs(c.hunt === true ? 600 : c.hunt) : 'off')],
     ['linger', 'DESPAWN AFTER', 60, (c) => secs(c.linger) + ' idle'],
     ['neighborBuffer', 'NO SPAWNS NEAR NEIGHBORS', 10, (c) => px(c.neighborBuffer)],
+    ['drift', 'DRIFT TOWARD YOU', 20, (c) => (c.drift ? 'within ' + px(c.drift) : 'off')],
     ['flyers', 'DRONES AT ONCE', 1, (c, st) => st.enemies.filter((e) => e.flying && !e.dead).length + ' / ' + c.flyers],
   ];
   // The mix: one row per enemy type, its weight among this level's spawns
@@ -10040,6 +10136,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     else if (field === 'hunt') c.hunt = G.clamp((full.hunt === true ? 600 : full.hunt || 0) + step, 0, 1800);
     else if (field === 'flyers') c.flyers = G.clamp(full.flyers + step, 0, 10);
     else if (field === 'neighborBuffer') c.neighborBuffer = G.clamp(full.neighborBuffer + step, 0, 300);
+    else if (field === 'drift') c.drift = G.clamp((full.drift || 0) + step, 0, 800);
     else if (field === 'every') { const [a, b] = full.every; c.every = [G.clamp(a + step, 15, 1200), G.clamp(b + step, 30, 1800)]; }
     else if (field.startsWith('type:')) { // the mix: never all zero (something has to rise)
       const id = field.slice(5), t = { ...(full.types || {}) }, w = G.clamp((t[id] || 0) + step, 0, 20);
@@ -14391,7 +14488,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const HIST = 120; // snapshots the host remembers (as diff bases), about 4 s
   // Never sent: links to other objects, art, brains, and AI bookkeeping the guest never draws
   const SKIP = new Set(['def', 'ctrl', 'sprites', 'kd', 'brain', 'tune', 'target', 'bumpedDoor', 'grip', 'hits', 'spr', 'tile', 'nid', 'goal', 'skipN', 'nStep', 'dormant', 'placed',
-    'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
+    'steerX', 'steerY', 'speedMul', 'stuck', 'targetDist', 'farT', 'calmT', 'cutT', 'driftT', 'wanderT', 'lungeCd', 'swipeCd', 'slotT', 'huntT', 'noPathT', 'ignoreT',
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
     'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', 'burnT', // (the clones'; burnT: a coffee spill's burn timer)

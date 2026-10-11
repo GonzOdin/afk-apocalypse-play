@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-11 06:08 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-11 12:18 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2108,10 +2108,17 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     return 'red';
   };
   // Is the house door at (x, y) locked? Side-by-side door cells are one door: locked if any of them is marked
+  // 'locked' (a house key opens it) or 'smart' (a smart lock: no key opens it, only Root's Override)
   G.doorLocked = (R, x, y) => {
     if (!R.kinds) return false;
     let a = x; while (R.at(a - 1, y) === 'O') a--;
-    for (let b = a; R.at(b, y) === 'O'; b++) if (R.kinds[b + ',' + y] === 'locked') return true;
+    for (let b = a; R.at(b, y) === 'O'; b++) if (R.kinds[b + ',' + y] === 'locked' || R.kinds[b + ',' + y] === 'smart') return true;
+    return false;
+  };
+  G.doorSmart = (R, x, y) => {
+    if (!R.kinds) return false;
+    let a = x; while (R.at(a - 1, y) === 'O') a--;
+    for (let b = a; R.at(b, y) === 'O'; b++) if (R.kinds[b + ',' + y] === 'smart') return true;
     return false;
   };
   // Is the garden gate at (x, y) a locked one (kinds 'locked' on any of its side-by-side cells)? A locked gate opens
@@ -2223,7 +2230,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (room.at(tx, ty) !== 'O' || room.at(tx - 1, ty) === 'O') continue;
       const cells = [];
       for (let x = tx; x < room.w && room.at(x, ty) === 'O'; x++) cells.push([x, ty]);
-      const prev = old.get(ty * room.w + tx), d = { cells, open: prev ? prev.open : false, anim: prev ? prev.anim : 0, locked: prev ? prev.locked : G.doorLocked(room, tx, ty) };
+      const prev = old.get(ty * room.w + tx), d = { cells, open: prev ? prev.open : false, anim: prev ? prev.anim : 0, locked: prev ? prev.locked : G.doorLocked(room, tx, ty), smart: prev ? prev.smart : G.doorSmart(room, tx, ty) };
       room.hdoors.push(d);
       for (const [x, y] of cells) room.hdoorMap.set(y * room.w + x, d);
     }
@@ -3056,7 +3063,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           const ia = Math.max(a, 6), ib = Math.min(b, end - 3);
           if (ib > ia) { r(ia - idx * 16, -7, ib - ia, 8, '#8a4a30'); r(ia - idx * 16, 4, ib - ia, 8, '#8a4a30'); }
           if (end - 5 >= a && end - 5 < b) r(end - 5 - idx * 16, 2, 2, 2, '#ffd23a'); // knob
-          if (d && d.locked && end - 5 >= a && end - 5 < b) { // locked: a brass lock plate with a keyhole under the knob
+          if (d && d.locked && d.smart && end - 5 >= a && end - 5 < b) { // a smart lock: a black keypad with a green light, no keyhole (Root)
+            const kx = end - 6 - idx * 16; r(kx, 5, 4, 6, '#1a1a24'); r(kx, 5, 4, 1, '#3a3a4a'); r(kx + 1, 6, 2, 1, '#38f0a0'); r(kx + 1, 8, 1, 1, '#6a6a80'); r(kx + 2, 9, 1, 1, '#6a6a80');
+          } else if (d && d.locked && end - 5 >= a && end - 5 < b) { // locked: a brass lock plate with a keyhole under the knob
             const kx = end - 6 - idx * 16; r(kx, 5, 4, 5, '#e0c060'); r(kx, 5, 4, 1, '#fff0a0'); r(kx + 1, 6, 2, 2, '#1a1028'); r(kx + 1, 8, 1, 1, '#1a1028');
           }
         }
@@ -5372,19 +5381,19 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "JIIII__IIIIIIIIIIIIIIII..IIIIIIIIIIIh....h.::======::.htJ....w.::::::::::::::::::.IVII.....v.A.J",
         "J..t........I......I...~~....I.....I.......::==-===::.h.J.1..w.::::::::::::::::::......N...w...J",
         "J.....g..Z..I..+7..I..1....Z.I..B..I..Z....::======::.h.J....w.:cc::::::cc::cc:::..........wwwwJ",
-        "J...........I......I.........I.....I.........::::::.....JJJJJwZ:cc::::::cc::cc:::g.............J",
+        "J...........I......I.........I.....I.......::======::...JJJJJwZ:cc::::::cc::cc:::g.............J",
         "JIWWWWOOWWWWW......WWWWOOWWWWW.....I....g.:::==P===:::.l.....w.::::::::::::::::::..............J",
         "JIWqqnnnkk[nW......W<nnnnkkk[W.....I.....::==========::......w.::::::::::::::::::..wwwwwwwwwwwwJ",
         "JIWnaynnnnnzW......WqqnnnnnayW.....I....:=====hthh=====:.....w.:::::::::Z::::::::..w...........J",
         "JIWjnnnnnnn<W......WjnnnnnnszW.....I...::=====hhth=====::....w.....................w..t........J",
         "JIHHHHOOHHHHH......KKKKOOKKKKK.....I...t================:....wuuuuuuuuu...uuuuuuuuuw........t..J",
         "J.dddd..dddddIIVIIIdddd..dddddIIVIIIJ..:================:m...w.....................V......Z....J",
-        "J...............f...................J..:================:....wt.......l............I.....F.....J",
+        "J...............f...................J..:=======E========:....wt.......l............I.....F.....J",
         "J..,,,..........f.........,,,.......Jg.::==============:Z....w...N..........g......w...........J",
         "J.....N.............................b...:==============:..g..w......Q..........Z...w.uuuuuu....J",
         "J......................N............e.l..::==========::......w.....................w........9..J",
-        "J..t............f...........l.......e.....:::==E===:::...Z.l.w.g....%.....Z........w....%......J",
-        "J.............Z.f...................J....Z...::::::..........w..................t..w...........J",
+        "J..t............f...........l.......e.....::::::::::::...Z.l.w.g....%.....Z........w....%......J",
+        "J.............Z.f...................J....Z...::F:::..........w..................t..w...........J",
         "JJJJJJJJJJJJeeeJJJJeeJJJeeJJJJeeeeJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
       ],
       over: [
@@ -5713,7 +5722,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "..........................................................................................",
         "..........................................................................................",
       ],
-      kinds: { "49,1": "drone", "88,3": "robodog", "36,6": "photo", "43,6": "painting", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "45,30": "blue", "64,33": "godmode", "83,33": "thorns", "79,34": "locked", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "65,48": "photo", "68,48": "painting", "53,53": "photo", "78,55": "left//burnt/shut" },
+      kinds: { "49,1": "drone", "88,3": "robodog", "36,6": "photo", "43,6": "painting", "14,12": "blue", "2,15": "robodog", "44,30": "blue", "45,30": "blue", "64,33": "godmode", "83,33": "thorns", "79,34": "smart", "65,38": "left/red/sedan/shut", "73,38": "left/yellow/wagon/shut", "34,40": "up/white/sedan/shut", "77,46": "right/blue/wreck/shut", "53,47": "down/purple/sedan/shut", "65,48": "photo", "68,48": "painting", "53,53": "photo", "78,55": "left//burnt/shut" },
       floors: { "44,7": "n", "71,49": "n", "51,54": "n" },
       loot: { "32,1": "teen", "62,3": "i:pie", "48,4": "burger", "34,7": "empty", "35,7": "empty", "38,12": "ammo", "39,13": "w:plates", "57,19": "teen", "86,20": "ammo", "74,24": "empty", "32,26": "ammo", "77,32": "i:pie", "45,34": "teen", "26,38": "i:pie", "81,39": "i:pie", "57,41": "burger", "11,44": "i:pie", "61,44": "teen", "4,46": "i:coffee", "69,49": "i:pie", "70,49": "w:plates", "87,49": "ammo", "32,50": "quarter", "36,52": "ammo", "54,54": "w:plates", "37,56": "ammo", "73,57": "i:pie" },
     },
@@ -6036,7 +6045,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "................................................................................",
         "................................................................................",
       ],
-      kinds: { "60,33": "locked", "61,33": "locked", "60,39": "locked", "28,51": "right/white/sedan/shut", "70,51": "left/red/wagon/open" },
+      kinds: { "60,33": "locked", "61,33": "locked", "60,39": "smart", "28,51": "right/white/sedan/shut", "70,51": "left/red/wagon/open" },
       loot: { "52,3": "ammo", "61,3": "i:pie", "67,3": "empty", "68,3": "w:plates", "69,3": "empty", "70,3": "i:coffee", "71,3": "i:coffee", "10,4": "w:plates", "11,4": "i:coffee", "62,4": "ammo", "22,5": "i:pie", "23,6": "ammo", "32,6": "w:plates", "33,6": "w:plates", "14,8": "ammo", "16,12": "ammo", "10,17": "w:plates", "11,17": "w:plates", "52,18": "ammo", "14,21": "i:pie", "78,22": "ammo", "56,28": "teen", "77,28": "empty", "66,29": "ammo", "10,30": "w:plates", "11,30": "w:plates", "28,30": "empty", "14,34": "teen", "46,34": "empty", "63,36": "i:pie", "73,36": "w:plates", "74,36": "i:pie", "16,40": "i:coffee", "10,43": "i:pie", "11,43": "w:plates", "52,43": "ammo", "65,45": "ammo", "14,47": "i:pie", "34,49": "empty", "62,49": "i:pie" },
     },
     "sprinkler": {
@@ -6286,7 +6295,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "........................................................................................",
         "........................................................................................",
       ],
-      kinds: { "64,4": "right//wreck/shut", "61,5": "robodog", "64,6": "left//burnt/shut", "60,24": "locked", "61,24": "locked", "18,26": "left/red/wagon/open", "56,26": "right/white/sedan/shut", "74,26": "left//wreck/shut", "10,29": "thorns", "74,42": "decoy", "64,43": "locked" },
+      kinds: { "64,4": "right//wreck/shut", "61,5": "robodog", "64,6": "left//burnt/shut", "60,24": "locked", "61,24": "locked", "18,26": "left/red/wagon/open", "56,26": "right/white/sedan/shut", "74,26": "left//wreck/shut", "10,29": "thorns", "74,42": "decoy", "64,43": "smart" },
       loot: { "41,2": "ammo", "15,3": "i:coffee", "29,3": "empty", "47,4": "i:pie", "48,4": "i:coffee", "49,4": "i:coffee", "50,4": "i:coffee", "54,4": "i:pie", "56,4": "empty", "68,4": "i:coffee", "83,4": "ammo", "10,6": "w:plates", "11,6": "w:plates", "24,6": "empty", "25,6": "i:coffee", "38,6": "empty", "39,6": "w:plates", "62,9": "ammo", "67,9": "i:pie", "10,12": "empty", "25,12": "empty", "38,12": "i:pie", "70,12": "i:pie", "3,13": "i:pie", "17,13": "i:coffee", "31,13": "empty", "84,13": "ammo", "9,15": "empty", "27,15": "empty", "40,15": "empty", "13,17": "empty", "24,18": "hkey", "38,19": "i:pie", "3,20": "i:pie", "17,21": "quarter", "30,21": "empty", "55,21": "ammo", "12,22": "ammo", "22,29": "i:pie", "46,29": "empty", "70,29": "i:pie", "77,39": "empty", "33,41": "w:plates", "34,41": "w:plates", "68,42": "empty", "10,46": "ammo", "37,46": "ammo", "62,50": "ammo", "22,52": "quarter", "78,52": "empty" },
     },
     "bunker": {
@@ -6403,7 +6412,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "............................................................................",
         "............................................................................",
       ],
-      kinds: { "40,12": "godmode", "37,24": "godmode", "37,28": "pandora", "36,35": "locked" },
+      kinds: { "40,12": "godmode", "37,24": "godmode", "37,28": "pandora", "36,35": "smart" },
       loot: { "3,4": "empty", "9,4": "i:coffee", "14,4": "w:plates", "17,4": "ammo", "22,4": "i:pie", "28,4": "empty", "32,4": "i:coffee", "42,4": "empty", "46,4": "ammo", "53,4": "i:pie", "58,4": "w:plates", "64,4": "teen", "72,4": "ammo", "4,13": "ammo", "71,13": "empty", "8,21": "teen", "67,21": "ammo", "15,26": "teen", "60,30": "teen", "3,31": "burger", "72,31": "ammo", "34,33": "w:plates", "40,33": "ammo", "8,40": "i:pie", "67,40": "empty", "3,49": "i:pie", "9,49": "ammo", "14,49": "w:plates", "18,49": "ammo", "28,49": "empty", "39,49": "w:plates", "45,49": "ammo", "55,49": "i:pie", "62,49": "w:plates", "70,49": "ammo" },
     },
     "foodcourt": {
@@ -6657,7 +6666,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "......................................................................................",
         "......................................................................................",
       ],
-      kinds: { "82,3": "blue", "26,4": "clone", "82,6": "clone", "33,7": "locked", "6,9": "clone", "16,9": "clone", "1,22": "clone", "62,39": "blue", "33,47": "thorns" },
+      kinds: { "82,3": "blue", "26,4": "clone", "82,6": "clone", "33,7": "smart", "6,9": "clone", "16,9": "clone", "1,22": "clone", "62,39": "blue", "33,47": "thorns" },
       loot: { "39,3": "empty", "62,3": "empty", "29,6": "i:pie", "46,6": "w:plates", "47,6": "i:coffee", "48,6": "w:plates", "49,6": "empty", "50,6": "w:plates", "51,6": "w:plates", "52,6": "w:plates", "53,6": "i:coffee", "54,6": "i:pie", "55,6": "empty", "56,6": "i:pie", "57,6": "i:pie", "58,6": "empty", "66,6": "w:plates", "67,6": "empty", "68,6": "w:plates", "69,6": "w:plates", "70,6": "w:plates", "71,6": "empty", "72,6": "w:plates", "73,6": "i:coffee", "74,6": "i:pie", "75,6": "i:pie", "76,6": "w:plates", "77,6": "empty", "78,6": "w:plates", "79,6": "i:coffee", "80,6": "w:plates", "46,12": "w:plates", "47,12": "i:coffee", "48,12": "i:pie", "49,12": "w:plates", "50,12": "i:pie", "51,12": "i:pie", "52,12": "i:pie", "53,12": "i:pie", "54,12": "i:coffee", "55,12": "i:coffee", "56,12": "empty", "57,12": "i:coffee", "58,12": "i:coffee", "66,12": "w:plates", "67,12": "i:coffee", "68,12": "w:plates", "69,12": "w:plates", "70,12": "i:coffee", "71,12": "w:plates", "72,12": "empty", "73,12": "i:pie", "74,12": "i:coffee", "75,12": "i:coffee", "76,12": "i:pie", "77,12": "empty", "78,12": "w:plates", "79,12": "w:plates", "80,12": "i:pie", "3,14": "teen", "17,14": "i:coffee", "62,15": "ammo", "20,21": "ammo", "50,21": "ammo", "34,37": "ammo", "64,37": "i:pie", "59,44": "empty", "60,44": "ammo", "67,44": "empty", "68,44": "i:coffee", "52,46": "ammo", "75,46": "empty", "76,46": "ammo", "56,49": "i:pie", "59,52": "empty", "60,52": "ammo", "67,52": "i:pie", "68,52": "ammo", "76,53": "ammo" },
     },
     "parking": {
@@ -6786,7 +6795,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "..........................................................................................",
         "..........................................................................................",
       ],
-      kinds: { "3,6": "right/red/sedan/shut", "8,6": "left/green/sedan/shut", "13,6": "left/yellow/sedan/shut", "18,6": "right/yellow/sedan/shut", "23,6": "right/black/sedan/shut", "28,6": "left/yellow/sedan/shut", "33,6": "left/white/sedan/shut", "38,6": "right/yellow/sedan/shut", "81,8": "robodog", "47,9": "drone", "74,11": "pandora", "3,13": "left/green/sedan/shut", "8,13": "right/green/sedan/shut", "13,13": "right/yellow/wagon/shut", "18,13": "right/red/wagon/shut", "23,13": "left/yellow/sedan/shut", "28,13": "right/yellow/sedan/shut", "33,13": "right/white/sedan/shut", "38,13": "left/blue/sedan/shut", "71,14": "locked", "59,22": "left//burnt/shut", "3,24": "right/black/wagon/shut", "8,24": "right/black/sedan/shut", "13,24": "right/yellow/wagon/shut", "18,24": "right/white/wagon/shut", "23,24": "right/green/wagon/shut", "28,24": "left/green/sedan/shut", "33,24": "right/red/sedan/shut", "38,24": "right/black/wagon/shut", "43,24": "left/yellow/sedan/shut", "48,24": "left/white/sedan/shut", "53,24": "left/blue/sedan/shut", "73,24": "left/red/sedan/shut", "78,24": "right/red/sedan/shut", "83,24": "left/red/sedan/shut", "3,31": "right/black/wagon/shut", "8,31": "right/white/sedan/shut", "13,31": "right/red/wagon/shut", "18,31": "left/black/sedan/shut", "23,31": "left/green/sedan/shut", "28,31": "left/red/sedan/shut", "33,31": "right/black/sedan/shut", "38,31": "right/white/wagon/shut", "43,31": "left/green/sedan/shut", "48,31": "left/blue/sedan/shut", "53,31": "left/blue/sedan/shut", "58,31": "right/black/wagon/shut", "63,31": "right/red/wagon/shut", "68,31": "right/yellow/sedan/shut", "73,31": "right/white/sedan/shut", "78,31": "right/blue/sedan/shut", "83,31": "left/green/sedan/shut", "80,40": "locked", "81,40": "locked", "18,44": "right/red/sedan/shut", "23,44": "right/black/wagon/shut", "28,44": "right/red/sedan/shut", "33,44": "left/blue/sedan/shut", "38,44": "left/red/sedan/shut", "43,44": "left/white/sedan/shut", "48,44": "left/red/sedan/shut", "53,44": "left/red/sedan/shut", "58,44": "right/yellow/wagon/shut", "63,44": "left/green/sedan/shut", "68,44": "left/black/sedan/shut", "73,44": "right/white/wagon/shut", "78,44": "right/white/sedan/shut", "83,44": "left/black/sedan/shut", "87,48": "robodog", "18,51": "right/green/sedan/shut", "23,51": "right/red/wagon/shut", "28,51": "left/black/sedan/shut", "33,51": "right/green/sedan/shut", "38,51": "right/green/wagon/shut", "43,51": "left/white/sedan/shut", "48,51": "left/yellow/sedan/shut", "53,51": "right/yellow/sedan/shut", "58,51": "right/green/wagon/shut", "63,51": "right/white/sedan/shut", "68,51": "right/white/sedan/shut", "73,51": "left/blue/sedan/shut", "78,51": "right/white/sedan/shut", "83,51": "left/white/sedan/shut" },
+      kinds: { "3,6": "right/red/sedan/shut", "8,6": "left/green/sedan/shut", "13,6": "left/yellow/sedan/shut", "18,6": "right/yellow/sedan/shut", "23,6": "right/black/sedan/shut", "28,6": "left/yellow/sedan/shut", "33,6": "left/white/sedan/shut", "38,6": "right/yellow/sedan/shut", "81,8": "robodog", "47,9": "drone", "74,11": "pandora", "3,13": "left/green/sedan/shut", "8,13": "right/green/sedan/shut", "13,13": "right/yellow/wagon/shut", "18,13": "right/red/wagon/shut", "23,13": "left/yellow/sedan/shut", "28,13": "right/yellow/sedan/shut", "33,13": "right/white/sedan/shut", "38,13": "left/blue/sedan/shut", "71,14": "smart", "59,22": "left//burnt/shut", "3,24": "right/black/wagon/shut", "8,24": "right/black/sedan/shut", "13,24": "right/yellow/wagon/shut", "18,24": "right/white/wagon/shut", "23,24": "right/green/wagon/shut", "28,24": "left/green/sedan/shut", "33,24": "right/red/sedan/shut", "38,24": "right/black/wagon/shut", "43,24": "left/yellow/sedan/shut", "48,24": "left/white/sedan/shut", "53,24": "left/blue/sedan/shut", "73,24": "left/red/sedan/shut", "78,24": "right/red/sedan/shut", "83,24": "left/red/sedan/shut", "3,31": "right/black/wagon/shut", "8,31": "right/white/sedan/shut", "13,31": "right/red/wagon/shut", "18,31": "left/black/sedan/shut", "23,31": "left/green/sedan/shut", "28,31": "left/red/sedan/shut", "33,31": "right/black/sedan/shut", "38,31": "right/white/wagon/shut", "43,31": "left/green/sedan/shut", "48,31": "left/blue/sedan/shut", "53,31": "left/blue/sedan/shut", "58,31": "right/black/wagon/shut", "63,31": "right/red/wagon/shut", "68,31": "right/yellow/sedan/shut", "73,31": "right/white/sedan/shut", "78,31": "right/blue/sedan/shut", "83,31": "left/green/sedan/shut", "80,40": "locked", "81,40": "locked", "18,44": "right/red/sedan/shut", "23,44": "right/black/wagon/shut", "28,44": "right/red/sedan/shut", "33,44": "left/blue/sedan/shut", "38,44": "left/red/sedan/shut", "43,44": "left/white/sedan/shut", "48,44": "left/red/sedan/shut", "53,44": "left/red/sedan/shut", "58,44": "right/yellow/wagon/shut", "63,44": "left/green/sedan/shut", "68,44": "left/black/sedan/shut", "73,44": "right/white/wagon/shut", "78,44": "right/white/sedan/shut", "83,44": "left/black/sedan/shut", "87,48": "robodog", "18,51": "right/green/sedan/shut", "23,51": "right/red/wagon/shut", "28,51": "left/black/sedan/shut", "33,51": "right/green/sedan/shut", "38,51": "right/green/wagon/shut", "43,51": "left/white/sedan/shut", "48,51": "left/yellow/sedan/shut", "53,51": "right/yellow/sedan/shut", "58,51": "right/green/wagon/shut", "63,51": "right/white/sedan/shut", "68,51": "right/white/sedan/shut", "73,51": "left/blue/sedan/shut", "78,51": "right/white/sedan/shut", "83,51": "left/white/sedan/shut" },
       loot: { "44,3": "i:pie", "3,6": "i:pie", "8,6": "empty", "13,6": "i:pie", "18,6": "empty", "23,6": "i:pie", "28,6": "i:coffee", "33,6": "i:pie", "38,6": "quarter", "47,6": "i:pie", "52,6": "ammo", "3,13": "ammo", "8,13": "ammo", "13,13": "empty", "18,13": "empty", "23,13": "empty", "28,13": "burger", "33,13": "empty", "38,13": "i:coffee", "75,13": "w:plates", "63,16": "ammo", "86,17": "ammo", "3,24": "i:pie", "8,24": "empty", "13,24": "ammo", "18,24": "i:coffee", "23,24": "empty", "28,24": "ammo", "33,24": "empty", "38,24": "i:coffee", "43,24": "i:coffee", "48,24": "empty", "53,24": "w:soda", "73,24": "quarter", "78,24": "quarter", "83,24": "i:pie", "3,31": "i:pie", "8,31": "empty", "13,31": "empty", "18,31": "i:coffee", "23,31": "ammo", "28,31": "ammo", "33,31": "ammo", "38,31": "i:coffee", "43,31": "i:coffee", "48,31": "ammo", "53,31": "teen", "58,31": "i:coffee", "63,31": "empty", "68,31": "empty", "73,31": "i:coffee", "78,31": "ammo", "83,31": "i:pie", "31,35": "empty", "36,36": "i:pie", "46,37": "ammo", "18,44": "ammo", "23,44": "hkey", "28,44": "i:coffee", "33,44": "ammo", "38,44": "i:coffee", "43,44": "i:coffee", "48,44": "empty", "53,44": "w:soda", "58,44": "burger", "63,44": "empty", "68,44": "teen", "73,44": "i:coffee", "78,44": "ammo", "83,44": "quarter", "2,46": "burger", "18,51": "i:coffee", "23,51": "ammo", "28,51": "i:coffee", "33,51": "ammo", "38,51": "ammo", "43,51": "i:coffee", "48,51": "empty", "53,51": "teen", "58,51": "quarter", "63,51": "ammo", "68,51": "teen", "73,51": "i:coffee", "78,51": "i:coffee", "83,51": "i:pie", "28,57": "ammo", "62,57": "ammo" },
     },
     "atrium": {
@@ -7040,7 +7049,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         "............................................................................",
         "............................................................................",
       ],
-      kinds: { "69,4": "pandora", "54,14": "mopbot", "57,18": "godmode", "37,21": "locked", "38,21": "locked", "73,32": "clone", "10,39": "thorns", "35,45": "godmode", "51,45": "right/white/wagon/open", "65,45": "right/red/sedan/shut", "52,48": "clone", "57,48": "left/black/wagon/shut", "1,50": "drone", "31,50": "locked" },
+      kinds: { "69,4": "pandora", "54,14": "mopbot", "57,18": "godmode", "37,21": "locked", "38,21": "locked", "73,32": "clone", "10,39": "thorns", "35,45": "godmode", "51,45": "right/white/wagon/open", "65,45": "right/red/sedan/shut", "52,48": "clone", "57,48": "left/black/wagon/shut", "1,50": "drone", "31,50": "smart" },
       loot: { "8,5": "ammo", "32,5": "i:pie", "68,5": "empty", "5,6": "i:coffee", "10,6": "empty", "17,6": "i:pie", "22,6": "i:pie", "29,6": "empty", "34,6": "w:plates", "41,6": "i:coffee", "46,6": "i:pie", "53,6": "w:plates", "58,6": "i:coffee", "6,15": "ammo", "20,15": "teen", "44,15": "burger", "56,15": "ammo", "17,16": "hkey", "22,16": "i:coffee", "29,16": "i:coffee", "34,16": "i:pie", "41,16": "w:plates", "46,16": "i:pie", "53,16": "i:pie", "58,16": "w:plates", "65,16": "w:plates", "70,16": "w:plates", "10,17": "ammo", "20,25": "i:pie", "32,25": "i:pie", "44,25": "i:pie", "5,26": "w:plates", "10,26": "i:pie", "17,26": "empty", "22,26": "i:coffee", "29,26": "i:coffee", "34,26": "w:plates", "41,26": "i:pie", "46,26": "i:pie", "53,26": "w:plates", "58,26": "i:pie", "65,26": "w:plates", "70,26": "w:plates", "32,35": "burger", "56,35": "i:coffee", "68,35": "empty", "17,36": "empty", "22,36": "w:plates", "29,36": "i:coffee", "34,36": "i:pie", "41,36": "i:pie", "46,36": "i:pie", "53,36": "w:plates", "58,36": "i:coffee", "65,36": "i:pie", "70,36": "w:plates", "20,45": "i:pie", "51,45": "i:pie", "65,45": "teen", "5,46": "w:plates", "10,46": "i:coffee", "17,46": "empty", "22,46": "w:plates", "41,46": "w:plates", "46,46": "w:plates", "29,47": "i:coffee", "57,48": "ammo" },
     },
     "cooling": {
@@ -7669,7 +7678,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   T.RENAMED = { tunables: {}, archetypes: {}, maps: {} };
   // Map tweaks Claude already merged into src/maps.js by hand (cell by cell onto a newer map, so the tweak no longer
   // matches the game's map and would otherwise keep overriding it): skipped on load. By content (T.mapSig), per map.
-  T.BAKED_MAPS = { culdesac: ['ko3e90'] }; // James's 10-07 Level 1 edit (three cars in a row, patchy edge hedges), baked 10-08
+  T.BAKED_MAPS = { culdesac: ['ko3e90', '10zctfb'] }; // James's 10-07 Level 1 edit (three cars in a row, patchy edge hedges), baked 10-08; his 10-08 one (the exit door moved up, a bat), baked 10-11
   const canon = (o) => (Array.isArray(o) ? '[' + o.map(canon).join(',') + ']' : o && typeof o === 'object' ? '{' + Object.keys(o).sort().map((k) => JSON.stringify(k) + ':' + canon(o[k])).join(',') + '}' : JSON.stringify(o));
   T.mapSig = (m) => T.sig(canon(m)); // (key order doesn't matter: the artifact's db may hand fields back sorted)
   // Bring any tweaks file up to this engine: returns { t, notes } (notes: what was upgraded or skipped)
@@ -12072,7 +12081,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     },
     // Root: a burst of interference. The nearest robot within hackR px is HACKED: it fights for you for hackT ticks
     // (goes after other enemies, its hits land on them x allyDmg), then shuts down. Every other phone near Root fries
-    // (stunned), and the nearest locked house door within reach unlocks and swings open: no key needed (smart locks).
+    // (stunned), and the nearest locked house door within reach unlocks and swings open: no key needed (a smart lock, kinds 'smart', opens to nothing else).
     // Keycard gates still want their card.
     override: {
       name: 'OVERRIDE', cd: 420, r: 64, zap: 120, door: 48, hackR: 80, hackT: 600, allyDmg: 1.5, // tunable: zap reach px, stun ticks, door reach px; hack reach px, ticks a hacked robot fights for you, its damage x
@@ -12093,7 +12102,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         }
         let gate = null, gd = this.door + 8; // or an ADMIN security gate (no keycard opens one)
         if (!door) for (const d of st.room.doors) { if (d.latch || d.open || d.color !== 'admin') continue; const dist = Math.hypot(d.tx * 16 + 8 - p.x, d.ty * 16 + 8 - p.y); if (dist < gd) { gd = dist; gate = d; } }
-        if (door) { door.locked = false; st.openHouseDoor(door, p); p.say('ACCESS GRANTED', '#38f0a0'); }
+        if (door) { door.locked = false; door.smart = false; st.openHouseDoor(door, p); p.say('ACCESS GRANTED', '#38f0a0'); }
         else if (gate) { for (const o of st.room.doors.filter((o) => !o.latch && !o.open && o.ty === gate.ty && o.color === 'admin' && Math.abs(o.tx - gate.tx) <= 2)) st.openDoor(o); p.say('ADMIN ACCESS', '#38f0a0'); }
         else p.say(hacked ? 'YOU WORK FOR ME NOW' : n ? 'OVERRIDE!' : 'NOTHING TO HACK', '#38f0a0');
         ring(st, p.x, p.y - 8, this.r, ['#38f0a0', '#7ff0ff', '#ffffff']);
@@ -12582,8 +12591,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     // (a gate is a run of keycard tiles side by side: one card opens it)
     grid.forEach((row, y) => row.forEach((c, x) => { if (c === 'D' && row[x - 1] !== 'D') gates[colorOf(x, y)] = (gates[colorOf(x, y)] || 0) + 1; if (c === '8') cards[colorOf(x, y)] = (cards[colorOf(x, y)] || 0) + 1; }));
     for (const k of pkgs) if (k.split(':')[0] === 'key') { const c = k.split(':')[1] || 'red'; cards[c] = (cards[c] || 0) + 1; pkgCards[c] = (pkgCards[c] || 0) + 1; }
-    let locked = 0;
-    if (room) grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'O' || c === 'G') && row[x - 1] !== c && (c === 'O' ? G.doorLocked(room, x, y) : G.gateLocked(room, x, y))) locked++; })); // locked house doors and garden gates
+    let locked = 0, smart = 0;
+    if (room) grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'O' || c === 'G') && row[x - 1] !== c && (c === 'O' ? G.doorLocked(room, x, y) : G.gateLocked(room, x, y))) { if (c === 'O' && G.doorSmart(room, x, y)) smart++; else locked++; } })); // locked house doors and garden gates (smart locks apart: Root only)
     const hkeys = count('C') + pkgs.filter((k) => k === 'hkey').length + Object.values((room && room.loot) || {}).filter((k) => k === 'hkey').length; // (a key can be hidden in a container)
     const out = [];
     const line = (cls, t) => out.push(`<div class="${cls}">${cls === 'ok' ? '✓' : cls === 'warn' ? '!' : '✗'} ${t}</div>`);
@@ -12599,7 +12608,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       line(k === d ? 'ok' : k < d ? 'bad' : 'warn', `${C} gates: ${d} · ${C.toLowerCase()} keycards: ${k}` + (pkgCards[col] ? ` (${pkgCards[col]} in packages)` : '') + (k < d ? ` — not enough ${col} keycards!` : k > d ? ` — more ${col} keycards than ${col} gates` : ''));
     }
     if (gates.admin) line('ok', `Admin gates: ${gates.admin} (no card opens them: only Root's Override)`);
-    if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked - 1 ? 'bad' : 'warn', `Locked doors and gates: ${locked} · keys: ${hkeys}` + (hkeys < locked - 1 ? ' — not enough keys!' : hkeys < locked ? ' — one spare lock: a key carried from earlier, or Root, opens it (the economy plan)' : hkeys > locked ? ' — more keys than locked doors' : ''));
+    if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked ? 'bad' : 'warn', `Locked doors and gates: ${locked} · keys: ${hkeys}` + (hkeys < locked ? ' — not enough keys! (keys don\'t carry between levels; a door only Root opens is a smart lock: click the door again)' : hkeys > locked ? ' — more keys than locked doors' : ''));
+    if (smart) line('ok', `Smart locks: ${smart} (no key opens them: only Root's Override)`);
     if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras hold a dart box)`);
     line(count('Q') <= 1 ? 'ok' : 'warn', `PDA: ${count('Q')}`);
     if (level && G.DISK_LEVELS().includes(mapId)) line(count('+') === 1 ? 'ok' : 'warn', `Data disk: ${count('+')} (one per level, behind a secret)`);
@@ -12610,11 +12620,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (room) {
       line(K.borderClosed(room.theme) ? 'ok' : 'bad', K.borderClosed(room.theme) ? 'Border closed (nothing walks off the map)' : 'Border open: the edge tile only blocks part of its cell. Use tall hedge or brick');
       if (sy >= 0) {
-        const { missing, comeBack } = K.solve(room, grid, level);
+        const S = K.solver(room, grid, level), { missing, comeBack } = K.solve(room, grid, level, null, S);
         if (!missing.length) line('ok', 'Solvable: every neighbor, package and the exit can be reached (picking up keys, rockets and bombs along the way)');
         line(comeBack.length >= 3 ? 'ok' : 'warn', `Come-back spots: ${comeBack.length} (things you only reach after finding a key, rockets, a bomb or the pogo; aim for 1+ per zone)`);
         for (const m of missing.slice(0, 5)) line('bad', `Can't reach the ${m.what} at ${m.x},${m.y}, even with everything the level gives you`);
         if (missing.length > 5) line('bad', `...and ${missing.length - 5} more out of reach`);
+        const soft = !missing.length && K.softlock(room, grid, level, 3000, S);
+        if (!missing.length) line(soft ? 'bad' : 'ok', soft ? `Key order: a player can get stuck. Opening ${soft.path.map((L) => `the ${L.what} at ${L.x},${L.y}`).join(', then ')} leaves the ${soft.miss[0].what} at ${soft.miss[0].x},${soft.miss[0].y} out of reach: give that lock its own key, or make it a smart lock (Root only)` : 'Key order: no way to get stuck (any order of using keys and keycards still finishes)');
         // gates in a north-south wall hide behind the wall in front of them (2.5D): put them in east-west walls
         const T = room.theme, sideways = [];
         grid.forEach((row, y) => row.forEach((c, x) => { if ((c === 'D' || c === 'G') && T.solid.has(room.at(x, y - 1)) && T.solid.has(room.at(x, y + 1))) sideways.push([x, y]); }));
@@ -12799,111 +12811,149 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // cracked brick; each keycard opens one gate next to where you've been. Repeat until nothing new opens up.
   // grid: the raw map (markers included). Returns { missing: [{ ch, x, y }], cells: Set of reached cells }.
   const NEEDED = { N: 'neighbor', B: 'package', E: 'exit', 8: 'keycard', Q: 'PDA', '+': 'data disk', ']': 'bonus ticket' };
+  // The solver's core. A state is the set of locks opened so far (keycard gates, locked doors and garden gates; smart
+  // locks and ADMIN gates never: Root only); from it, close(opened) walks out from the start, picks up everything it
+  // reaches (abilities apply at once: rockets, bombs, the pogo...) until nothing new turns up, and returns what it
+  // reached, the keys still in hand, and the locks it could open next (next to where it's been, a key of their kind left).
   // sealed: cells treated as walls that never open (the secret-on-the-critical-path check)
-  K.solve = (R, grid, level, sealed) => {
-    const W = R.w, H = R.h, T = R.theme, N = W * H;
+  K.solver = (R, grid, level, sealed) => {
+    const W = R.w, H = R.h, T = R.theme;
     const sy = grid.findIndex((r) => r.includes('P'));
-    if (sy < 0) return { missing: [], cells: new Set() };
+    if (sy < 0) return null;
+    const sx = grid[sy].indexOf('P');
     const boxOrder = []; // packages in reading order -> their contents
     grid.forEach((row, y) => row.forEach((c, x) => { if (c === 'B') boxOrder.push(y * W + x); }));
     const contents = new Map(boxOrder.map((i, k) => [i, (level && level.packages || [])[k] || '']));
-    const has = { cards: { red: 0, blue: 0, yellow: 0 }, hkeys: 0, rockets: false, bomb: false, pogo: false, machete: false, soda: false }, taken = new Set(), opened = new Set();
-    const foot = G.footReach(R, grid[sy].indexOf('P'), sy); // latch gates open only from outside this
-    const passable = (x, y) => {
-      if (x < 0 || y < 0 || x >= W || y >= H) return false;
-      if (sealed && sealed.has(y * W + x)) return false;
-      if (walkableCell(R, x, y)) return true;
-      const ch = R.at(x, y), i = y * W + x;
-      if (ch === 'D' || ch === 'O' || ch === 'G') return opened.has(i); // a gate opened with its keycard, a locked door or garden gate with a key (a latch gate: see explore)
-      if (T.breakable && T.breakable.has(ch)) return has.rockets || has.bomb || (has.machete && !!T.chop && T.chop.has(ch)); // the machete: hedges only
-      if (T.melee && T.melee.has(ch)) return true; // loose boards: anyone can whack through
-      if (T.bombable && T.bombable.has(ch)) return has.bomb; // cracked plaster: a soda bomb
-      // crew gates (vents, crowds, fire...) don't count: any crew member must be able to finish. Without the crew
-      // member, a soda bomb scatters a crowd, and soda (a can or a bomb) puts out a fire
-      if (T.scatter && T.scatter.has(ch)) return has.bomb;
-      if (T.douse && T.douse.has(ch)) return has.bomb || has.soda;
-      return false;
-    };
-    const take = (i) => {
-      if (taken.has(i)) return;
-      taken.add(i);
-      const x = i % W, y = Math.floor(i / W), c = grid[y][x];
-      gain(c === 'B' ? contents.get(i) : { 8: 'key:' + G.cardColor(R, x, y), C: 'hkey', 1: 'w:soda', 3: 'w:rockets', 6: 'i:bomb', 0: 'i:pogo', X: 'w:machete' }[c]);
-      // a container next to here (a trash can, a cabinet, a trunk): you search it and get what it holds
-      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-        const k = R.loot && R.loot[nx + ',' + ny], j = ny * W + nx;
-        if (k && !taken.has(-1 - j) && G.lootable(T, R.at(nx, ny))) { taken.add(-1 - j); gain(k); }
-      }
-    };
-    const gain = (what) => {
-      if (what && what.split(':')[0] === 'key') has.cards[what.split(':')[1] || 'red']++;
-      else if (what === 'hkey') has.hkeys++;
-      else if (what === 'w:rockets') has.rockets = true;
-      else if (what === 'i:bomb') has.bomb = true;
-      else if (what === 'i:pogo') has.pogo = true;
-      else if (what === 'w:machete') has.machete = true;
-      else if (what === 'w:soda' || what === 'w:squirt') has.soda = true; // (soda or the water gun puts out a fire)
-    };
-    // Flood out from the start with what you have now; with pickUp, collect things as you go (abilities apply at once)
-    const explore = (pickUp) => {
-      const out = new Set([sy * W + grid[sy].indexOf('P')]), q = [...out];
-      while (q.length) {
-        const i = q.pop(), x = i % W, y = (i - x) / W;
-        if (pickUp) take(i);
-        const next = DIRS8.slice(0, 4).map(([dx, dy]) => [x + dx, y + dy]);
-        if (has.pogo) next.push(...jumpLandings(R, x, y));
-        if (T.bounce && T.bounce.has(R.at(x, y))) next.push(...trampLandings(R, x, y));
-        for (const [nx, ny] of next) {
-          const side = R.at(nx, ny) === 'G' && G.gateSide(R, nx, ny);
-          const j = ny * W + nx, latch = R.at(nx, ny) === 'G' && !G.gateLocked(R, nx, ny) && (side ? (side === 'north' ? y < ny : y > ny) : !foot[i]); // (opens from the side the editor set, else from the side you can't walk to)
-          if (!out.has(j) && (passable(nx, ny) || latch)) { out.add(j); q.push(j); }
-        }
-      }
-      return out;
-    };
-    const firstReach = explore(false); // with nothing but your feet (and trampolines): everything else is a come-back spot
-    let reached;
-    for (let round = 0, had = -1; round < 80; round++) {
-      reached = explore(true);
-      if (taken.size !== had) { had = taken.size; continue; } // picked something up (rockets, a pogo...): look again with it before spending keys
-      // spend a keycard on a gate of its color (or a key on a locked house door) next to somewhere you've been, then
-      // explore again
-      let gate = null;
-      const keyed = []; // locks a house key could open: pick the one that opens up the most, not the first one found
-      for (const i of reached) {
-        const x = i % W, y = (i - x) / W;
-        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-          const j = ny * W + nx, c = R.at(nx, ny);
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H || opened.has(j)) continue;
-          if (c === 'D' && has.cards[G.cardColor(R, nx, ny)] > 0) { // the whole gate opens with one card
-            let a = nx; while (R.at(a - 1, ny) === 'D') a--;
-            const cells = []; for (let b = a; R.at(b, ny) === 'D'; b++) cells.push(ny * W + b);
-            gate = { cells, color: G.cardColor(R, nx, ny) }; break;
-          }
-          if ((c === 'O' && has.hkeys > 0 && G.doorLocked(R, nx, ny)) || (c === 'G' && has.hkeys > 0 && G.gateLocked(R, nx, ny))) { // a locked door or garden gate: the whole of it opens
-            let a = nx; while (R.at(a - 1, ny) === c) a--;
-            const cells = []; for (let b = a; R.at(b, ny) === c; b++) cells.push(ny * W + b);
-            if (!keyed.some((k) => k.cells[0] === cells[0])) keyed.push({ cells, key: true });
-          }
-        }
-        if (gate) break;
-      }
-      if (!gate && keyed.length) { // (one key fewer than locks is allowed: a key carried from earlier, or Root, opens the spare)
-        let best = -1;
-        for (const k of keyed) { for (const j of k.cells) opened.add(j); const n = explore(false).size; for (const j of k.cells) opened.delete(j); if (n > best) { best = n; gate = k; } }
-      }
-      if (!gate) break;
-      for (const j of gate.cells) opened.add(j);
-      if (gate.key) has.hkeys--; else has.cards[gate.color]--;
-    }
-    const missing = [], comeBack = [];
+    // every lock: { id (its first cell), cells, kind ('key', or a keycard color), x, y }
+    const locks = [], lockAt = new Map();
     grid.forEach((row, y) => row.forEach((c, x) => {
-      const i = y * W + x;
-      if (NEEDED[c] && !reached.has(i)) missing.push({ ch: c, x, y, what: NEEDED[c] });
-      // reachable, but not at first: a come-back spot (needs a keycard, rockets, a bomb or the pogo)
-      if ((K.MARK.has(c) && c !== 'P' && c !== 'Z') && reached.has(i) && !firstReach.has(i)) comeBack.push({ ch: c, x, y });
+      if ((c !== 'D' && c !== 'O' && c !== 'G') || R.at(x - 1, y) === c) return;
+      let kind = null;
+      if (c === 'D') { kind = G.cardColor(R, x, y); if (!G.CARDS.includes(kind)) kind = null; } // (an ADMIN gate: Root only)
+      else if (c === 'O' ? G.doorLocked(R, x, y) && !G.doorSmart(R, x, y) : G.gateLocked(R, x, y)) kind = 'key';
+      if (!kind) return;
+      const cells = []; for (let b = x; R.at(b, y) === c; b++) cells.push(y * W + b);
+      const L = { id: cells[0], cells, kind, x, y, what: c === 'D' ? kind + ' gate' : c === 'O' ? 'locked door' : 'locked garden gate' };
+      locks.push(L); for (const j of cells) lockAt.set(j, L);
     }));
-    return { missing, comeBack, cells: reached };
+    const foot = G.footReach(R, sx, sy); // latch gates open only from outside this
+    const jumps = new Map(), tramps = new Map(), memo = new Map(); // (the map doesn't change: landings and states are kept)
+    const jumpAt = (i, x, y) => { let v = jumps.get(i); if (!v) jumps.set(i, (v = jumpLandings(R, x, y))); return v; };
+    const trampAt = (i, x, y) => { let v = tramps.get(i); if (!v) tramps.set(i, (v = trampLandings(R, x, y))); return v; };
+    const close = (opened, bare) => {
+      const mk = (bare ? 'b' : '') + [...opened].sort((a, b) => a - b).join(',');
+      if (!memo.has(mk)) memo.set(mk, closeNow(opened, bare));
+      return memo.get(mk);
+    };
+    const closeNow = (opened, bare) => { // bare: just your feet and trampolines, nothing picked up
+      const open = new Set(); for (const L of locks) if (opened.has(L.id)) for (const j of L.cells) open.add(j);
+      const has = { keys: { key: 0, red: 0, blue: 0, yellow: 0 }, rockets: false, bomb: false, pogo: false, machete: false, soda: false }, taken = new Set();
+      const passable = (x, y) => {
+        if (x < 0 || y < 0 || x >= W || y >= H) return false;
+        if (sealed && sealed.has(y * W + x)) return false;
+        if (walkableCell(R, x, y)) return true;
+        const ch = R.at(x, y), i = y * W + x;
+        if (ch === 'D' || ch === 'O' || ch === 'G') return open.has(i); // a gate opened with its keycard, a locked door or garden gate with a key (a latch gate: see explore)
+        if (T.breakable && T.breakable.has(ch)) return has.rockets || has.bomb || (has.machete && !!T.chop && T.chop.has(ch)); // the machete: hedges only
+        if (T.melee && T.melee.has(ch)) return true; // loose boards: anyone can whack through
+        if (T.bombable && T.bombable.has(ch)) return has.bomb; // cracked plaster: a soda bomb
+        // crew gates (vents, crowds, fire...) don't count: any crew member must be able to finish. Without the crew
+        // member, a soda bomb scatters a crowd, and soda (a can or a bomb) puts out a fire
+        if (T.scatter && T.scatter.has(ch)) return has.bomb;
+        if (T.douse && T.douse.has(ch)) return has.bomb || has.soda;
+        return false;
+      };
+      const gain = (what) => {
+        if (what && what.split(':')[0] === 'key') has.keys[what.split(':')[1] || 'red']++;
+        else if (what === 'hkey') has.keys.key++;
+        else if (what === 'w:rockets') has.rockets = true;
+        else if (what === 'i:bomb') has.bomb = true;
+        else if (what === 'i:pogo') has.pogo = true;
+        else if (what === 'w:machete') has.machete = true;
+        else if (what === 'w:soda' || what === 'w:squirt') has.soda = true; // (soda or the water gun puts out a fire)
+      };
+      const take = (i) => {
+        if (taken.has(i)) return;
+        taken.add(i);
+        const x = i % W, y = Math.floor(i / W), c = grid[y][x];
+        gain(c === 'B' ? contents.get(i) : { 8: 'key:' + G.cardColor(R, x, y), C: 'hkey', 1: 'w:soda', 3: 'w:rockets', 6: 'i:bomb', 0: 'i:pogo', X: 'w:machete' }[c]);
+        // a container next to here (a trash can, a cabinet, a trunk): you search it and get what it holds
+        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+          const k = R.loot && R.loot[nx + ',' + ny], j = ny * W + nx;
+          if (k && !taken.has(-1 - j) && G.lootable(T, R.at(nx, ny))) { taken.add(-1 - j); gain(k); }
+        }
+      };
+      // Flood out from the start with what you have now; with pickUp, collect things as you go
+      const explore = (pickUp) => {
+        const out = new Set([sy * W + sx]), q = [...out];
+        while (q.length) {
+          const i = q.pop(), x = i % W, y = (i - x) / W;
+          if (pickUp) take(i);
+          const next = DIRS8.slice(0, 4).map(([dx, dy]) => [x + dx, y + dy]);
+          if (has.pogo) next.push(...jumpAt(i, x, y));
+          if (T.bounce && T.bounce.has(R.at(x, y))) next.push(...trampAt(i, x, y));
+          for (const [nx, ny] of next) {
+            const side = R.at(nx, ny) === 'G' && G.gateSide(R, nx, ny);
+            const j = ny * W + nx, latch = R.at(nx, ny) === 'G' && !G.gateLocked(R, nx, ny) && (side ? (side === 'north' ? y < ny : y > ny) : !foot[i]); // (opens from the side the editor set, else from the side you can't walk to)
+            if (!out.has(j) && (passable(nx, ny) || latch)) { out.add(j); q.push(j); }
+          }
+        }
+        return out;
+      };
+      if (bare) return { reached: explore(false) };
+      let reached;
+      for (let had = -1; taken.size !== had;) { had = taken.size; reached = explore(true); }
+      for (const L of locks) if (opened.has(L.id)) has.keys[L.kind]--; // the keys already spent
+      const cands = [];
+      for (const L of locks) {
+        if (opened.has(L.id) || has.keys[L.kind] <= 0) continue;
+        if (L.cells.some((j) => { const x = j % W, y = (j - x) / W; return [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].some(([nx, ny]) => reached.has(ny * W + nx)); })) cands.push(L);
+      }
+      return { reached, has, cands };
+    };
+    return { close, locks, W };
+  };
+  // Solvable? From nothing, open the lock that opens up the most each time, until no lock is left to open. A key is
+  // spent on one lock, so a key used in the wrong place is gone: K.softlocks tries the other orders.
+  K.solve = (R, grid, level, sealed, S = K.solver(R, grid, level, sealed)) => {
+    if (!S) return { missing: [], comeBack: [], cells: new Set() };
+    const W = S.W, opened = new Set();
+    let c = S.close(opened);
+    const firstReach = S.close(opened, true).reached; // with nothing but your feet (and trampolines): everything else is a come-back spot
+    for (let round = 0; round < 80 && c.cands.length; round++) {
+      let best = -1, pick = null;
+      for (const L of c.cands) { const n = S.close(new Set([...opened, L.id])).reached.size; if (n > best) { best = n; pick = L; } }
+      opened.add(pick.id); c = S.close(opened);
+    }
+    const reached = c.reached, missing = [], comeBack = [];
+    grid.forEach((row, y) => row.forEach((ch, x) => {
+      const i = y * W + x;
+      if (NEEDED[ch] && !reached.has(i)) missing.push({ ch, x, y, what: NEEDED[ch] });
+      // reachable, but not at first: a come-back spot (needs a keycard, rockets, a bomb or the pogo)
+      if ((K.MARK.has(ch) && ch !== 'P' && ch !== 'Z') && reached.has(i) && !firstReach.has(i)) comeBack.push({ ch, x, y });
+    }));
+    return { missing, comeBack, cells: reached, opened };
+  };
+  // Key order (James: "impossible to finish if I use the key in the wrong order"): try every order of spending keys
+  // and keycards (a key goes in any lock of its kind you can get to) and find one that strands you: no lock left to
+  // open, and a neighbor or the exit the good order reaches is out of reach. Returns null or { path: [locks], miss }.
+  K.softlock = (R, grid, level, cap = 3000, S = K.solver(R, grid, level)) => {
+    if (!S || !S.locks.length) return null;
+    const W = S.W, good = K.solve(R, grid, level, null, S).cells, need = [];
+    grid.forEach((row, y) => row.forEach((ch, x) => { if ((ch === 'E' || ch === 'N') && good.has(y * W + x)) need.push({ i: y * W + x, x, y, what: NEEDED[ch] }); }));
+    const seen = new Set();
+    let found = null;
+    const dfs = (opened, path) => {
+      if (found || seen.size > cap) return;
+      const key = [...opened].sort((a, b) => a - b).join(',');
+      if (seen.has(key)) return;
+      seen.add(key);
+      const c = S.close(opened);
+      if (!c.cands.length) { const miss = need.filter((n) => !c.reached.has(n.i)); if (miss.length) found = { path, miss }; return; }
+      for (const L of c.cands) dfs(new Set([...opened, L.id]), [...path, L]);
+    };
+    dfs(new Set(), []);
+    return found;
   };
   // ---- Neighbors in plain sight: anything tall drawn in front of a neighbor (2.5D: an upright in a row below theirs,
   // a roof, a hedge-fill block) that covers half their body or more hides them. Glass and sparse hedge don't
@@ -13446,12 +13496,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     msg(labelAt(st, c.x, c.y));
     return true;
   }
-  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.GATE_COLORS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'north', 'south', 'locked'], // a garden gate: one-way latch (opens from the side you can't reach from the start, or the side you pick), or locked (a house key) // an inside wall: something hung on it
+  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.GATE_COLORS, 8: () => G.CARDS, O: () => ['open', 'locked', 'smart'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'north', 'south', 'locked'], // a garden gate: one-way latch (opens from the side you can't reach from the start, or the side you pick), or locked (a house key) // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     '|': () => Object.keys(G.ENEMY_TYPES), // an enemy placed in the map: which one
     ';': () => G.MAP_ITEMS, // the item marker: which item
     $: () => [...Object.keys(G.SPAWN_BUTTONS), ...Object.keys(G.ENEMY_TYPES).filter((t) => !G.SPAWN_BUTTONS[t])] }; // a spawn button: what it brings up
-  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : ch === ')' ? (k === 'ns' ? 'ns' : 'ew') : ch === ';' ? G.itemMarker(st.room, x, y).slice(2) : G.cardColor(st.room, x, y); };
+  const kindAt = (st, x, y) => { const ch = st.raw[y][x], k = G.cellKind(st.room, x, y); return varied(st, ch) ? (G.variant(st.room, x, y) !== null ? k : 'auto') : ch === 'N' ? G.neighborKind(st.room, x, y, st.def.kinds) : ch === 'O' ? (G.doorSmart(st.room, x, y) ? 'smart' : G.doorLocked(st.room, x, y) ? 'locked' : 'open') : ch === 'g' ? (k === 'knocked' ? k : 'up') : ch === 'l' ? (k === 'busted' ? k : 'lit') : ch === 'W' ? k || 'plain' : ch === 'G' ? (G.gateLocked(st.room, x, y) ? 'locked' : G.gateSide(st.room, x, y) || 'latch') : ch === '$' ? k || 'phoneTeen' : ch === 'Z' ? (G.ENEMY_TYPES[k] ? k : 'any') : ch === '|' ? (G.ENEMY_TYPES[k] ? k : 'phoneTeen') : ch === ')' ? (k === 'ns' ? 'ns' : 'ew') : ch === ';' ? G.itemMarker(st.room, x, y).slice(2) : G.cardColor(st.room, x, y); };
   const plainKind = (st, x, y) => { const ch = st.raw[y][x]; return varied(st, ch) ? 'auto' : ch === 'N' ? G.neighborKind(st.room, x, y, null) : ch === 'O' ? 'open' : ch === 'g' ? 'up' : ch === 'l' ? 'lit' : ch === 'W' ? 'plain' : ch === 'G' ? 'latch' : ch === '$' ? 'phoneTeen' : ch === 'Z' ? 'any' : ch === '|' ? 'phoneTeen' : ch === ')' ? 'ew' : ch === ';' ? G.MAP_ITEMS[0] : 'red'; };
   function setKind(st, x, y, kind) {
     const m = G.MAPS[st.def.id], R = st.room, ch = st.raw[y][x];
@@ -13467,7 +13517,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (ch === 'G') { for (const cx of cells) { const d = R.doors.find((q) => q.tx === cx && q.ty === y); if (d) d.locked = kind === 'locked'; G.rebuildUpright(R, cx, y); } }
     if (ch === 'l') G.redrawRoomTiles(R, x - 4, y - 3, x + 4, y + 3); // its light pool comes or goes
     if (ch === 'O') {
-      const d = R.hdoorAt(x, y); if (d) d.locked = kind === 'locked';
+      const d = R.hdoorAt(x, y); if (d) { d.locked = kind === 'locked' || kind === 'smart'; d.smart = kind === 'smart'; } // a smart lock: Root's Override only
       for (const cx of cells) G.rebuildUpright(R, cx, y);
       const start = R.spawns.find((s) => s.ch === 'P'); if (start) R.outside = G.footReach(R, start.tx, start.ty); // which side latch gates open from
     }
@@ -14046,6 +14096,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     // by: who's opening it. A locked door takes one of their plain keys (ZAMN: a key opens any one locked door)
     openHouseDoor(d, by) {
       if (d.open) return;
+      if (d.locked && d.smart) { if (by && by.lockCd <= 0) { by.lockCd = 90; G.sfx.play('deny'); by.say('SMART LOCK - ROOT ONLY', '#38f0a0'); } return; } // no key opens it: Root's Override
       if (d.locked) {
         if (!by || by.keys <= 0) { if (by && by.lockCd <= 0) { by.lockCd = 90; G.sfx.play('deny'); by.say('LOCKED - NEED A KEY', '#e0c060'); } return; }
         by.keys--; d.locked = false; by.say('UNLOCKED', '#38f0a0'); G.sfx.play('unlock');
@@ -16320,7 +16371,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     for (const [i, ch] of st.cellLog) x['t' + i] = ch;
     for (const i of R.searched) x['s' + i] = 1;
     if (R.wallHit) for (const [i, h] of R.wallHit) x['w' + i] = h;
-    (R.hdoors || []).forEach((d, i) => { const v = (d.open ? 1 : 0) | (d.locked ? 2 : 0); if (v) x['d' + i] = v; });
+    (R.hdoors || []).forEach((d, i) => { const v = (d.open ? 1 : 0) | (d.locked ? 2 : 0) | (d.smart ? 4 : 0); if (v) x['d' + i] = v; });
     return {
       g: { t: st.t, score: st.score, saved: st.saved, lost: st.lost, tally: st.tallyFlash, pda: st.pda, exit: st.exit ? st.exit.open : false, over: st.overT,
         wet: st.wet && st.wet.size ? [...st.wet].flatMap(([i, t]) => [i, Math.ceil(t / 30)]) : 0, // a mop bot's wet floor: cell, half-seconds left
@@ -16455,7 +16506,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (kind === 't') { if (R.at(tx, ty) !== v) R.setTile(tx, ty, v); }
       else if (kind === 's') { R.searched.add(i); G.rebuildUpright(R, tx, ty); if (R.at(tx, ty) === 'c') for (const [a, b] of G.pieceCells(R, tx, ty)) G.rebuildUpright(R, a, b); } // (a car's trunk: the whole car)
       else if (kind === 'w') { R.wallHit.set(i, v); G.rebuildUpright(R, tx, ty); }
-      else if (kind === 'd') { const d = (R.hdoors || [])[i]; if (d) { d.open = !!(v & 1); d.locked = !!(v & 2); } }
+      else if (kind === 'd') { const d = (R.hdoors || [])[i]; if (d) { d.open = !!(v & 1); d.locked = !!(v & 2); d.smart = !!(v & 4); } }
     }
   }
   // One-off looks from the host: the same calls the host made, on the guest's stage

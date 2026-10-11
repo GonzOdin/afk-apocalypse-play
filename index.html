@@ -13174,6 +13174,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ] : []),
         settingsItem(game),
         ...(game.remote ? [] : [{ label: game.test ? 'RESTART ROOM' : 'RESTART LEVEL', act: () => { G.save.write(); G.setState(new Stage(game.def, game.crewId)); } }]), // online, only the host restarts
+        ...(N.role === 'host' && N.code ? [{ label: 'COPY JOIN LINK', act: () => { if (navigator.clipboard) navigator.clipboard.writeText(N.joinLink()).then(() => G.toast('JOIN LINK COPIED', 90)).catch(() => {}); }, help: () => 'SEND IT TO A FRIEND' }] : []),
         { label: game.remote ? 'LEAVE THE GAME' : game.online ? 'END THE GAME' : 'QUIT TO TITLE', act: () => { G.save.write(); if (game.remote) G.net.leave(); G.setState(new Boot()); } },
       ];
     }
@@ -13187,7 +13188,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     draw(ctx) {
       this.drawBack(ctx);
       ctx.fillStyle = 'rgba(8,4,20,.6)'; ctx.fillRect(0, 0, G.W, G.H);
-      drawMenuBox(ctx, this, 'PAUSED', this.items, 'BEST ' + G.save.data.best);
+      drawMenuBox(ctx, this, 'PAUSED', this.items, (N.role === 'host' && N.code) ? 'GAME CODE: ' + N.code : 'BEST ' + G.save.data.best);
     }
   }
 

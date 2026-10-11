@@ -13174,7 +13174,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ] : []),
         settingsItem(game),
         ...(game.remote ? [] : [{ label: game.test ? 'RESTART ROOM' : 'RESTART LEVEL', act: () => { G.save.write(); G.setState(new Stage(game.def, game.crewId)); } }]), // online, only the host restarts
-        ...(N.role === 'host' && N.code ? [{ label: 'COPY JOIN LINK', act: () => { if (navigator.clipboard) navigator.clipboard.writeText(N.joinLink()).then(() => G.toast('JOIN LINK COPIED', 90)).catch(() => {}); }, help: () => 'SEND IT TO A FRIEND' }] : []),
+        ...(G.net.role === 'host' && G.net.code ? [{ label: 'COPY JOIN LINK', act: () => { if (navigator.clipboard) navigator.clipboard.writeText(G.net.joinLink()).then(() => G.toast('JOIN LINK COPIED', 90)).catch(() => {}); }, help: () => 'SEND IT TO A FRIEND' }] : []),
         { label: game.remote ? 'LEAVE THE GAME' : game.online ? 'END THE GAME' : 'QUIT TO TITLE', act: () => { G.save.write(); if (game.remote) G.net.leave(); G.setState(new Boot()); } },
       ];
     }
@@ -13188,7 +13188,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     draw(ctx) {
       this.drawBack(ctx);
       ctx.fillStyle = 'rgba(8,4,20,.6)'; ctx.fillRect(0, 0, G.W, G.H);
-      drawMenuBox(ctx, this, 'PAUSED', this.items, (N.role === 'host' && N.code) ? 'GAME CODE: ' + N.code : 'BEST ' + G.save.data.best);
+      drawMenuBox(ctx, this, 'PAUSED', this.items, (G.net.role === 'host' && G.net.code) ? 'GAME CODE: ' + G.net.code : 'BEST ' + G.save.data.best);
     }
   }
 
@@ -14310,8 +14310,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   }
 
   // ---- Every tick (from the main loop): relay pumps, host snapshots ----
-  // Nothing heard from someone for 12 s (a closed tab, a dead connection): they've gone.
-  const SILENT = 12000;
+  // Nothing heard from someone for 45 s (a closed tab, a dead connection): they've gone.
+  const SILENT = 45000;
   N.tick = () => {
     if (!N.role) return;
     const now = performance.now();
@@ -14323,6 +14323,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (N.role === 'host' && N.links) {
       for (const L of N.links.values()) if (L.relay) L.pump();
       for (const s of N.slots) if (s && s.link && now - s.heard > SILENT) hostClose(s.link);
+      if (N.phase !== 'play' && now - (N.lobbyBeat || 0) > 3000) { N.lobbyBeat = now; sendLobby(); } // quiet lobby: keep guests from starving
     }
     if (N.role === 'guest' && N.link) {
       if (N.link.relay) N.link.pump();
@@ -14340,7 +14341,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (N.room) N.room.presence({ afk: null }).catch(() => {});
     const sig = N.sig;
     if (sig) setTimeout(() => sig.close(), 400);
-    Object.assign(N, { role: null, sig: null, link: null, links: null, slots: [], kept: {}, stage: null, gstage: null, phase: null, myNum: 0, lobby: null, heard: 0, helloT: 0, helloLast: 0, lastTick: 0 });
+    Object.assign(N, { role: null, sig: null, link: null, links: null, slots: [], kept: {}, stage: null, gstage: null, phase: null, myNum: 0, lobby: null, heard: 0, helloT: 0, helloLast: 0, lobbyBeat: 0, lastTick: 0 });
     if (!quiet) N.code = '';
   };
   // Open games in this claude.ai room (for the JOIN screen), refreshed while it's showing

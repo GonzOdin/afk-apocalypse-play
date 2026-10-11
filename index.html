@@ -13909,6 +13909,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const RTC_WAIT = 9000; // ms to wait for the direct connection before falling back to the relay
   const qs = new URLSearchParams(location.search);
   const HAS_RTC = !!window.RTCPeerConnection && qs.get('rtc') !== 'off'; // some in-app browsers (the Claude iOS app) have none
+  const SIG_URL = (qs.get('sig') || 'wss://afk-apocalypse-play.fly.dev/peerjs').replace(/\/$/, ''); // your own server: ?sig=wss://YOUR-APP.fly.dev/peerjs
   G.PCOLS = ['#ff5ab0', '#3ad0ff', '#ffd23a', '#38f0a0']; // player 1-4 colors (tags over heads, lobby, HUD)
 
   const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O (they look like 1 and 0)
@@ -13929,30 +13930,45 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     return s;
   }
   // PeerJS cloud server protocol: connect with an id, then OFFER / ANSWER / CANDIDATE messages are relayed to `dst`
-  // with our payload untouched; HEARTBEAT every 5 s keeps the socket alive.
+  // with our payload untouched; HEARTBEAT every 5 s keeps the socket alive. If the socket drops after connecting
+  // (a suspended phone, a network blip), it re-registers with the same id on its own: the same `s` object keeps
+  // working, so links and handlers never notice. s.dead says it's down right now (the lobby shows it).
   function peerjsSignal(code, me) {
-    const pre = 'afkapoc-' + code.toLowerCase() + '-', s = { on: null, kind: 'peerjs' };
-    const ws = new WebSocket('wss://0.peerjs.com/peerjs?key=peerjs&id=' + pre + me + '&token=' + rnd(10, 'abcdefghijkmnpqrstuvwxyz23456789') + '&version=1.5.4');
-    let hb = 0;
-    s.ready = new Promise((ok, fail) => {
-      const t = setTimeout(() => fail(new Error('NO ANSWER FROM THE SERVER')), 12000);
-      ws.onmessage = (e) => {
-        let d; try { d = JSON.parse(e.data); } catch (_) { return; }
-        if (d.type === 'OPEN') { clearTimeout(t); ok(); }
-        else if (d.type === 'ID-TAKEN') fail(new Error('GAME CODE IN USE'));
-        else if (d.type === 'ERROR') fail(new Error('SERVER ERROR'));
-        else if (d.src && d.src.startsWith(pre) && d.payload && d.payload.k === 'g') { if (s.relayOn) s.relayOn(d.src.slice(pre.length), d.payload.d); } // relayed game message
-        else if (d.src && d.src.startsWith(pre) && s.on) s.on(d.src.slice(pre.length), d.type === 'LEAVE' || d.type === 'EXPIRE' ? { k: 'gone' } : d.payload);
+    const pre = 'afkapoc-' + code.toLowerCase() + '-', s = { on: null, kind: 'peerjs', dead: false };
+    const url = SIG_URL + '?key=peerjs&id=' + pre + me + '&token=' + rnd(10, 'abcdefghijkmnpqrstuvwxyz23456789') + '&version=1.5.4';
+    let ws = null, hb = 0, alive = true, opened = false, retryT = 0, okR = null, failR = null;
+    s.ready = new Promise((ok, fail) => { okR = ok; failR = fail; });
+    const giveUp = (msg) => { clearTimeout(giveUp.t); failR(new Error(msg)); };
+    giveUp.t = setTimeout(() => giveUp('NO ANSWER FROM THE SERVER'), 12000);
+    const redial = () => { clearTimeout(retryT); if (alive) retryT = setTimeout(() => { if (alive) connect(); }, 2500); };
+    const onmessage = (e) => {
+      let d; try { d = JSON.parse(e.data); } catch (_) { return; }
+      if (d.type === 'OPEN') { clearTimeout(giveUp.t); opened = true; s.dead = false; okR(); }
+      else if (d.type === 'ID-TAKEN') { if (opened) redial(); else giveUp('GAME CODE IN USE'); } // our old socket died unseen: wait it out
+      else if (d.type === 'ERROR') { if (!opened) giveUp('SERVER ERROR'); }
+      else if (d.src && d.src.startsWith(pre) && d.payload && d.payload.k === 'g') { if (s.relayOn) s.relayOn(d.src.slice(pre.length), d.payload.d); } // relayed game message
+      else if (d.src && d.src.startsWith(pre) && s.on) s.on(d.src.slice(pre.length), d.type === 'LEAVE' || d.type === 'EXPIRE' ? { k: 'gone' } : d.payload);
+    };
+    function connect() {
+      if (!alive) return;
+      try { ws = new WebSocket(url); }
+      catch (_) { redial(); return; } // (a page that may not open sockets throws right away)
+      ws.onopen = () => { hb = setInterval(() => { if (ws.readyState === 1) ws.send('{"type":"HEARTBEAT"}'); }, 5000); };
+      ws.onmessage = onmessage;
+      ws.onerror = () => { if (!opened) giveUp('NO CONNECTION'); };
+      ws.onclose = () => {
+        clearInterval(hb); hb = 0;
+        if (!alive) return;
+        if (!opened) { giveUp('CONNECTION CLOSED'); return; }
+        s.dead = true; redial();
       };
-      ws.onerror = () => fail(new Error('NO CONNECTION'));
-      ws.onclose = () => { clearInterval(hb); fail(new Error('CONNECTION CLOSED')); };
-    });
-    ws.onopen = () => { hb = setInterval(() => { if (ws.readyState === 1) ws.send('{"type":"HEARTBEAT"}'); }, 5000); };
+    }
     const TYPE = { offer: 'OFFER', answer: 'ANSWER', cand: 'CANDIDATE' };
-    s.send = (to, m) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: TYPE[m.k] || 'OFFER', payload: m, dst: pre + to })); };
+    s.send = (to, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: TYPE[m.k] || 'OFFER', payload: m, dst: pre + to })); };
     s.relayOn = null;
-    s.relay = (to, d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'OFFER', payload: { k: 'g', d }, dst: pre + to })); }; // game messages through the server
-    s.close = () => { clearInterval(hb); try { ws.close(); } catch (_) { /* gone */ } };
+    s.relay = (to, d) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'OFFER', payload: { k: 'g', d }, dst: pre + to })); }; // game messages through the server
+    s.close = () => { alive = false; s.dead = false; clearInterval(hb); clearTimeout(retryT); clearTimeout(giveUp.t); try { ws.close(); } catch (_) { /* gone */ } };
+    connect();
     return s;
   }
   // claude.ai's room capability: everyone in the named room "afk-<code>" hears every emit; messages say who they're for
@@ -14311,6 +14327,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (N.link.relay) N.link.pump();
       if (N.heard && now - N.heard > SILENT) guestLost('LOST THE CONNECTION');
       else if (!N.myNum && N.helloT && now - N.helloT > 20000) { N.err = 'NO ANSWER FROM THE HOST'; N.leave(); } // wrong code, or the host went away
+      else if (!N.myNum && N.helloT && now - (N.helloLast || N.helloT) > 5000) { N.helloLast = now; N.send({ t: 'hello', v: 1 }); } // still nothing: the hello may have died with a dropped socket
     }
   };
 
@@ -14322,7 +14339,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (N.room) N.room.presence({ afk: null }).catch(() => {});
     const sig = N.sig;
     if (sig) setTimeout(() => sig.close(), 400);
-    Object.assign(N, { role: null, sig: null, link: null, links: null, slots: [], kept: {}, stage: null, gstage: null, phase: null, myNum: 0, lobby: null, heard: 0, helloT: 0, lastTick: 0 });
+    Object.assign(N, { role: null, sig: null, link: null, links: null, slots: [], kept: {}, stage: null, gstage: null, phase: null, myNum: 0, lobby: null, heard: 0, helloT: 0, helloLast: 0, lastTick: 0 });
     if (!quiet) N.code = '';
   };
   // Open games in this claude.ai room (for the JOIN screen), refreshed while it's showing
@@ -14339,7 +14356,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // What this device can do (shown on the ONLINE screen, to tell what's blocked when something won't connect)
   N.routes = () => roomP.then((r) => ({ direct: HAS_RTC, server: !!window.WebSocket, room: !!r }));
   // A join link for this game (PeerJS mode: anyone with the page and the link lands on the join screen)
-  N.joinLink = () => { const u = new URL(location.href); u.search = ''; u.searchParams.set('join', N.code); return u.toString(); };
+  N.joinLink = () => { const u = new URL(location.href); const sig = u.searchParams.get('sig'); u.search = ''; if (sig) u.searchParams.set('sig', sig); u.searchParams.set('join', N.code); return u.toString(); };
   G.RemoteController = RemoteController;
 })();
 </script>
@@ -14780,6 +14797,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (!N.code || (host && N.status)) { center(N.status || 'STARTING...', 60, '#ffd23a'); return; }
       center('GAME CODE', 30, '#c8c0e0');
       G.text(N.code, G.W / 2, 42, '#ffd23a', { align: 'center', scale: 3, shadow: '#3a2a10' });
+      if (host && N.sig && N.sig.dead) center('LOBBY SERVER RECONNECTING...', 172, '#ff5ab0');
       if (host) {
         const how = N.sigKind === 'room' ? 'FRIENDS: OPEN THIS PAGE, ONLINE > JOIN' : /peerjs/.test(N.sigKind) ? 'FRIENDS: ONLINE > JOIN, TYPE THE CODE' : 'TEST MODE (THIS BROWSER ONLY)';
         center(how, 68, '#9a8ec0');

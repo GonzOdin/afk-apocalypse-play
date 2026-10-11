@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-11 00:41 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-11 04:29 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2004,6 +2004,30 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
     ctx.globalAlpha = 1;
   }
+  // Lawn sprinklers that are on (G.sprinklerOn: st.t, which guests mirror too): a jet sweeping round, its droplets
+  // arcing out to the edge of its reach and back down
+  G.drawSprinklers = (ctx, st, cx, cy) => {
+    const S = G.sprinklersOf ? G.sprinklersOf(st.room) : [];
+    for (const s of S) {
+      const x = Math.round(s.x - cx), y = Math.round(s.y - cy), R = G.SPRINKLER.r;
+      if (x < -R || y < -R - 20 || x > G.W + R || y > G.H + R) continue;
+      const on = G.sprinklerOn(st, s);
+      ctx.fillStyle = '#1a2a1a'; ctx.fillRect(x - 3, y, 6, 2); // the ring in the grass (over any wet floor)
+      if (!on) { ctx.fillStyle = '#b08a38'; ctx.fillRect(x - 1, y - 1, 2, 2); continue; }
+      ctx.fillStyle = '#6a5020'; ctx.fillRect(x - 1, y - 6, 3, 7); ctx.fillStyle = '#f0d070'; ctx.fillRect(x - 1, y - 6, 2, 6); // popped up
+      const a0 = (st.t + s.ph) * 0.06;
+      for (let j = 0; j < 4; j++) {
+        const a = a0 + j * 1.571;
+        for (let k = 1; k <= 9; k++) {
+          const f = k / 9, d = R * f, h = Math.sin(Math.PI * f) * 14, px = Math.round(x + Math.cos(a - f * 0.5) * d), py = Math.round(y - 6 + Math.sin(a - f * 0.5) * d * 0.6 - h + f * 6);
+          ctx.globalAlpha = 0.95 - f * 0.4;
+          ctx.fillStyle = k % 3 === 0 ? '#ffffff' : '#9ad8ff';
+          ctx.fillRect(px, py, 2, k > 6 ? 1 : 2);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+  };
   G.drawWet = (ctx, st, cx, cy) => {
     drawSpill(ctx, st, cx, cy);
     drawSoda(ctx, st, cx, cy);
@@ -3496,6 +3520,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       else if (k === 3) { r(x - 1, y, 7, 3, '#38f0a0'); r(x, y - 1, 5, 5, '#38f0a0'); r(x + 1, y, 3, 2, '#20a070'); } // frisbee
       else { r(x, y, 5, 5, '#a8743e'); r(x - 1, y + 1, 1, 3, '#a8743e'); r(x + 1, y + 1, 3, 2, '#6a4a28'); r(x + 5, y + 4, 2, 2, '#f0f0f0'); } // glove and a baseball
     };
+    // A pop-up lawn sprinkler (flat, walk over it): a ring in the grass and a brass head; its spray is drawn live
+    // (G.drawSprinklers) while it's on
+    const sprinklerHead = (r) => { r(4, 9, 8, 4, '#2a3a2a'); r(5, 8, 6, 6, '#2a3a2a'); r(6, 9, 4, 4, '#4a5a50'); r(7, 7, 2, 4, '#b08a38'); r(7, 7, 2, 1, '#f0d070'); r(6, 10, 1, 1, '#8aa0a8'); };
     // Trash cans and mailboxes can be searched (bump or fire at them). Searched ones look it: the can's lid is knocked
     // off onto the ground, the mailbox hangs open.
     const searchedAt = (room, tx, ty) => !!(room && room.searched && room.searched.has(ty * room.w + tx));
@@ -3760,11 +3787,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ['.', 'GRASS'], [',', 'FLOWERS'], ['d', 'FLOWER BED'], ['~', 'FALLEN LEAVES (THE BLOWER CLEARS THEM)'], [':', 'SIDEWALK'], ['=', 'STREET'], ['-', 'STREET LINE'], ['R', 'ROOF'],
         ['H', 'FRONT WALL (BLUE, 2 TALL)'], ['K', 'FRONT WALL (TAN, 2 TALL)'], ['O', 'HOUSE DOOR (2 TALL, PAINT 2 SIDE BY SIDE; CLICK ONE AGAIN TO LOCK IT)'], ['W', 'INSIDE WALL (CLICK ONE AGAIN: A PAINTING, A PHOTO)'], ['^', 'CRACKED PLASTER WALL (A SODA BOMB BREAKS IT)'],
         ['n', 'WOOD FLOOR'], ['y', 'RUG'], ['q', 'COUCH'], ['k', 'KITCHEN COUNTER'], ['z', 'BED'], ['a', 'COFFEE TABLE'], ['s', 'BOOKSHELF'], ['j', 'TV'], ['[', 'CABINET'], ['<', 'POTTED PLANT'], ['f', 'PICKET FENCE'], ['I', 'PLANK FENCE (TALL, WOOD)'], ['V', 'BROKEN PLANK FENCE (A FEW WHACKS BREAK IT: A SMALL SECRET)'], ['_', 'FALLEN FENCE (BOARDS DOWN: WALK THROUGH)'], ['h', 'SHORT HEDGE (FULL TILE, SHOOT OVER)'], ['J', 'TALL HEDGE (FULL TILE, 1 TALL)'], ['i', 'SPARSE HEDGE (WALK/SEE THROUGH)'], ['b', 'BRICK HEDGE (HEDGE OVER BRICK, UNBREAKABLE)'], ['r', 'BUSTED HEDGE (BLOWN OPEN, WALKABLE)'],
-        ['S', 'SECRET TALL HEDGE (BOMB IT)'], ['e', 'PATCHY TALL HEDGE (ROCKETS/BOMBS BREAK IT)'], ['t', 'TREE'], ['Y', 'BIG TREE (2X2 OBSTACLE: ONE CLICK PLACES IT)'], ['l', 'STREETLIGHT (CLICK ONE AGAIN: BUSTED)'], ['m', 'MAILBOX'], ['g', 'TRASH CAN (CLICK ONE AGAIN: KNOCKED OVER)'], ['%', 'JUNK PILE (SEARCH IT)'], ['*', 'SPORTS GEAR (WALK OVER IT)'],
+        ['S', 'SECRET TALL HEDGE (BOMB IT)'], ['e', 'PATCHY TALL HEDGE (ROCKETS/BOMBS BREAK IT)'], ['t', 'TREE'], ['Y', 'BIG TREE (2X2 OBSTACLE: ONE CLICK PLACES IT)'], ['l', 'STREETLIGHT (CLICK ONE AGAIN: BUSTED)'], ['m', 'MAILBOX'], ['g', 'TRASH CAN (CLICK ONE AGAIN: KNOCKED OVER)'], ['%', 'JUNK PILE (SEARCH IT)'], ['*', 'SPORTS GEAR (WALK OVER IT)'], ['"', 'LAWN SPRINKLER (ON A TIMER: SOAKS THE LAWN ROUND IT; WET GRASS IS SLIPPERY AND LIVING WATER RISES FROM IT)'],
         ['(', 'SANDBAGS (LOW WALL: SHOOT OVER IT)'], [')', 'BARRICADE (STRIPED SAWHORSE)'], ['/', 'RAZOR WIRE (BLOCKS YOU AND THE POGO)'], ['{', 'BURNING OIL DRUM (SMOKES, LIGHTS THE GROUND)'], ['}', 'PROPAGANDA SIGN (STAY ONLINE)'], ['?', 'RUBBLE (WALKABLE)'],
         ['c', 'PARKED CAR (ONE CLICK PLACES ONE; CLICK A CAR FOR ITS PANEL; SEARCH ITS TRUNK)'], ['p', 'POOL (SWIM IN IT)'], ['o', 'TRAMPOLINE (2X1 FOOTPRINT: ONE CLICK; THE MAT HANGS OVER THE ROW BEHIND)'], ['w', 'BRICK WALL (2 TALL)'], ['u', 'SHORT BRICK WALL (SHOOT OVER)'], ['x', 'CRACKED BRICK (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE (DOT ONLY; SODA PUTS IT OUT)'], ['D', 'KEYCARD GATE (CLICK ONE AGAIN: COLOR)'], ['G', 'GARDEN GATE (LATCH: OPENS FROM THE SIDE YOU CAN\'T REACH; CLICK AGAIN: OPENS FROM THE NORTH, FROM THE SOUTH, LOCKED)'],
       ],
-      groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj[<'], ['HEDGES & WALLS', 'hJbiSerfIV_wuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*'], ['DYSTOPIA', '()/{}?']],
+      groups: [['GROUND', '.,d~:=-'], ['GET AROUND', 'po'], ['HOUSES', 'RHKOW^nyqkzasj[<'], ['HEDGES & WALLS', 'hJbiSerfIV_wuxvDG'], ['CREW GATES', 'v^x@!S'], ['DECORATION', 'tYlmgc%*"'], ['DYSTOPIA', '()/{}?']],
       // border: what's past the map edge: a tall hedge, fully solid (a tree would only block at its trunk)
       // shots: tall things only; shots fly over short hedges, fences, short walls, cars, furniture
       border: 'J', ground: '.', solid: SOLID, shots: new Set([...'RHKOWtlwxDGvJSebYIVs[^@']),
@@ -3787,7 +3814,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       ballAt: (room, tx, ty) => (room.at(tx, ty) === '*' ? ['basket', 'soccer'][gearKind(tx, ty, room)] || null : null), // a ball on the lawn (G.launchBall)
       leaves: new Set(['~']), leafBare: '.', // fallen leaves: a blower gust blows them off, leaving grass // a knocked-over can (kinds 'knocked') can't be searched
       // objects sit on a floor (the map's `floors` remembers which; deleting one in the editor puts that floor back)
-      objects: new Set([...'otYlmgcqkzasj[%*@!(){}/<_']), floors: new Set([...'.,d:=-nyr~?']), // trash cans, mailboxes: bump or fire at them to search (Stage.search)
+      objects: new Set([...'otYlmgcqkzasj[%*@!(){}/<_"']), sprinkler: new Set(['"']), floors: new Set([...'.,d:=-nyr~?']), // trash cans, mailboxes: bump or fire at them to search (Stage.search); " lawn sprinkler (G.sprinklerTick)
       road: new Set(['=', '-']), // street tiles (the editors' layout check keeps the street small)
       jumpBlock: new Set([...'RHKOWwxvDGcY^@!']), // a trampoline launch can't clear these: houses, brick, gates, cars, big trees
       pogoBlock: new Set([...'RHKOWwxvDGcYJSebIV^@!/']), // the pogo only clears half-height things: tall hedges stop it too
@@ -3891,6 +3918,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           case '%': floorUnder(r, tx, ty, room); return shadow(r, 1, 12, 15, 3);
           case '@': case '!': return floorUnder(r, tx, ty, room);
           case '*': floorUnder(r, tx, ty, room); return sportsGear(r, tx, ty, room);
+          case '"': floorUnder(r, tx, ty, room); return sprinklerHead(r);
           case '_': floorUnder(r, tx, ty, room); return brokenFence(r, tx, ty, room);
           case 'c': { // a car cell: the ground the car is parked on (look past the car to either side), plus its shadow
             floorUnder(r, tx, ty, room);
@@ -5997,6 +6025,135 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       kinds: { "60,33": "locked", "61,33": "locked", "60,39": "locked", "28,51": "right/white/sedan/shut", "70,51": "left/red/wagon/open" },
       loot: { "52,3": "ammo", "61,3": "i:pie", "67,3": "empty", "68,3": "w:plates", "69,3": "empty", "70,3": "i:coffee", "71,3": "i:coffee", "10,4": "w:plates", "11,4": "i:coffee", "62,4": "ammo", "22,5": "i:pie", "23,6": "ammo", "32,6": "w:plates", "33,6": "w:plates", "14,8": "ammo", "16,12": "ammo", "10,17": "w:plates", "11,17": "w:plates", "52,18": "ammo", "14,21": "i:pie", "78,22": "ammo", "56,28": "teen", "77,28": "empty", "66,29": "ammo", "10,30": "w:plates", "11,30": "w:plates", "28,30": "empty", "14,34": "teen", "46,34": "empty", "63,36": "i:pie", "73,36": "w:plates", "74,36": "i:pie", "16,40": "i:coffee", "10,43": "i:pie", "11,43": "w:plates", "52,43": "ammo", "65,45": "ammo", "14,47": "i:pie", "34,49": "empty", "62,49": "i:pie" },
     },
+    "sprinkler": {
+      name: "SPRINKLER HEIGHTS", theme: "suburb",
+      rows: [
+        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+        "J....Z.......J.............J...............Z...........w...........................J",
+        "JWWWWWWWWWWWWJ.:::::::::::.J...........................w.IIIIIII.....t.wwwwwwwwwww.J",
+        "JWqqnnnnnkknWJ.:\":....Z:\":.J..WWWWWWWWWWWWWWWWWWWWWW...w.I.....I.......w::::::::%w.J",
+        "JWnyynnnnnnzWJ.:::..C..:::.J..Wnqqnnnnjnn[nnWnnnnnnW...w.I..+..I.......w::9:U:4::w.J",
+        "JWnnnnnnnnnnWJ.:::.....:::.J..WnnnnnnnnnnnnnnnkkkkkW...w.I:....I.......w:::::::::w.J",
+        "JKKKKOOKKKKKKJ.:::.....:::.J.ZWnnnnnnnnnnnnnnnnnnnnW...w.I~~..%I......Zw:::::::::w.J",
+        "J....::......J.Z\":::::::\":.J..Wnnnnnnnnnnnnnnnnn8nnW...w.I~~...I.......wwww!!wwwww.J",
+        "J....::......J.............J..W<nnnnnnnnnnnnWnnnnnBW...w.IIVVIII.......w:::::::::wZJ",
+        "J.N..::..\"...JJJJJJJJJJJ...J..HHHHHHHHHHOOHHHHHHHHHH...w...............w::5::::::w.J",
+        "J....::......J.............J............::.............wt..............w::::::~::w.J",
+        "J....::JJJJJJJ.............J......hh....::....hh.......w...............w:::::::::w.J",
+        "J....::J..:~JJ........N....J.t....hh....::....hh.....t.w.......N.......wwwwwvwwwww.J",
+        "J.t..::J.7..JJ.............J............::.............w...................N.......J",
+        "J....::J..A:JJ.............J.....\"....Z.:Z......\"......w.l.........::..............J",
+        "J....::J....JJ..JJJJJJJJJJJJ............::.............w...ppppppp.::.l............J",
+        "J....::J....JJZ............J.........hh.::.hh........Z.w...ppppppp.::..pppppppp....J",
+        "J....::JJSSJJJ.............J..hh.....hh.::.hh......hh..wZ..ppppppp.::..pppppppp....J",
+        "J....::......J.\"...........J..hh........::.........hh..w...ppppppp.::..pppppppp....J",
+        "J..N.::......J.............J............::.............w...ppppppp.::..pppppppp....J",
+        "J....::......J...........Z.J...hh...\"...::...\"...hh....w...ppppppp.::Z.pppppppp.Z..J",
+        "J....::......JJJJJJJJJJJ...J...hh.......::.hh.N..hh....w...ppppppp.::..pppppppp....J",
+        "JWWWWOOWWWWWWJ.............J.......N..hh::.hh.......l..w...ppppppp.::..pppppppp....J",
+        "JWqqnnnnnkknWJ.............J..........hh::.............w...ppppppp.::..........l...J",
+        "JWnyynnnnnnzWJ...N.........J...:::::::::::::::::::::::.w..........l::..............J",
+        "JWnnnnnnnnnnWJ............ZJ............::.............w...........::..............J",
+        "JHHHHOOHHHHHHJ............ZJ............::.......hh....w.::::::::::::::::::::::::::J",
+        "J....:Z....m.J..JJJJJJJJJJJJ.........hh.::.hh....hh....w.......Z...::............g.J",
+        "J....::..Z...J.............J..hh.....hh.::.hh......Z...w.WWWWWWWWW.::...N....hh....J",
+        "J....::......J.............J..hh........::.............w.WqqnnkknW.::.hh.....hh..Z.J",
+        "J.\"..::.hh\"..J...........\".J......\".....::....\"........wZWnyynnnzW.::.hh..\"........J",
+        "J....::.hh...J.............J............::.....wwxxwww.w.WnnnnnnnW.::..............J",
+        "J....::......J.............J............::.....w:::::w.w.KKKOOKKKK.::..............J",
+        "J..t.::......JJJJJJJJJJJ...J............::.hh..w:::::w.w...........::...........\"..J",
+        "J....::::::::J.............J...N...hh...::.hh..w:7:9:w.w...........::..............J",
+        "J.hh.::...hh.J.............J.......hh.l.::..N..w:::::w.w..\"........::.hh....hh.....J",
+        "J.hh.::...hh.J..........N..J............::.....w:::::w.w...........::.hh....hh.....J",
+        "Jg...::...N..J.............J............::.....wwwwwww.w.....N.....::.........N....J",
+        "J....::......J.............J............::..........Z..w...........::..............J",
+        "JJJJJJJJJJ:::JJJJJJ:::JJJJJJJJGGJJJJJJJJGGJJJJJJJJJJJJJJJJJJJJJJJJJDDJJJJJJJJJJGGJJJ",
+        "J::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::J",
+        "J...................................ZZ...::........................................J",
+        "J.tZ.........hh........hh........hh.ddd..::..ddd..hh.........hh.......hh........t..J",
+        "J.......\"....hh........hh...\"....hh.d,d.t::..d,d..hh....\"....hh.......hh..\"........J",
+        "J...hh......N.....................Z.dddhh::..ddd..................N................J",
+        "J...hh.................................hh::........................................J",
+        "J.........::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::E..J",
+        "J..............hh....hh..................::hh..............................hh......J",
+        "J..............hh....hh...N.........B....::hh.;.....N..hhhhhhhhh...........hh......J",
+        "J...hh............\"......................::............h,,,,,,,h....\"..............J",
+        "J...hh......hh..........hh....hh.........:P.....hh.....h,,,9,,,h............N......J",
+        "J...........hh....Z.....hh....hh.....hh..::..hh.hh.....h,,,,oo,h...................J",
+        "J.....l.Z.g.....m...l.............l..hh..::.mhh...l....hhhhhhhhh..l.....g.....l....J",
+        "J::::::::::::::::::::::::::::::::::::::::::::::::::::::::::Z::::::::Z::::::::::::::J",
+        "J===========ccc====ccc============ccc=====================ccc=============ccc======J",
+        "J===========ccc====ccc============ccc=====================ccc=============ccc======J",
+        "J::::::::::::::::::::::::::::Z:::::::::::::::::::Z:::::::::::::::::::::::::::::::::J",
+        "J::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::Z:J",
+        "J::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::J",
+        "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
+      ],
+      over: [
+        "....................................................................................",
+        "....................................................................................",
+        ".RRRRRRRRRRRR.......................................................................",
+        ".RRRRRRRRRRRR.................RRRRRRRRRRRRRRRRRRRRRR................................",
+        ".RRRRRRRRRRRR.................RRRRRRRRRRRRRRRRRRRRRR................................",
+        ".RRRRRRRRRRRR.................RRRRRRRRRRRRRRRRRRRRRR................................",
+        "..............................RRRRRRRRRRRRRRRRRRRRRR................................",
+        "..............................RRRRRRRRRRRRRRRRRRRRRR................................",
+        "..............................RRRRRRRRRRRRRRRRRRRRRR................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        ".RRRRRRRRRRRR.......................................................................",
+        ".RRRRRRRRRRRR.......................................................................",
+        ".RRRRRRRRRRRR.......................................................................",
+        ".RRRRRRRRRRRR.......................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        ".........................................................RRRRRRRRR..................",
+        ".........................................................RRRRRRRRR..................",
+        ".........................................................RRRRRRRRR..................",
+        ".........................................................RRRRRRRRR..................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+        "....................................................................................",
+      ],
+      kinds: { "40,39": "locked", "41,39": "locked", "46,48": "decoy", "12,54": "right/blue/sedan/shut", "19,54": "right/white/sedan/shut", "34,54": "left/red/sedan/shut", "58,54": "left/white/wagon/open", "74,54": "right//wreck/shut" },
+      loot: { "9,3": "i:pie", "10,3": "i:coffee", "80,3": "empty", "41,4": "w:plates", "46,5": "w:plates", "47,5": "empty", "48,5": "w:plates", "49,5": "w:plates", "50,5": "i:pie", "58,6": "ammo", "62,6": "ammo", "11,12": "i:pie", "9,23": "i:coffee", "10,23": "w:plates", "11,27": "ammo", "81,27": "ammo", "62,29": "w:plates", "63,29": "w:plates", "1,37": "i:pie", "10,52": "i:pie", "16,52": "i:pie", "44,52": "ammo", "72,52": "i:coffee" },
+    },
   };
 })();
 </script>
@@ -6066,6 +6223,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   window.G.ENEMY_SPAWN = {
     culdesac: { cap: 6, every: [150, 260], near: [40, 140], ring: [24, 120], rest: 320, hunt: 900, linger: 1800, types: { phoneTeen: 8, sprinter: 1 } },
+    sprinkler: { water: { every: [420, 780], max: 2 }, cap: 8, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 7, sprinter: 2 } },
     hoa: { cap: 7, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 8, sprinter: 2 } },
     mansion: { water: { every: [600, 1000], max: 2 }, cap: 7, every: [140, 240], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 6, sprinter: 2, robodog: 2, drone: 1 } },
     root: { water: { every: [600, 1000], max: 2 }, cap: 9, every: [120, 210], near: [40, 140], ring: [24, 120], rest: 280, hunt: 900, linger: 600, types: { clone: 4, drone: 2, robodog: 2, mopbot: 1, sprinter: 1, phoneTeen: 1 } },
@@ -6095,6 +6253,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     order: [
       { id: "culdesac", kind: "main" },
       { id: "hoa", kind: "main" },
+      { id: "sprinkler", kind: "main" },
       { id: "mansion", kind: "main" },
       { id: "galleria", kind: "main" },
       { id: "serverfarm", kind: "main" },
@@ -6102,15 +6261,28 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       { id: "root", kind: "secret", after: "core" },
     ],
     levels: {
+      sprinkler: {
+        world: 1,
+        name: "SPRINKLER HEIGHTS",
+        time: [0, 42],
+        disk: true,
+        packages: ["i:pie", "i:decoy"],
+        note: "Plan: docs/design/worlds-plan.md (World 1, Level 3); built by tools/gen-sprinkler.js. The sprinklers (\") come on in turns: wet grass is slippery and living water rises from it. Packages in reading order: the control house, the green.",
+        briefing: [
+          ["12:42 AM. SPRINKLER HEIGHTS.", "EVERY LAWN IS ON A TIMER, AND THE", "TIMER IS ON THE FEED'S SERVERS NOW."],
+          ["WET GRASS IS SLIPPERY. AND SOMETHING", "IN THE WATER IS GETTING UP.", "DON'T STAND IN PUDDLES."],
+          ["THERE'S A HOLOGRAM OF YOU BY THE", "START. THEY LOVE IT MORE THAN YOU.", "USE THAT. GO!"],
+        ],
+      },
       hoa: {
         world: 1,
         name: "HOA NIGHT",
-        time: [0, 34],
+        time: [0, 21],
         disk: true,
         packages: ["w:squirt", "i:pie", "i:coffee"],
         note: "Plan: docs/design/worlds-plan.md (World 1, Level 2); built by tools/gen-hoa.js. Packages in reading order: the pool shed (the WATER GUN, new this level), the first house on Manicured Lane, the board room.",
         briefing: [
-          ["12:34 AM. THE HOMEOWNERS' ASSOCIATION", "WAS MID-MEETING WHEN THE FEED HIT.", "THE MOTION TO PANIC CARRIED."],
+          ["12:21 AM. THE HOMEOWNERS' ASSOCIATION", "WAS MID-MEETING WHEN THE FEED HIT.", "THE MOTION TO PANIC CARRIED."],
           ["THE POOL IS BEHIND A LOCKED GATE.", "SOMEONE ON MANICURED LANE HAS THE", "KEY. THEY KEEP EVERYTHING."],
           ["THE BOARD ROOM NEEDS A RED KEYCARD.", "THE LIFEGUARD HAD ONE. HAD.", "KEEP OFF THE GRASS. GO!"],
         ],
@@ -6132,12 +6304,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       galleria: {
         world: 2,
         name: "GALLERIA MALL",
-        time: [1, 12],
+        time: [1, 40],
         disk: true,
         packages: ["quarter", "i:pie", "w:soda", "i:coffee"],
         note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the alley's far corner, the food court, the department store, the loading dock.",
         briefing: [
-          ["1:12 AM. THE FEED IS LIVE AND THE", "GALLERIA IS FULL OF TEENS WHO CAME", "FOR THE WIFI AND NEVER LEFT."],
+          ["1:40 AM. THE FEED IS LIVE AND THE", "GALLERIA IS FULL OF TEENS WHO CAME", "FOR THE WIFI AND NEVER LEFT."],
           ["DELIVERY DRONES ARE STILL RUNNING", "THEIR ROUTES. WATCH THE SKY, AND", "WATCH WHAT COLOR THE BOX IS."],
           ["THE LOADING DOCKS NEED A KEYCARD.", "MALL SECURITY LEFT ONE IN THE", "GARDEN COURT, PAST THE ALLEY."],
           ["GET EVERYONE OUT. THE TIME DOOR", "OPENS IN THE PLAZA. GO!"],
@@ -6146,12 +6318,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       mansion: {
         world: 1,
         name: "FOUNDER'S MANSION",
-        time: [2, 20],
+        time: [1, 14],
         disk: true,
         packages: ["i:pie", "w:soda", "i:coffee", "quarter", "i:pie"],
         note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the greenhouse, the mansion, the maze, the garage, the gatehouse.",
         briefing: [
-          ["2:20 AM. THE FEED'S FOUNDER LIVES", "UP HERE. HIS ESTATE HAS ROBOT DOGS,", "A HEDGE MAZE AND A PANIC ROOM."],
+          ["1:14 AM. THE FEED'S FOUNDER LIVES", "UP HERE. HIS ESTATE HAS ROBOT DOGS,", "A HEDGE MAZE AND A PANIC ROOM."],
           ["THE DOGS BARK FOR BACKUP. SHUT THEM", "UP BEFORE THE WHOLE LAWN COMES.", "THEY WILL CHASE A BALL, THOUGH."],
           ["THE BLUE KEYCARD TO THE MANSION IS", "IN THE MIDDLE OF THE MAZE. THE", "GARDENER LEFT A MACHETE OUT."],
           ["SAVE THE STAFF AND THE GUESTS.", "THE TIME DOOR IS ON THE DRIVE. GO!"],
@@ -6160,12 +6332,12 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       serverfarm: {
         world: 3,
         name: "SERVER FARM",
-        time: [3, 1],
+        time: [2, 58],
         disk: true,
         packages: ["i:coffee", "w:soda", "i:pie", "quarter", "i:pie", "w:plates", "i:coffee", "i:pie"],
         note: "Plan: docs/design/levels-2-5-plan.md. Packages in reading order: the NOC, the stacks (2), the cooling plant, the cold aisle (2), the power room (2).",
         briefing: [
-          ["3:01 AM. THIS IS WHERE THE FEED", "LIVES: TEN THOUSAND SERVERS UNDER", "A HILL, HUMMING ALL NIGHT."],
+          ["2:58 AM. THIS IS WHERE THE FEED", "LIVES: TEN THOUSAND SERVERS UNDER", "A HILL, HUMMING ALL NIGHT."],
           ["THE NIGHT SHIFT IS TRAPPED INSIDE.", "SECURITY BOTS, MOPS, DRONES... AND", "SOMETHING WEARING YOUR FACE."],
           ["ROCKETS ARE IN THE COLD AISLE. THE", "GLASS INTO THE CONTROL ROOM IS", "CRACKED. THE KEYCARDS DO THE REST."],
           ["GET THE TECHS OUT. THE TIME DOOR", "IS IN THE LOBBY. GO!"],
@@ -6697,6 +6869,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     overAt(tx, ty) { return !this.over || tx < 0 || ty < 0 || tx >= this.w || ty >= this.h ? '.' : this.over[ty][tx]; }
     setTile(tx, ty, ch) {
       this.grid[ty * this.w + tx] = ch;
+      this.sprinklers = null; // (found again: G.sprinklersOf)
       if (this.onTile) this.onTile(tx, ty, ch); // an online host remembers it for the guests
       G.redrawRoomTiles(this, tx - 1, ty - 1, tx + 1, ty + 1);
       if (this.over) G.buildRoofs(this);
@@ -8984,6 +9157,30 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     for (const i of [...(st.spill ? st.spill.keys() : []), ...(st.soda ? st.soda.keys() : [])]) { const sx = (i % st.room.w) * 16 + 8, sy = Math.floor(i / st.room.w) * 16 + 11, d = Math.hypot(sx - x, sy - y); if (d < bd) { bd = d; best = { x: sx, y: sy }; } }
     return best;
   };
+  // Lawn sprinklers (suburb '"', Sprinkler Heights): on a timer, on for `on` ticks then off for `off`, the street's
+  // sprinklers rolling on one after another (a phase per cell). While one's on, the lawn within `r` px stays wet
+  // (st.wet, like a mop bot's trail: slippery, and living water can rise from it) for `life` ticks after.
+  G.SPRINKLER = { on: 300, off: 480, r: 40, life: 300 };
+  G.sprinklersOf = (R) => {
+    if (!R.sprinklers) { R.sprinklers = []; const T = R.theme.sprinkler; if (T) for (let y = 0; y < R.h; y++) for (let x = 0; x < R.w; x++) if (T.has(R.at(x, y))) R.sprinklers.push({ x: x * 16 + 8, y: y * 16 + 10, ph: ((x * 7 + y * 3) % 6) * 60 }); }
+    return R.sprinklers;
+  };
+  G.sprinklerOn = (st, s) => (st.t + s.ph) % (G.SPRINKLER.on + G.SPRINKLER.off) < G.SPRINKLER.on;
+  G.sprinklerTick = (st) => {
+    const S = G.sprinklersOf(st.room), C = G.SPRINKLER, R = st.room, T = R.theme;
+    if (!S.length || st.t % 20) return;
+    for (const s of S) {
+      if (!G.sprinklerOn(st, s)) continue;
+      if (!st.wet) st.wet = new Map();
+      const r = Math.ceil(C.r / 16);
+      for (let ty = Math.floor(s.y / 16) - r; ty <= Math.floor(s.y / 16) + r; ty++) for (let tx = Math.floor(s.x / 16) - r; tx <= Math.floor(s.x / 16) + r; tx++) {
+        if (tx < 0 || ty < 0 || tx >= R.w || ty >= R.h || Math.hypot(tx * 16 + 8 - s.x, ty * 16 + 8 - s.y) > C.r) continue;
+        const ch = R.at(tx, ty);
+        if ((T.solid.has(ch) && !T.sprinkler.has(ch)) || (T.water && T.water.has(ch)) || (T.interior && T.interior.has(ch))) continue;
+        st.wet.set(ty * R.w + tx, C.life);
+      }
+    }
+  };
   G.wetAt = (st, x, y) => !!st.wet && st.wet.size > 0 && st.wet.has(Math.floor((y - 3) / 16) * st.room.w + Math.floor(x / 16));
 
   // Vacuum (robot mop): sucks up loot lying within o.radius px (weapons, items, food, quarters; never keys or the
@@ -9708,6 +9905,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (st.t % 15 === 0) { st.flow.rebuild(st.players); st.flowJump.rebuild(st.players); if (st.flowSwim) st.flowSwim.rebuild(st.players); }
     spawnTick(st, cfg);
     G.waterTick(st, cfg);
+    G.sprinklerTick(st);
     for (const e of st.enemies) {
       if (G.Debug && G.Debug.drag && G.Debug.sel === e) continue; // held still while you drag its ring in the debug overlay
       e.update(st);
@@ -12735,6 +12933,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       ctx.drawImage(this.room.canvas, -cx, -cy);
 
       G.drawWet(ctx, this, cx, cy); // a mop bot's trail, coffee spills
+      G.drawSprinklers(ctx, this, cx, cy); // lawn sprinklers that are on
       for (const r of this.rings) { // blast rings on the ground (flattened circles)
         const rad = r.max * (1 - r.life / 14) + 2, n = Math.max(16, Math.round(rad * 2));
         ctx.fillStyle = r.col;

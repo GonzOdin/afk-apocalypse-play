@@ -4507,7 +4507,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     },
     pda: {
       name: 'PDA', icon: 'pda', keep: true,
-      use(p, st) { G.setState(new G.states.MapView(st)); return true; },
+      use(p, st) {
+        if (G.net.role === 'host' && p.num !== 1) return true; // a guest's PDA: the host simulates but must not steal the screen; the guest opens it locally
+        G.setState(new G.states.MapView(st)); return true;
+      },
     },
     bomb: {
       name: 'BOMB', icon: 'bomb',
@@ -12966,8 +12969,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     update(st) {
       this.t++;
       if (!this.open) return;
-      const p = st.players.find((q) => !q.dead && Math.abs(q.x - this.x) < 10 && Math.abs(q.y - this.y) < 8);
-      if (p) { G.sfx.play('confirm'); G.setState(new LevelClear(st)); }
+      const at = (q) => Math.abs(q.x - this.x) < 10 && Math.abs(q.y - this.y) < 8;
+      if (st.players.every((q) => q.dead || at(q)) && st.players.some((q) => !q.dead && at(q))) { G.sfx.play('confirm'); G.setState(new LevelClear(st)); }
     }
     drawFloor(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
@@ -14295,9 +14298,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (o.s === 'play') {
       const def = G.levelById(o.level);
       if (!def) return;
-      const st = new G.Stage(def, [], o.seed);
-      N.gstage = st; N.ghist.clear(); N.lastSnap = 0; N.inQ = [];
-      G.setState(st);
+      // Build the stage async: level gen blocks the main thread, so paint a loader first
+      G.setState(new S.NetWait({ s: 'wait', phase: 'play' }));
+      setTimeout(() => {
+        if (N.phase !== 'play') return; // host moved on already
+        const st = new G.Stage(def, [], o.seed);
+        N.gstage = st; N.ghist.clear(); N.lastSnap = 0; N.inQ = [];
+        G.setState(st);
+      }, 60);
     } else if (o.s === 'pause') { if (N.gstage) N.gstage.hostPaused = o.on; }
     else if (o.s === 'brief') { N.gstage = null; const def = G.levelById(o.level); if (def) G.setState(new S.Briefing(def, [], null, true)); }
     else if (o.s === 'clear' || o.s === 'over' || o.s === 'wait') { if (o.s !== 'wait') N.gstage = null; G.setState(new S.NetWait(o)); }
@@ -14381,7 +14389,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
     'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', 'burnT', // (the clones'; burnT: a coffee spill's burn timer)
-    'allyHitCd', 'thornCd', 'messT', 'idleT', 'spinT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle and spin counters)
+    'allyHitCd', 'thornCd', 'messT', 'idleT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle counters)
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(o) {
@@ -14465,7 +14473,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (N.hist.size > HIST) N.hist.delete(N.hist.keys().next().value);
     for (const s of N.slots) {
       if (!s || !s.link || !s.crew || !st.players.some((p) => p.num === s.num)) continue;
-      if (s.link.relay && st.t % 8) continue; // the room relay is slow: fewer, bigger snapshots
+      if (s.link.relay && st.t % 4) continue; // relay: every 4th tick is plenty
       const base = s.ack && N.hist.get(s.ack);
       s.link.send({ t: 'snap', id, base: base ? s.ack : 0, d: diff(base || null, snap), ev: s.ev.splice(0, 120), ack: s.ctrl.done });
     }
@@ -14614,6 +14622,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (me && Math.hypot(ax, ay) <= 0.3) { const m = me.mouseAim(st); if (m) { ax = m.x; ay = m.y; mouse = 1; } }
     let held = 0, edges = 0;
     ['fire', 'skill', 'item', 'wnext', 'wprev', 'inext'].forEach((b, i) => { if (c[b]) held |= 1 << i; if (c[b + 'P']) edges |= 1 << i; });
+    if ((edges & 4) && me && me.item && me.item.id === 'pda') { G.setState(new G.states.MapView(st)); return; } // guest opens the map locally; the host won't steal the screen
     const seq = (N.inSeq = (N.inSeq || 0) + 1);
     N.inQ = N.inQ || [];
     N.inQ.push([seq, r2(c.mx), r2(c.my), r2(ax), r2(ay), held, edges, mouse]);

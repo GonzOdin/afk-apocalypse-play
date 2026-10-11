@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-08 13:25 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-10 23:08 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -4507,7 +4507,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     },
     pda: {
       name: 'PDA', icon: 'pda', keep: true,
-      use(p, st) { G.setState(new G.states.MapView(st)); return true; },
+      use(p, st) {
+        if (st.online && p !== st.me) return true; // an online guest's PDA: their own screen opens the map (netsync.js), not the host's
+        G.setState(new G.states.MapView(st)); return true;
+      },
     },
     bomb: {
       name: 'BOMB', icon: 'bomb',
@@ -6752,8 +6755,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (c.skillP) { if (this.swimming) G.sfx.play('deny'); else this.skill(st, mx, my, m); } // no dashing in water
       // the item / action button: open a door or search a trash can you're facing, otherwise use your item
       if (c.itemP && !acted) {
-        const fd = st.room.doorTouching(this, this.fx, this.fy, 6), fc = !fd && st.room.searchTouching(this, this.fx, this.fy, 6);
-        const mw = !fd && !fc && !this.mower && (st.mowers || []).find((w) => w.near(this));
+        const { fd, fc, mw } = this.actionAt(st);
         if (this.mower) { this.mower.letGo(st); this.say('LET GO', '#a8a0c8'); } // the mower stays where it is
         else if (fd) st.openHouseDoor(fd, this); else if (fc) st.search(fc.tx, fc.ty, this);
         else if (mw) { mw.grab(this); this.say('MOWING TIME!', '#38f0a0'); G.sfx.play('mow'); }
@@ -6907,6 +6909,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       }
     }
 
+    // What the item / action button would act on instead of using your item: a door or a container you face, a mower
+    // beside you (an online guest checks this before opening its own PDA map: netsync.js)
+    actionAt(st) {
+      const fd = st.room.doorTouching(this, this.fx, this.fy, 6), fc = !fd && st.room.searchTouching(this, this.fx, this.fy, 6);
+      const mw = !fd && !fc && !this.mower && (st.mowers || []).find((w) => w.near(this));
+      return { fd, fc, mw, any: !!(this.mower || fd || fc || mw) };
+    }
     // The charged-dart perk is ready: full health, signature weapon with darts in it, not fired for a moment
     perkReady() {
       const w = this.weapon;
@@ -12966,8 +12975,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     update(st) {
       this.t++;
       if (!this.open) return;
-      const p = st.players.find((q) => !q.dead && Math.abs(q.x - this.x) < 10 && Math.abs(q.y - this.y) < 8);
-      if (p) { G.sfx.play('confirm'); G.setState(new LevelClear(st)); }
+      const at = (q) => Math.abs(q.x - this.x) < 10 && Math.abs(q.y - this.y) < 8;
+      if (st.players.every((q) => q.dead || at(q)) && st.players.some((q) => !q.dead && at(q))) { G.sfx.play('confirm'); G.setState(new LevelClear(st)); }
     }
     drawFloor(ctx, v) {
       const sx = Math.round(this.x - v.x), sy = Math.round(this.y - v.y);
@@ -13172,6 +13181,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
+        ...(G.net.role === 'host' && G.net.code ? [{ label: 'COPY JOIN LINK', act: () => { if (navigator.clipboard) navigator.clipboard.writeText(G.net.joinLink()).then(() => G.toast('JOIN LINK COPIED', 90)).catch(() => {}); }, help: () => 'SEND IT TO A FRIEND' }] : []), // online host: the link guests open to join
         settingsItem(game),
         ...(game.remote ? [] : [{ label: game.test ? 'RESTART ROOM' : 'RESTART LEVEL', act: () => { G.save.write(); G.setState(new Stage(game.def, game.crewId)); } }]), // online, only the host restarts
         { label: game.remote ? 'LEAVE THE GAME' : game.online ? 'END THE GAME' : 'QUIT TO TITLE', act: () => { G.save.write(); if (game.remote) G.net.leave(); G.setState(new Boot()); } },
@@ -13187,7 +13197,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     draw(ctx) {
       this.drawBack(ctx);
       ctx.fillStyle = 'rgba(8,4,20,.6)'; ctx.fillRect(0, 0, G.W, G.H);
-      drawMenuBox(ctx, this, 'PAUSED', this.items, 'BEST ' + G.save.data.best);
+      drawMenuBox(ctx, this, 'PAUSED', this.items, (G.net.role === 'host' && G.net.code) ? 'GAME CODE: ' + G.net.code : 'BEST ' + G.save.data.best);
     }
   }
 
@@ -13909,6 +13919,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   const RTC_WAIT = 9000; // ms to wait for the direct connection before falling back to the relay
   const qs = new URLSearchParams(location.search);
   const HAS_RTC = !!window.RTCPeerConnection && qs.get('rtc') !== 'off'; // some in-app browsers (the Claude iOS app) have none
+  const SIG_URL = (qs.get('sig') || 'wss://afk-apocalypse-play.fly.dev/peerjs').replace(/\/$/, ''); // your own server: ?sig=wss://YOUR-APP.fly.dev/peerjs
   G.PCOLS = ['#ff5ab0', '#3ad0ff', '#ffd23a', '#38f0a0']; // player 1-4 colors (tags over heads, lobby, HUD)
 
   const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O (they look like 1 and 0)
@@ -13929,30 +13940,45 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     return s;
   }
   // PeerJS cloud server protocol: connect with an id, then OFFER / ANSWER / CANDIDATE messages are relayed to `dst`
-  // with our payload untouched; HEARTBEAT every 5 s keeps the socket alive.
+  // with our payload untouched; HEARTBEAT every 5 s keeps the socket alive. If the socket drops after connecting
+  // (a suspended phone, a network blip), it re-registers with the same id on its own: the same `s` object keeps
+  // working, so links and handlers never notice. s.dead says it's down right now (the lobby shows it).
   function peerjsSignal(code, me) {
-    const pre = 'afkapoc-' + code.toLowerCase() + '-', s = { on: null, kind: 'peerjs' };
-    const ws = new WebSocket('wss://0.peerjs.com/peerjs?key=peerjs&id=' + pre + me + '&token=' + rnd(10, 'abcdefghijkmnpqrstuvwxyz23456789') + '&version=1.5.4');
-    let hb = 0;
-    s.ready = new Promise((ok, fail) => {
-      const t = setTimeout(() => fail(new Error('NO ANSWER FROM THE SERVER')), 12000);
-      ws.onmessage = (e) => {
-        let d; try { d = JSON.parse(e.data); } catch (_) { return; }
-        if (d.type === 'OPEN') { clearTimeout(t); ok(); }
-        else if (d.type === 'ID-TAKEN') fail(new Error('GAME CODE IN USE'));
-        else if (d.type === 'ERROR') fail(new Error('SERVER ERROR'));
-        else if (d.src && d.src.startsWith(pre) && d.payload && d.payload.k === 'g') { if (s.relayOn) s.relayOn(d.src.slice(pre.length), d.payload.d); } // relayed game message
-        else if (d.src && d.src.startsWith(pre) && s.on) s.on(d.src.slice(pre.length), d.type === 'LEAVE' || d.type === 'EXPIRE' ? { k: 'gone' } : d.payload);
+    const pre = 'afkapoc-' + code.toLowerCase() + '-', s = { on: null, kind: 'peerjs', dead: false };
+    const url = SIG_URL + '?key=peerjs&id=' + pre + me + '&token=' + rnd(10, 'abcdefghijkmnpqrstuvwxyz23456789') + '&version=1.5.4';
+    let ws = null, hb = 0, alive = true, opened = false, retryT = 0, okR = null, failR = null;
+    s.ready = new Promise((ok, fail) => { okR = ok; failR = fail; });
+    const giveUp = (msg) => { clearTimeout(giveUp.t); failR(new Error(msg)); };
+    giveUp.t = setTimeout(() => giveUp('NO ANSWER FROM THE SERVER'), 12000);
+    const redial = () => { clearTimeout(retryT); if (alive) retryT = setTimeout(() => { if (alive) connect(); }, 2500); };
+    const onmessage = (e) => {
+      let d; try { d = JSON.parse(e.data); } catch (_) { return; }
+      if (d.type === 'OPEN') { clearTimeout(giveUp.t); opened = true; s.dead = false; okR(); }
+      else if (d.type === 'ID-TAKEN') { if (opened) redial(); else giveUp('GAME CODE IN USE'); } // our old socket died unseen: wait it out
+      else if (d.type === 'ERROR') { if (!opened) giveUp('SERVER ERROR'); }
+      else if (d.src && d.src.startsWith(pre) && d.payload && d.payload.k === 'g') { if (s.relayOn) s.relayOn(d.src.slice(pre.length), d.payload.d); } // relayed game message
+      else if (d.src && d.src.startsWith(pre) && s.on) s.on(d.src.slice(pre.length), d.type === 'LEAVE' || d.type === 'EXPIRE' ? { k: 'gone' } : d.payload);
+    };
+    function connect() {
+      if (!alive) return;
+      try { ws = new WebSocket(url); }
+      catch (_) { redial(); return; } // (a page that may not open sockets throws right away)
+      ws.onopen = () => { hb = setInterval(() => { if (ws.readyState === 1) ws.send('{"type":"HEARTBEAT"}'); }, 5000); };
+      ws.onmessage = onmessage;
+      ws.onerror = () => { if (!opened) giveUp('NO CONNECTION'); };
+      ws.onclose = () => {
+        clearInterval(hb); hb = 0;
+        if (!alive) return;
+        if (!opened) { giveUp('CONNECTION CLOSED'); return; }
+        s.dead = true; redial();
       };
-      ws.onerror = () => fail(new Error('NO CONNECTION'));
-      ws.onclose = () => { clearInterval(hb); fail(new Error('CONNECTION CLOSED')); };
-    });
-    ws.onopen = () => { hb = setInterval(() => { if (ws.readyState === 1) ws.send('{"type":"HEARTBEAT"}'); }, 5000); };
+    }
     const TYPE = { offer: 'OFFER', answer: 'ANSWER', cand: 'CANDIDATE' };
-    s.send = (to, m) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: TYPE[m.k] || 'OFFER', payload: m, dst: pre + to })); };
+    s.send = (to, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: TYPE[m.k] || 'OFFER', payload: m, dst: pre + to })); };
     s.relayOn = null;
-    s.relay = (to, d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'OFFER', payload: { k: 'g', d }, dst: pre + to })); }; // game messages through the server
-    s.close = () => { clearInterval(hb); try { ws.close(); } catch (_) { /* gone */ } };
+    s.relay = (to, d) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'OFFER', payload: { k: 'g', d }, dst: pre + to })); }; // game messages through the server
+    s.close = () => { alive = false; s.dead = false; clearInterval(hb); clearTimeout(retryT); clearTimeout(giveUp.t); try { ws.close(); } catch (_) { /* gone */ } };
+    connect();
     return s;
   }
   // claude.ai's room capability: everyone in the named room "afk-<code>" hears every emit; messages say who they're for
@@ -14011,6 +14037,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       const s = JSON.stringify(o), id = ++L.seq, n = Math.ceil(s.length / 3400) || 1;
       if (L.q.length > 60) L.q.splice(0, L.q.length - 40); // falling behind: drop the oldest (snapshots are acked)
       for (let i = 0; i < n; i++) L.q.push({ i: id, c: i, n, s: s.slice(i * 3400, (i + 1) * 3400) });
+      L.pump(); // straight out (budget-capped): the frame loop's pump stops in a backgrounded tab, and a handshake can't wait
     };
     L.pump = () => {
       const now = performance.now();
@@ -14257,11 +14284,11 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     return true;
   };
   const GUEST = {
-    open(L) { N.status = 'JOINING...'; L.send({ t: 'hello', v: 1 }); },
+    open(L) { N.status = 'JOINING...'; N.helloT = performance.now(); L.send({ t: 'hello', v: 1 }); },
     msg(L, o) {
       if (L !== N.link) return;
       N.heard = performance.now();
-      if (o.t === 'welcome') { N.myNum = o.num; N.status = ''; N.phase = o.phase; N.taken = o.taken; if (N.onWelcome) N.onWelcome(o); }
+      if (o.t === 'welcome') { N.myNum = o.num; N.status = ''; N.helloT = 0; N.phase = o.phase; N.taken = o.taken; if (N.onWelcome) N.onWelcome(o); }
       else if (o.t === 'picked') { if (N.onPicked) N.onPicked(o); }
       else if (o.t === 'lobby') { N.lobby = o; N.phase = o.phase; }
       else if (o.t === 'state') guestState(o);
@@ -14277,9 +14304,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (o.s === 'play') {
       const def = G.levelById(o.level);
       if (!def) return;
-      const st = new G.Stage(def, [], o.seed);
-      N.gstage = st; N.ghist.clear(); N.lastSnap = 0; N.inQ = [];
-      G.setState(st);
+      // Build the stage async: level gen blocks the main thread, so paint a loader first
+      G.setState(new S.NetWait({ s: 'wait', phase: 'play' }));
+      setTimeout(() => {
+        if (N.phase !== 'play') return; // host moved on already
+        const st = new G.Stage(def, [], o.seed);
+        N.gstage = st; N.ghist.clear(); N.lastSnap = 0; N.inQ = [];
+        G.setState(st);
+      }, 60);
     } else if (o.s === 'pause') { if (N.gstage) N.gstage.hostPaused = o.on; }
     else if (o.s === 'brief') { N.gstage = null; const def = G.levelById(o.level); if (def) G.setState(new S.Briefing(def, [], null, true)); }
     else if (o.s === 'clear' || o.s === 'over' || o.s === 'wait') { if (o.s !== 'wait') N.gstage = null; G.setState(new S.NetWait(o)); }
@@ -14292,18 +14324,26 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   }
 
   // ---- Every tick (from the main loop): relay pumps, host snapshots ----
-  // Nothing heard from someone for 12 s (a closed tab, a dead connection): they've gone.
-  const SILENT = 12000;
+  // Nothing heard from someone for 45 s (a closed tab, a dead connection): they've gone.
+  const SILENT = 45000;
   N.tick = () => {
     if (!N.role) return;
     const now = performance.now();
+    const gap = N.lastTick ? now - N.lastTick : 0; N.lastTick = now;
+    if (gap > 1000) { // asleep (backgrounded tab): nobody was heard because nothing ran, not because anyone left
+      if (N.role === 'host' && N.slots) for (const s of N.slots) if (s && s.link) s.heard += gap;
+      if (N.role === 'guest') { if (N.heard) N.heard += gap; if (N.helloT) N.helloT += gap; }
+    }
     if (N.role === 'host' && N.links) {
       for (const L of N.links.values()) if (L.relay) L.pump();
       for (const s of N.slots) if (s && s.link && now - s.heard > SILENT) hostClose(s.link);
+      if (N.phase !== 'play' && now - (N.lobbyBeat || 0) > 3000) { N.lobbyBeat = now; sendLobby(); } // quiet lobby: keep guests from starving
     }
     if (N.role === 'guest' && N.link) {
       if (N.link.relay) N.link.pump();
       if (N.heard && now - N.heard > SILENT) guestLost('LOST THE CONNECTION');
+      else if (!N.myNum && N.helloT && now - N.helloT > 20000) { N.err = 'NO ANSWER FROM THE HOST'; N.leave(); } // wrong code, or the host went away
+      else if (!N.myNum && N.helloT && now - (N.helloLast || N.helloT) > 5000) { N.helloLast = now; N.send({ t: 'hello', v: 1 }); } // still nothing: the hello may have died with a dropped socket
     }
   };
 
@@ -14315,7 +14355,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (N.room) N.room.presence({ afk: null }).catch(() => {});
     const sig = N.sig;
     if (sig) setTimeout(() => sig.close(), 400);
-    Object.assign(N, { role: null, sig: null, link: null, links: null, slots: [], kept: {}, stage: null, gstage: null, phase: null, myNum: 0, lobby: null, heard: 0 });
+    Object.assign(N, { role: null, sig: null, link: null, links: null, slots: [], kept: {}, stage: null, gstage: null, phase: null, myNum: 0, lobby: null, heard: 0, helloT: 0, helloLast: 0, lobbyBeat: 0, lastTick: 0 });
     if (!quiet) N.code = '';
   };
   // Open games in this claude.ai room (for the JOIN screen), refreshed while it's showing
@@ -14332,7 +14372,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // What this device can do (shown on the ONLINE screen, to tell what's blocked when something won't connect)
   N.routes = () => roomP.then((r) => ({ direct: HAS_RTC, server: !!window.WebSocket, room: !!r }));
   // A join link for this game (PeerJS mode: anyone with the page and the link lands on the join screen)
-  N.joinLink = () => { const u = new URL(location.href); u.search = ''; u.searchParams.set('join', N.code); return u.toString(); };
+  N.joinLink = () => { const u = new URL(location.href); const sig = u.searchParams.get('sig'); u.search = ''; if (sig) u.searchParams.set('sig', sig); u.searchParams.set('join', N.code); return u.toString(); };
   G.RemoteController = RemoteController;
 })();
 </script>
@@ -14355,7 +14395,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     'idle', 'jitter', 'wx', 'wy', 'homeX', 'homeY', 'diagHold', 'pushX', 'pushY', 'local', 'coop', 'content', 'respawn', 'trampCd', 'separateT',
     'barkCd', 'dropCd', 'roamT', 'orbit', 'hx', 'hy', 'fetchSeen', 'fetching', 'circling', 'retreatT', 'slideX', 'slideY', // (the robots' bookkeeping)
     'picked', 'lastHp', 'blinkCd', 'shotCd', 'ranged', 'burnT', // (the clones'; burnT: a coffee spill's burn timer)
-    'allyHitCd', 'thornCd', 'messT', 'idleT', 'spinT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle and spin counters)
+    'allyHitCd', 'thornCd', 'messT', 'idleT', 'spinOf']); // (hacked robots, mops at a mess; a player's idle counters)
   const KEEP = new Set(['weapons', 'items', 'cards', 'label', 'jump', 'tramp', 'tj']); // small plain objects that are sent
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(o) {
@@ -14439,7 +14479,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (N.hist.size > HIST) N.hist.delete(N.hist.keys().next().value);
     for (const s of N.slots) {
       if (!s || !s.link || !s.crew || !st.players.some((p) => p.num === s.num)) continue;
-      if (s.link.relay && st.t % 8) continue; // the room relay is slow: fewer, bigger snapshots
+      if (s.link.relay && st.t % 4) continue; // relay: every 4th tick is plenty
       const base = s.ack && N.hist.get(s.ack);
       s.link.send({ t: 'snap', id, base: base ? s.ack : 0, d: diff(base || null, snap), ev: s.ev.splice(0, 120), ack: s.ctrl.done });
     }
@@ -14588,6 +14628,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (me && Math.hypot(ax, ay) <= 0.3) { const m = me.mouseAim(st); if (m) { ax = m.x; ay = m.y; mouse = 1; } }
     let held = 0, edges = 0;
     ['fire', 'skill', 'item', 'wnext', 'wprev', 'inext'].forEach((b, i) => { if (c[b]) held |= 1 << i; if (c[b + 'P']) edges |= 1 << i; });
+    if ((edges & 4) && me && me.item && me.item.id === 'pda' && !me.actionAt(st).any) { // the PDA: the map opens here, on the guest's own screen
+      G.setState(new G.states.MapView(st)); edges &= ~4; held &= ~4; // (the host ignores a guest's PDA: weapons.js)
+    }
     const seq = (N.inSeq = (N.inSeq || 0) + 1);
     N.inQ = N.inQ || [];
     N.inQ.push([seq, r2(c.mx), r2(c.my), r2(ax), r2(ay), held, edges, mouse]);
@@ -14773,6 +14816,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (!N.code || (host && N.status)) { center(N.status || 'STARTING...', 60, '#ffd23a'); return; }
       center('GAME CODE', 30, '#c8c0e0');
       G.text(N.code, G.W / 2, 42, '#ffd23a', { align: 'center', scale: 3, shadow: '#3a2a10' });
+      if (host && N.sig && N.sig.dead) center('LOBBY SERVER RECONNECTING...', 172, '#ff5ab0');
       if (host) {
         const how = N.sigKind === 'room' ? 'FRIENDS: OPEN THIS PAGE, ONLINE > JOIN' : /peerjs/.test(N.sigKind) ? 'FRIENDS: ONLINE > JOIN, TYPE THE CODE' : 'TEST MODE (THIS BROWSER ONLY)';
         center(how, 68, '#9a8ec0');

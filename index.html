@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-08 13:25 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-10 23:08 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -4508,7 +4508,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     pda: {
       name: 'PDA', icon: 'pda', keep: true,
       use(p, st) {
-        if (G.net.role === 'host' && p.num !== 1) return true; // a guest's PDA: the host simulates but must not steal the screen; the guest opens it locally
+        if (st.online && p !== st.me) return true; // an online guest's PDA: their own screen opens the map (netsync.js), not the host's
         G.setState(new G.states.MapView(st)); return true;
       },
     },
@@ -6755,8 +6755,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (c.skillP) { if (this.swimming) G.sfx.play('deny'); else this.skill(st, mx, my, m); } // no dashing in water
       // the item / action button: open a door or search a trash can you're facing, otherwise use your item
       if (c.itemP && !acted) {
-        const fd = st.room.doorTouching(this, this.fx, this.fy, 6), fc = !fd && st.room.searchTouching(this, this.fx, this.fy, 6);
-        const mw = !fd && !fc && !this.mower && (st.mowers || []).find((w) => w.near(this));
+        const { fd, fc, mw } = this.actionAt(st);
         if (this.mower) { this.mower.letGo(st); this.say('LET GO', '#a8a0c8'); } // the mower stays where it is
         else if (fd) st.openHouseDoor(fd, this); else if (fc) st.search(fc.tx, fc.ty, this);
         else if (mw) { mw.grab(this); this.say('MOWING TIME!', '#38f0a0'); G.sfx.play('mow'); }
@@ -6910,6 +6909,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       }
     }
 
+    // What the item / action button would act on instead of using your item: a door or a container you face, a mower
+    // beside you (an online guest checks this before opening its own PDA map: netsync.js)
+    actionAt(st) {
+      const fd = st.room.doorTouching(this, this.fx, this.fy, 6), fc = !fd && st.room.searchTouching(this, this.fx, this.fy, 6);
+      const mw = !fd && !fc && !this.mower && (st.mowers || []).find((w) => w.near(this));
+      return { fd, fc, mw, any: !!(this.mower || fd || fc || mw) };
+    }
     // The charged-dart perk is ready: full health, signature weapon with darts in it, not fired for a moment
     perkReady() {
       const w = this.weapon;
@@ -13175,9 +13181,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           { label: 'ENEMY', val: () => G.ENEMY_TYPES[labEnemy()].name, act: (d = 1) => { const L = Object.keys(G.ENEMY_TYPES); G.labEnemy = L[(L.indexOf(labEnemy()) + d + L.length) % L.length]; }, help: () => 'PICK ONE, THEN SPAWN IT' },
           { label: 'SPAWN IT NEAR ME', act: () => { this.resume(); if (!G.spawnEnemyNear(game, labEnemy())) G.toast('NO ROOM NEAR YOU', 60); } },
         ] : []),
+        ...(G.net.role === 'host' && G.net.code ? [{ label: 'COPY JOIN LINK', act: () => { if (navigator.clipboard) navigator.clipboard.writeText(G.net.joinLink()).then(() => G.toast('JOIN LINK COPIED', 90)).catch(() => {}); }, help: () => 'SEND IT TO A FRIEND' }] : []), // online host: the link guests open to join
         settingsItem(game),
         ...(game.remote ? [] : [{ label: game.test ? 'RESTART ROOM' : 'RESTART LEVEL', act: () => { G.save.write(); G.setState(new Stage(game.def, game.crewId)); } }]), // online, only the host restarts
-        ...(G.net.role === 'host' && G.net.code ? [{ label: 'COPY JOIN LINK', act: () => { if (navigator.clipboard) navigator.clipboard.writeText(G.net.joinLink()).then(() => G.toast('JOIN LINK COPIED', 90)).catch(() => {}); }, help: () => 'SEND IT TO A FRIEND' }] : []),
         { label: game.remote ? 'LEAVE THE GAME' : game.online ? 'END THE GAME' : 'QUIT TO TITLE', act: () => { G.save.write(); if (game.remote) G.net.leave(); G.setState(new Boot()); } },
       ];
     }
@@ -14622,7 +14628,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     if (me && Math.hypot(ax, ay) <= 0.3) { const m = me.mouseAim(st); if (m) { ax = m.x; ay = m.y; mouse = 1; } }
     let held = 0, edges = 0;
     ['fire', 'skill', 'item', 'wnext', 'wprev', 'inext'].forEach((b, i) => { if (c[b]) held |= 1 << i; if (c[b + 'P']) edges |= 1 << i; });
-    if ((edges & 4) && me && me.item && me.item.id === 'pda') { G.setState(new G.states.MapView(st)); return; } // guest opens the map locally; the host won't steal the screen
+    if ((edges & 4) && me && me.item && me.item.id === 'pda' && !me.actionAt(st).any) { // the PDA: the map opens here, on the guest's own screen
+      G.setState(new G.states.MapView(st)); edges &= ~4; held &= ~4; // (the host ignores a guest's PDA: weapons.js)
+    }
     const seq = (N.inSeq = (N.inSeq || 0) + 1);
     N.inQ = N.inQ || [];
     N.inQ.push([seq, r2(c.mx), r2(c.my), r2(ax), r2(ay), held, edges, mouse]);

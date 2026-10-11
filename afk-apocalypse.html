@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-11 05:31 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-11 05:43 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -2090,8 +2090,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // ===== Per-cell variants (the map's `kinds` { "x,y": value }, set in edit mode by clicking a cell again) =====
   // Keycard gates (D) and keycards (8) come in colors, each card opening only the gate of its color (DOOM-style);
   // a house door (O) can be locked (a plain key opens any one); a neighbor (N) has a kind (neighbors.js).
-  G.CARD_COLORS = { red: ['#ff3a5a', '#ffc0c8'], blue: ['#3a8aff', '#c0e0ff'], yellow: ['#ffd23a', '#fff4c0'] }; // [color, light]
-  G.CARDS = Object.keys(G.CARD_COLORS);
+  G.CARD_COLORS = { red: ['#ff3a5a', '#ffc0c8'], blue: ['#3a8aff', '#c0e0ff'], yellow: ['#ffd23a', '#fff4c0'], admin: ['#38f0a0', '#c8fff0'] }; // [color, light]
+  G.CARDS = ['red', 'blue', 'yellow']; // keycard colors (cards you can pick up)
+  G.GATE_COLORS = [...G.CARDS, 'admin']; // gate colors: an ADMIN gate takes no card, only Root's Override opens it
   G.cellKind = (R, x, y) => (R.kinds && R.kinds[x + ',' + y]) || null;
   // Which look a varied object was given in the editor (its kinds 'v0', 'v1', ...; theme.variety says how many), or
   // null to pick one from where it stands (the hash, as always)
@@ -4155,13 +4156,14 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   const shadow = (r, x, y, w, hh) => r(x, y, w, hh, 'rgba(4,2,16,.4)');
 
-  const SOLID = new Set([...'#siexSvDGcukmjl%()']);
+  const SOLID = new Set([...'#siexSvDGcukmjl%()@!']); // @ a crowd (June), ! fire (Dot): the suburb's, borrowed (UP below)
   const UP = {
     '#': { rise: TALL, draw: wallUp('#') }, s: { rise: TALL, draw: wallUp('s') }, i: { rise: TALL, draw: wallUp('i') }, e: { rise: TALL, draw: wallUp('e') },
     x: { rise: TALL, draw: wallUp('x') }, S: { rise: TALL, draw: wallUp('S') }, v: { rise: TALL, draw: wallUp('v') },
     D: { rise: TALL, draw: doorUp }, G: { rise: 14, draw: turnstileUp }, c: { rise: 6, draw: coolerUp }, u: { rise: 0, draw: upsUp },
     k: { rise: 7, draw: deskUp }, m: { rise: 14, draw: lockerUp }, j: { rise: 12, draw: screenUp }, l: { rise: 14, draw: lampUp }, '%': { rise: 0, draw: junkUp },
     o: { rise: 0, draw: padUp }, '(': { rise: 10, draw: sandbagUp }, ')': { rise: 6, draw: barricadeUp },
+    '@': T.suburb.up['@'], '!': T.suburb.up['!'], // crew gates borrowed from the suburb: a crowd of teens (June), fire (Dot)
   };
   const box = (ch) => {
     switch (ch) {
@@ -4186,9 +4188,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       ['x', 'CRACKED WALL (ROCKETS OR A SODA BOMB)'], ['S', 'HOLLOW PANEL: SECRET (BOMB IT)'], ['v', 'VENT (PIXEL ONLY)'], ['D', 'SECURITY DOOR (KEYCARD; CLICK ONE AGAIN: COLOR)'], ['G', 'TURNSTILE (OPENS ONLY FROM THE LOCKED SIDE)'],
       ['c', 'COOLING UNIT'], ['u', 'UPS CABINET (LOW: SHOOT OVER)'], ['k', 'DESK'], ['m', 'LOCKER (SEARCH IT)'], ['j', 'THE FEED ON A BIG SCREEN'], ['l', 'FLOOR LIGHT'], ['%', 'CABLES AND DEAD DRIVES (SEARCH IT)'],
       ['o', 'JUMP PAD (2X1: ONE CLICK)'], ['(', 'SANDBAGS (LOW)'], [')', 'BARRICADE'],
+      ['@', 'ZOMBIE CROWD (JUNE ONLY; A SODA BOMB SCATTERS IT)'], ['!', 'FIRE: A HOT AISLE (DOT ONLY; SODA OR WATER PUTS IT OUT)'],
     ],
-    groups: [['GROUND', '.,:=p'], ['WALLS', '#sieSxvDG'], ['GET AROUND', 'o'], ['THINGS', 'cukmjl%()']],
-    border: '#', ground: '.', solid: SOLID, shots: new Set([...'#sexSvDGmj']),
+    groups: [['GROUND', '.,:=p'], ['WALLS', '#sieSxvDG'], ['GET AROUND', 'o'], ['THINGS', 'cukmjl%()'], ['CREW GATES', '@!']],
+    border: '#', ground: '.', solid: SOLID, shots: new Set([...'#sexSvDGmj@']),
     water: new Set(['p']), bounce: new Set(['o']), stamps: { o: [2, 1] },
     poolLiquid: 'coolant', // its pools are coolant: a puddle rising out of one is cyan (G.drawPuddle)
     seeThrough: new Set(['i', 'e']), // glass: you see who's behind it (the hidden-neighbor check)
@@ -4198,9 +4201,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     people: (R, tx, ty, pick) => (R.at(tx, ty) === '=' ? pick(['delivery', 'teacher', 'tech']) : pick(['tech', 'tech', 'tech', 'cat', 'driver'])),
     road: new Set(), objects: new Set(), floors: new Set([...'.,:=']),
     breakable: new Set(['e', 'x', 'S']), chop: new Set(['e', 'S']), patchy: new Set(['e']), rubble: { e: '.', x: ',', S: '.' }, secret: new Set(['S', 'x']), vent: new Set(['v']),
-    pass: { vent: new Set(['v']) }, secretWall: new Set(['S']), pound: new Set(['x']),
-    jumpBlock: new Set([...'#sixeSvDG']), pogoBlock: new Set([...'#sixeSvDGcmj']),
-    heights: { '#': TALL, s: TALL, i: TALL, e: TALL, x: TALL, S: TALL, v: TALL, D: TALL, G: 16, c: 14, u: 8, k: 8, m: 24, j: 16, l: 24, '%': 8, '(': 10, ')': 8 },
+    pass: { vent: new Set(['v']), crowd: new Set(['@']), fire: new Set(['!']) }, douse: new Set(['!']), scatter: new Set(['@']), secretWall: new Set(['S']), pound: new Set(['x']),
+    jumpBlock: new Set([...'#sixeSvDG@!']), pogoBlock: new Set([...'#sixeSvDGcmj@!']),
+    heights: { '#': TALL, s: TALL, i: TALL, e: TALL, x: TALL, S: TALL, v: TALL, D: TALL, G: 16, c: 14, u: 8, k: 8, m: 24, j: 16, l: 24, '%': 8, '(': 10, ')': 8, '@': 24, '!': 12 },
     up: UP, box,
     tile(r, ch, tx, ty, room) {
       switch (ch) {
@@ -4237,6 +4240,8 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (ch === 'i' || ch === 'e') return '#8ab8d8';
       if (ch === 'p') return '#2a8ab0';
       if (ch === 'D') return '#ff3a5a';
+      if (ch === '@') return '#a87ab0'; // a crowd
+      if (ch === '!') return '#ff6a20'; // fire
       if (SOLID.has(ch)) return '#3a3e50';
       return ch === ':' ? '#6a6450' : '#2a2e40';
     },
@@ -7038,6 +7043,73 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       kinds: { "69,4": "pandora", "54,14": "mopbot", "57,18": "godmode", "37,21": "locked", "38,21": "locked", "73,32": "clone", "10,39": "thorns", "35,45": "godmode", "51,45": "right/white/wagon/open", "65,45": "right/red/sedan/shut", "52,48": "clone", "57,48": "left/black/wagon/shut", "1,50": "drone", "31,50": "locked" },
       loot: { "8,5": "ammo", "32,5": "i:pie", "68,5": "empty", "5,6": "i:coffee", "10,6": "empty", "17,6": "i:pie", "22,6": "i:pie", "29,6": "empty", "34,6": "w:plates", "41,6": "i:coffee", "46,6": "i:pie", "53,6": "w:plates", "58,6": "i:coffee", "6,15": "ammo", "20,15": "teen", "44,15": "burger", "56,15": "ammo", "17,16": "hkey", "22,16": "i:coffee", "29,16": "i:coffee", "34,16": "i:pie", "41,16": "w:plates", "46,16": "i:pie", "53,16": "i:pie", "58,16": "w:plates", "65,16": "w:plates", "70,16": "w:plates", "10,17": "ammo", "20,25": "i:pie", "32,25": "i:pie", "44,25": "i:pie", "5,26": "w:plates", "10,26": "i:pie", "17,26": "empty", "22,26": "i:coffee", "29,26": "i:coffee", "34,26": "w:plates", "41,26": "i:pie", "46,26": "i:pie", "53,26": "w:plates", "58,26": "i:pie", "65,26": "w:plates", "70,26": "w:plates", "32,35": "burger", "56,35": "i:coffee", "68,35": "empty", "17,36": "empty", "22,36": "w:plates", "29,36": "i:coffee", "34,36": "i:pie", "41,36": "i:pie", "46,36": "i:pie", "53,36": "w:plates", "58,36": "i:coffee", "65,36": "i:pie", "70,36": "w:plates", "20,45": "i:pie", "51,45": "i:pie", "65,45": "teen", "5,46": "w:plates", "10,46": "i:coffee", "17,46": "empty", "22,46": "w:plates", "41,46": "w:plates", "46,46": "w:plates", "29,47": "i:coffee", "57,48": "ammo" },
     },
+    "cooling": {
+      name: "COOLING TOWERS", theme: "servers",
+      rows: [
+        "########################################################################################",
+        "#.m........................m.#.m...........Z..............#.m..............Z...........#",
+        "#............................#....N.................N.....#...N.......%.............N..#",
+        "#.......N.........%...N......#............................#............................#",
+        "#............................#..ppppppppppp:pppppppppppp..#..pppppppppppZpppppppppppp..#",
+        "#............................#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..pppppppppppZpppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#Z.ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp.Z#..:::::::::::::::::::N::::..#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..:N::::::::Z:::::::::::8:..#..ppppppppppp:pppppppppppp..#",
+        "#..::l:::::Z::::::::N::::8:..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#.Zppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..:::N::::::::::::::::::::Z.#",
+        "#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp.Z#..ppppppppppp:pppppppppppp..#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#.............::.............#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#........N....::.....%...Z...#..ppppppppppp:pppppppppppp..#",
+        "#..ppppppppppp:pppppppppppp..#.............::...........m.#............Z:..............#",
+        "#..ppppppppppp:pppppppppppp..#.ssssssssssssssssssssssssss.#.............:.............m#",
+        "#..ppppppppppp:pppppppppppp..#Zs,,,,,m,,,,,,,,m,,,,,,,,,s.#...N.........::.............#",
+        "#..:::::N::::::::Z:::::l:::..#.s,,,,,,,,,,,,,,,,,,,,,,,,s.#.............::.#############",
+        "#..ppppppppppp:pppppppppppp..#.s,,U,,,,,,,,,,.,,,,,,,,,,s.#.#########...::.#,,,,,,,,,,##",
+        "#..ppppppppppp:pppppppppppp..#.s,,,,,,,,,,,,;,,,,,,,9,,,s.#.#,,,,,,,#...::.#,9,,,,,;,,##",
+        "#..ppppppppppp:pppppppppppp..#.s,,,,,,,,7,,,,,,,,,,,,,,,s.#.#,,,,,,,#...::.#,,,,U,,,,,##",
+        "#..ppppppppppp:pppppppppppp..#.s,,,,,,,,,,,,,,,,,,,,,,,,s.#.#,,,+,,,#...::.#,,.,,,,,,,##",
+        "#Z.ppppppppppp:pppppppppppp..#.s,,,,,,,,,,,,,,,,,,,,,m,,s.#.#,,,,,,,#...::.#,,j,,,j,,,##",
+        "#..ppppppppppp:pppppppppppp..#.ssssssssssssssssss!!ssssss.#.#,,,,,%,#N..::.#,,,,,,,,,,##",
+        "#............:::.Z......uu...#.Z...........::Z............#Z#,,,,,,,#...::.#,,,,,,,,,,##",
+        "#............:::.............#.............::.............#.###SS####...::.####xx#######",
+        "#.####v#####.:::..uu.........#...u..cc.....::........u....#.............::.#,,,,,,,,,,##",
+        "#.#,,,,,,,,#.:::.............#.............::..cc.........#.............::.#,,,,,,,,,,##",
+        "#.#,U,,,,9,#.:::.............#.............::.............#...Z.........::.#,%,,,,,,,,##",
+        "#.#,,,,,,,,#.:::........N....#......B..cc..::.............#.............::.#,,,,,,,,,,##",
+        "#.#,,,,%,,,#.:::.............#...Z.........::.............#.............::.#,,,,,,,,m,##",
+        "#.#,m,,,,,,#.::Z..........%..#.%...........::.........N...#.......E.....::.####DD#######",
+        "#.##########.:::.............#.............::.............#........Z....::.............#",
+        "#............:::.............#.............::Z............#....Z........::u..........u.#",
+        "############:::####################GG######DD###########################DD########GG####",
+        "#==Z=============================================================================Z=====#",
+        "#==================Z===================================================================#",
+        "#=================l=========N=====l=====================j=============================m#",
+        "#=====cc=============================Z=========cc=============cc==cc===================#",
+        "#=======================================cc==============================cc=============#",
+        "#=====================cc============Z===========================================cc=====#",
+        "#=========N=====================%===cc============================l====================#",
+        "#===========================================================N==========================#",
+        "#===============j===cc======================N=======cc==cc===========Z========N========#",
+        "#=Z=============================================================================cc=====#",
+        "#=======cc====================cc======cc=====cc=======================cc============l==#",
+        "#===========================Z=======================Z==================================#",
+        "#=============P=================================l===============%======================#",
+        "#======================================================================================#",
+        "#=========================cc========N=====================cc======Z=========cc=========#",
+        "#==================================================================================Z===#",
+        "#===m=========================================mZ=======================================#",
+        "########################################################################################",
+      ],
+      kinds: { "43,1": "mopbot", "75,1": "robodog", "54,11": "blue", "44,26": "thorns", "83,26": "godmode", "59,31": "clone", "79,38": "admin", "72,41": "blue", "81,42": "drone" },
+      loot: { "2,1": "ammo", "27,1": "ammo", "31,1": "i:coffee", "60,1": "i:coffee", "70,2": "empty", "18,3": "ammo", "50,20": "ammo", "56,21": "quarter", "86,22": "i:pie", "37,23": "burger", "46,23": "ammo", "53,29": "ammo", "66,30": "i:pie", "77,35": "teen", "7,37": "ammo", "84,37": "i:coffee", "4,38": "ammo", "26,38": "ammo", "31,38": "ammo", "86,44": "empty", "32,48": "empty", "64,54": "empty", "4,58": "i:pie", "46,58": "ammo" },
+    },
   };
 })();
 </script>
@@ -7107,6 +7179,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   };
   window.G.ENEMY_SPAWN = {
     culdesac: { cap: 6, every: [150, 260], near: [40, 140], ring: [24, 120], rest: 320, hunt: 900, linger: 1800, types: { phoneTeen: 8, sprinter: 1 } },
+    cooling: { water: { every: [300, 600], max: 3 }, cap: 8, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 4, sprinter: 2, robodog: 1, drone: 1, mopbot: 1, clone: 1 } },
     backofhouse: { cap: 9, every: [125, 210], near: [40, 140], ring: [24, 120], rest: 280, hunt: 900, linger: 600, types: { phoneTeen: 5, sprinter: 3, clone: 2, mopbot: 1, drone: 1 } },
     atrium: { water: { every: [360, 700], max: 3 }, cap: 9, every: [125, 220], near: [40, 140], ring: [24, 120], rest: 280, hunt: 900, linger: 600, types: { phoneTeen: 6, sprinter: 2, mopbot: 1, drone: 1, clone: 1, robodog: 1 } },
     parking: { cap: 8, every: [130, 230], near: [40, 140], ring: [24, 120], rest: 300, hunt: 900, linger: 600, types: { phoneTeen: 6, sprinter: 3, robodog: 2, drone: 1 } },
@@ -7153,12 +7226,26 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       { id: "parking", kind: "main" },
       { id: "atrium", kind: "main" },
       { id: "serverfarm", kind: "main" },
+      { id: "cooling", kind: "main" },
       { id: "core", kind: "main" },
       { id: "root", kind: "secret", after: "core" },
       { id: "bunker", kind: "secret", after: "mansion" },
       { id: "backofhouse", kind: "secret", after: "atrium" },
     ],
     levels: {
+      cooling: {
+        world: 3,
+        name: "COOLING TOWERS",
+        time: [3, 6],
+        disk: true,
+        packages: ["i:bomb"],
+        note: "Plan: docs/design/worlds-plan.md (World 3, Level 2); built by tools/gen-cooling.js. Coolant pools crossed by catwalks; living water up to three at once. Crew: Pixel's closet vent, Dot's hot aisle, Ted's hollow panel (the disk; or the soda bomb), the combo: Root's ADMIN door then Lou's cracked wall.",
+        briefing: [
+          ["3:06 AM. THE COOLING TOWERS.", "EVERYTHING IS WET, COLD AND LOUD.", "SOME OF THE WATER IS AWAKE."],
+          ["STAY ON THE CATWALKS. SWIMMING", "WORKS, BUT THE PUDDLES SWIM", "FASTER. MUCH FASTER."],
+          ["RED CARD IN TOWER ONE, BLUE IN", "TOWER TWO. THE WAY OUT IS IN", "TOWER THREE. GO!"],
+        ],
+      },
       backofhouse: {
         world: 2,
         name: "BACK OF HOUSE",
@@ -8660,7 +8747,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           for (const o of row) if (o.tx >= a && o.tx <= b) st.openDoor(o);
           this.say('ACCESS GRANTED', '#38f0a0');
         }
-        else if (this.lockCd <= 0) { this.lockCd = 90; G.sfx.play('deny'); this.say('NEED A ' + d.color.toUpperCase() + ' KEYCARD', G.CARD_COLORS[d.color][0]); }
+        else if (this.lockCd <= 0) { this.lockCd = 90; G.sfx.play('deny'); this.say(d.color === 'admin' ? 'ADMIN ONLY' : 'NEED A ' + d.color.toUpperCase() + ' KEYCARD', G.CARD_COLORS[d.color][0]); }
       }
     }
     draw(ctx, v) {
@@ -11837,7 +11924,10 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
           const [x, y] = d.cells[0], cx = x * 16 + d.cells.length * 8, cy = y * 16 + 8, dist = Math.hypot(cx - p.x, cy - p.y);
           if (dist < dd) { dd = dist; door = d; }
         }
+        let gate = null, gd = this.door + 8; // or an ADMIN security gate (no keycard opens one)
+        if (!door) for (const d of st.room.doors) { if (d.latch || d.open || d.color !== 'admin') continue; const dist = Math.hypot(d.tx * 16 + 8 - p.x, d.ty * 16 + 8 - p.y); if (dist < gd) { gd = dist; gate = d; } }
         if (door) { door.locked = false; st.openHouseDoor(door, p); p.say('ACCESS GRANTED', '#38f0a0'); }
+        else if (gate) { for (const o of st.room.doors.filter((o) => !o.latch && !o.open && o.ty === gate.ty && o.color === 'admin' && Math.abs(o.tx - gate.tx) <= 2)) st.openDoor(o); p.say('ADMIN ACCESS', '#38f0a0'); }
         else p.say(hacked ? 'YOU WORK FOR ME NOW' : n ? 'OVERRIDE!' : 'NOTHING TO HACK', '#38f0a0');
         ring(st, p.x, p.y - 8, this.r, ['#38f0a0', '#7ff0ff', '#ffffff']);
         G.sfx.play('zap');
@@ -12341,6 +12431,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (!d && !k) continue;
       line(k === d ? 'ok' : k < d ? 'bad' : 'warn', `${C} gates: ${d} · ${C.toLowerCase()} keycards: ${k}` + (pkgCards[col] ? ` (${pkgCards[col]} in packages)` : '') + (k < d ? ` — not enough ${col} keycards!` : k > d ? ` — more ${col} keycards than ${col} gates` : ''));
     }
+    if (gates.admin) line('ok', `Admin gates: ${gates.admin} (no card opens them: only Root's Override)`);
     if (locked || hkeys) line(hkeys === locked ? 'ok' : hkeys < locked - 1 ? 'bad' : 'warn', `Locked doors and gates: ${locked} · keys: ${hkeys}` + (hkeys < locked - 1 ? ' — not enough keys!' : hkeys < locked ? ' — one spare lock: a key carried from earlier, or Root, opens it (the economy plan)' : hkeys > locked ? ' — more keys than locked doors' : ''));
     if (level) line(pk <= (level.packages || []).length ? 'ok' : 'warn', `Packages: ${pk} (${(level.packages || []).length} have set contents, extras hold a dart box)`);
     line(count('Q') <= 1 ? 'ok' : 'warn', `PDA: ${count('Q')}`);
@@ -13188,7 +13279,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     msg(labelAt(st, c.x, c.y));
     return true;
   }
-  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.CARDS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'north', 'south', 'locked'], // a garden gate: one-way latch (opens from the side you can't reach from the start, or the side you pick), or locked (a house key) // an inside wall: something hung on it
+  const VARIANTS = { N: () => G.NEIGHBOR_KIND_ORDER, D: () => G.GATE_COLORS, 8: () => G.CARDS, O: () => ['open', 'locked'], g: () => ['up', 'knocked'], l: () => ['lit', 'busted'], W: () => ['plain', 'painting', 'photo'], G: () => ['latch', 'north', 'south', 'locked'], // a garden gate: one-way latch (opens from the side you can't reach from the start, or the side you pick), or locked (a house key) // an inside wall: something hung on it
     Z: () => ['any', ...Object.keys(G.ENEMY_TYPES)], // a spawn point: the level's mix, or always one type (a typed spawner)
     '|': () => Object.keys(G.ENEMY_TYPES), // an enemy placed in the map: which one
     ';': () => G.MAP_ITEMS, // the item marker: which item

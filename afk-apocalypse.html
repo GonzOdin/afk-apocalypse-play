@@ -234,7 +234,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   <div class="tbtn pill flat" id="btnItm" data-b="itm">ITEM</div>
   <div id="layoutbar"><span id="lbName">TAP A BUTTON, DRAG IT</span><div><button data-act="smaller">&minus;</button><button data-act="bigger">+</button><button data-act="hide">HIDE</button><button data-act="reset">RESET</button><button data-act="done" class="primary">DONE</button></div></div>
 </div>
-<script>window.AFK_BUILD = 'BUILD 10-11 00:16 PT';</script>
+<script>window.AFK_BUILD = 'BUILD 10-11 00:27 PT';</script>
 <script>
 /* AFK APOCALYPSE — core: global namespace, math helpers, save data, state machine */
 (function () {
@@ -5972,14 +5972,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   window.G.LEVEL_DATA = {
     order: [
       { id: "culdesac", kind: "main" },
-      { id: "galleria", kind: "main" },
       { id: "mansion", kind: "main" },
+      { id: "galleria", kind: "main" },
       { id: "serverfarm", kind: "main" },
       { id: "core", kind: "main" },
-      { id: "root", kind: "secret" },
+      { id: "root", kind: "secret", after: "core" },
     ],
     levels: {
       culdesac: {
+        world: 1,
         name: "CUL-DE-SAC",
         time: [23, 58],
         disk: true,
@@ -5993,6 +5994,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ],
       },
       galleria: {
+        world: 2,
         name: "GALLERIA MALL",
         time: [1, 12],
         disk: true,
@@ -6006,6 +6008,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ],
       },
       mansion: {
+        world: 1,
         name: "FOUNDER'S MANSION",
         time: [2, 20],
         disk: true,
@@ -6019,6 +6022,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ],
       },
       serverfarm: {
+        world: 3,
         name: "SERVER FARM",
         time: [3, 1],
         disk: true,
@@ -6032,6 +6036,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ],
       },
       core: {
+        world: 3,
         name: "THE CORE",
         time: [3, 33],
         disk: true,
@@ -6045,6 +6050,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         ],
       },
       root: {
+        world: 3,
         name: "/ROOT",
         time: [4, 4],
         packages: ["quarter", "i:pie", "quarter", "w:soda", "i:coffee"],
@@ -6363,7 +6369,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   G.levelDef = (e) => {
     const info = G.LEVEL_DATA.levels[e.id] || {}, m = G.MAPS[e.id];
     return {
-      id: e.id, kind: e.kind, after: e.after || null, name: info.name || e.id.toUpperCase(), time: info.time || [0, 0], theme: m.theme,
+      id: e.id, kind: e.kind, after: e.after || null, world: info.world || 1, name: info.name || e.id.toUpperCase(), time: info.time || [0, 0], theme: m.theme,
       disk: !!info.disk, packages: info.packages || [], briefing: info.briefing && info.briefing.length ? info.briefing : null,
       enemies: G.ENEMY_SPAWN[e.id] || G.ENEMY_SPAWN.culdesac || {},
       ...(e.kind === 'secret' ? { secret: true } : e.kind === 'bonus' ? { bonus: true } : {}),
@@ -6388,26 +6394,122 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   // The bonus level that follows main level `id` (found with its bonus ticket), if it has one
   G.bonusAfter = (id) => G.BONUS_LEVELS.find((d) => d.after === id) || null;
 
-  // Data disks: one hidden in each level marked `disk` (the '+' marker, behind a secret). Find them all and the
-  // secret levels open: after the last main level, and in the level select. Saved per device (G.save.data.disks).
-  G.DISK_LEVELS = () => G.LEVELS.filter((d) => d.disk).map((d) => d.id);
-  G.disksFound = () => G.DISK_LEVELS().filter((id) => (G.save.data.disks || {})[id]).length;
-  G.secretUnlocked = () => G.disksFound() >= G.DISK_LEVELS().length;
+  // Worlds (James 10-10): five main levels each (the suburb, the mall, the cloud...), and every world's secret level
+  // comes after its last main level (`after`). Data disks: one hidden in each level marked `disk` (the '+' marker,
+  // behind a secret); find every disk in a world and its secret level opens: it's played next after that world's last
+  // level, and it's in the level select. Saved per device (G.save.data.disks).
+  G.WORLD_NAMES = { 1: 'THE BLOCK', 2: 'THE GALLERIA', 3: 'THE CLOUD' };
+  G.worldOf = (d) => (d && d.world) || 1;
+  G.DISK_LEVELS = (w) => G.LEVELS.filter((d) => d.disk && (w === undefined || G.worldOf(d) === w)).map((d) => d.id);
+  G.disksFound = (w) => G.DISK_LEVELS(w).filter((id) => (G.save.data.disks || {})[id]).length;
+  // Is this secret level open? (no argument: the first one)
+  G.secretOpen = (sec = G.SECRET_LEVEL) => {
+    if (!sec) return false;
+    const w = G.worldOf(sec), mine = G.DISK_LEVELS(w).length ? w : undefined; // (a world with no disk levels: every disk counts)
+    return G.DISK_LEVELS(mine).length > 0 && G.disksFound(mine) >= G.DISK_LEVELS(mine).length;
+  };
+  G.secretUnlocked = () => G.secretOpen();
+  // A world's secret level (null if it has none)
+  G.secretOf = (w) => G.SECRET_LEVELS.find((d) => G.worldOf(d) === w) || null;
 
   // What plays after clearing `def` (null: the night is over). ticket: the bonus ticket was found in it.
   G.nextLevel = (def, ticket) => {
-    const mainAfter = (id) => {
-      const i = G.LEVELS.findIndex((d) => d.id === id);
-      return (i >= 0 && G.LEVELS[i + 1]) || (G.secretUnlocked() ? G.SECRET_LEVELS[0] || null : null);
+    const next = (id) => { const i = G.LEVELS.findIndex((d) => d.id === id); return (i >= 0 && G.LEVELS[i + 1]) || null; };
+    const mainAfter = (id) => { // the world's open secret level after its last level, else the next main level
+      const sec = G.SECRET_LEVELS.find((s) => (s.after ? s.after === id : !next(id) && G.LEVELS.length && id === G.LEVELS[G.LEVELS.length - 1].id));
+      return (sec && G.secretOpen(sec) ? sec : null) || next(id);
     };
     if (def.kind === 'main') return (ticket && G.bonusAfter(def.id)) || mainAfter(def.id);
     if (def.kind === 'bonus') return mainAfter(def.after);
-    if (def.kind === 'secret') { const i = G.SECRET_LEVELS.indexOf(def); return G.SECRET_LEVELS[i + 1] || null; }
+    if (def.kind === 'secret') return def.after ? next(def.after) : null; // back to the next world
     return null;
   };
 
   G.buildLevels();
 })();
+</script>
+<script>
+/* AFK APOCALYPSE — level codes (economy plan, section 3): a ZAMN-style code after every level that, unlike ZAMN's,
+   keeps your stuff. G.Codes.encode(run) -> 'BQ7K-M2XD-...' and decode(code) -> run (or null: a typo, by the checksum).
+   A run: { level: id of the level to play next, score, players: [{ crew, lives, weapons: [{ id, lv, ammo }],
+   items: [{ id, n }] }] } (the shape Stage.carryOut gives, plus level and crew). Ammo is kept in eighths of the
+   weapon's max (a code is short); a signature weapon keeps its level. The run is also saved on this device after
+   every level (G.save.data.run: CONTINUE). Runs in node too (the tests' twin, tools). */
+(function (root) {
+  'use strict';
+  const C = {};
+  const ALPHA = 'BCDFGHJKLMNPQRSTVWXZ23456789'; // 28 letters: no vowels (no words), no 0/O, 1/I/L look-alikes
+  const VERSION = 1;
+  C.ALPHA = ALPHA;
+  // Fixed lists the code indexes into (append only: an old code must keep meaning the same thing)
+  C.CREW = ['pixel', 'lou', 'june', 'root', 'ted', 'dot'];
+  C.WEAPONS = ['darts', 'skillet', 'tranq', 'emp', 'hockey', 'splash', 'soda', 'plates', 'blower', 'squirt', 'bat', 'machete', 'rockets', 'foil'];
+  C.ITEMS = ['pie', 'wholepie', 'coffee', 'pogo', 'pda', 'bomb', 'decoy', 'godmode', 'thorns', 'pandora'];
+
+  // A bit writer and reader over a BigInt
+  const writer = () => { let v = 0n, n = 0; return { put(x, bits) { v |= BigInt(Math.max(0, Math.min(x, 2 ** bits - 1))) << BigInt(n); n += bits; }, get value() { return v; }, get bits() { return n; } }; };
+  const reader = (v) => { let n = 0; return { take(bits) { const x = Number((v >> BigInt(n)) & ((1n << BigInt(bits)) - 1n)); n += bits; return x; }, get pos() { return n; } }; };
+  const check = (v, bits) => { let h = 0x2f; for (let i = 0; i < bits; i += 8) h = (h * 31 + Number((v >> BigInt(i)) & 255n)) % 1021; return h; }; // 10 bits
+
+  // levels: the ordered list of level ids the code may name (G.ALL_LEVELS in the game); maxAmmo(id): a weapon's max
+  C.encode = (run, levels, maxAmmo) => {
+    const w = writer();
+    w.put(VERSION, 3);
+    w.put(Math.max(0, levels.indexOf(run.level)), 6);
+    w.put(Math.round((run.score || 0) / 100), 14);
+    const ps = run.players.slice(0, 4);
+    w.put(ps.length - 1, 2);
+    for (const p of ps) {
+      w.put(Math.max(0, C.CREW.indexOf(p.crew)), 3);
+      w.put(p.lives, 4);
+      const ws = (p.weapons || []).filter((x) => C.WEAPONS.includes(x.id)).slice(0, 7);
+      w.put(ws.length, 3);
+      for (const x of ws) { w.put(C.WEAPONS.indexOf(x.id), 4); w.put((x.lv || 1) - 1, 2); w.put(Math.round((x.ammo / Math.max(1, maxAmmo(x.id))) * 7), 3); }
+      const its = (p.items || []).filter((x) => C.ITEMS.includes(x.id) && x.n > 0).slice(0, 7);
+      w.put(its.length, 3);
+      for (const x of its) { w.put(C.ITEMS.indexOf(x.id), 4); w.put(Math.min(9, x.n), 4); }
+    }
+    const body = w.value, bits = w.bits, sum = BigInt(check(body, bits));
+    let v = (body << 10n) | sum, s = '';
+    for (let i = 0; i < Math.ceil((bits + 10) / Math.log2(ALPHA.length)); i++) { s += ALPHA[Number(v % BigInt(ALPHA.length))]; v /= BigInt(ALPHA.length); }
+    return s.match(/.{1,4}/g).join('-');
+  };
+  // null when it isn't a code (a typo shows in the checksum)
+  C.decode = (code, levels, maxAmmo) => {
+    const s = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (s.length < 8 || [...s].some((ch) => !ALPHA.includes(ch))) return null;
+    let v = 0n;
+    for (let i = s.length - 1; i >= 0; i--) v = v * BigInt(ALPHA.length) + BigInt(ALPHA.indexOf(s[i]));
+    const sum = Number(v & 1023n), body = v >> 10n;
+    try {
+      const r = reader(body);
+      if (r.take(3) !== VERSION) return null;
+      const level = levels[r.take(6)], score = r.take(14) * 100, n = r.take(2) + 1, players = [];
+      for (let k = 0; k < n; k++) {
+        const crew = C.CREW[r.take(3)], lives = r.take(4), weapons = [], items = [];
+        for (let i = r.take(3); i > 0; i--) { const id = C.WEAPONS[r.take(4)], lv = r.take(2) + 1, e = r.take(3); if (id) weapons.push({ id, lv, ammo: Math.round((e / 7) * maxAmmo(id)) }); }
+        for (let i = r.take(3); i > 0; i--) { const id = C.ITEMS[r.take(4)], c = r.take(4); if (id && c) items.push({ id, n: c }); }
+        if (!crew) return null;
+        players.push({ crew, lives, weapons, items });
+      }
+      const run = { level, score, players };
+      return level && (body >> BigInt(r.pos)) === 0n && sum === check(body, r.pos) ? run : null; // (a typo: the checksum or stray bits)
+    } catch (e) { return null; }
+  };
+
+  if (typeof module === 'object' && module.exports) module.exports = C;
+  if (!root.G) return;
+  const G = root.G;
+  G.Codes = C;
+  const lv = () => G.ALL_LEVELS.map((d) => d.id);
+  const max = (id) => (G.WEAPONS[id] && G.WEAPONS[id].max) || 1;
+  // The run that starts level `next` after a stage (st.carryOut plus the level and crew), and its code
+  G.runAfter = (st, next) => { const c = st.carryOut(); return { level: next.id, score: c.score, players: c.players.map((q, i) => ({ crew: (st.players[i] && st.players[i].def.id) || 'pixel', lives: q.lives, weapons: q.weapons, items: q.items })) }; };
+  G.codeOf = (run) => C.encode(run, lv(), max);
+  G.runOf = (code) => C.decode(code, lv(), max);
+  // Save the run on this device (CONTINUE) and return its code
+  G.saveRun = (run) => { const code = G.codeOf(run); G.save.data.run = { code, level: run.level }; G.save.write(); return code; };
+})(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
 /* AFK APOCALYPSE — entities: room/collision, player (+inventory), neighbors, packages, pickups, targets. Enemies: enemies.js.
@@ -7598,9 +7700,9 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       if (this.kind === 'disk') { // a data disk: one hidden in each of levels 1-5; all five unlock the secret level (saved on this device)
         const D = G.save.data.disks = G.save.data.disks || {}, had = D[st.def.id];
         D[st.def.id] = true; G.save.write();
-        const n = G.DISK_LEVELS().filter((id) => D[id]).length;
-        say(had ? 'DISK ALREADY BACKED UP' : 'DATA DISK ' + n + '/' + G.DISK_LEVELS().length, '#7ff0ff');
-        if (!had && n === G.DISK_LEVELS().length) st.floater(this.x, this.y - 36, 'SECRET LEVEL UNLOCKED!', '#ffd23a');
+        const w = G.worldOf(st.def), all = G.DISK_LEVELS(w), n = all.filter((id) => D[id]).length;
+        say(had ? 'DISK ALREADY BACKED UP' : 'DATA DISK ' + n + '/' + all.length, '#7ff0ff');
+        if (!had && n === all.length && G.secretOf(w)) st.floater(this.x, this.y - 36, 'SECRET LEVEL UNLOCKED!', '#ffd23a');
         st.addScore(had ? 100 : 1000); st.burst(this.x, this.y - 8, 24, ['#7ff0ff', '#38f0a0', '#ffffff'], 1.6, 10, 30);
         G.sfx.play('secret');
         return;
@@ -13121,6 +13223,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       this.next = !st.test && st.def.kind ? G.nextLevel(st.def, st.ticket) : null; // levelset.js: the next main level, the bonus level if its ticket was found, after the last the secret level if every data disk is found
       this.disk = G.DISK_LEVELS().includes(st.def.id) ? !!(G.save.data.disks || {})[st.def.id] : null;
       if (st.score > (G.save.data.best || 0)) G.save.data.best = st.score;
+      if (this.next && !st.online && !st.practice) this.code = G.saveRun(G.runAfter(st, this.next)); // codes.js: the next level's code, and CONTINUE
       G.save.write();
     }
     update() {
@@ -13144,8 +13247,23 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
         G.text(String(val), 200, 96 + i * 14, col, { align: 'right', shadow: '#0e124a' });
       });
       if (this.t > 60 && (this.t >> 4) % 2 === 0) G.text(this.next ? 'PRESS START: ON TO ' + this.next.name : 'PRESS START', G.W / 2, 150, '#ffd23a', { align: 'center', shadow: '#0e124a' });
+      if (this.code && this.t > 40) { // the next level's code: write it down (1 PLAYER > ENTER CODE), your stuff comes with it
+        G.box(16, 174, 224, 30);
+        G.text('LEVEL CODE (KEEPS YOUR STUFF)', G.W / 2, 180, '#9a8ec0', { align: 'center' });
+        G.text(this.code, G.W / 2, 191, '#ffd23a', { align: 'center', shadow: '#0e124a' });
+      }
     }
   }
+  // Start a run from a code or CONTINUE: its level (with its briefing) and the crew with their stuff. Player 1's
+  // part for one player; a couch co-op code needs both players joined first (2 PLAYERS), else only player 1 plays.
+  G.startRun = (run) => {
+    const def = run && G.levelById(run.level);
+    if (!def) { G.toast('THAT LEVEL IS GONE', 120); return false; }
+    const crew = run.players.map((p) => p.crew), team = G.coop && crew.length > 1 ? crew.slice(0, 2) : crew[0];
+    const carry = { score: run.score, players: run.players.slice(0, [].concat(team).length).map((p, i) => ({ num: i + 1, lives: p.lives, weapons: p.weapons, items: p.items })) };
+    G.setState(def.briefing ? new G.states.Briefing(def, team, carry) : new Stage(def, team).carryIn(carry));
+    return true;
+  };
 
   // ===== Pause / options =====
   // The FULL SCREEN menu row (title and pause, on touch screens): toggles it where the browser allows; on an iPhone
@@ -13225,6 +13343,15 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
       drawMenuBox(ctx, this, this.title, this.items);
     }
   }
+  // 1 PLAYER: a new game, CONTINUE from the last level you cleared (with your stuff), or a level code (codes.js)
+  const onePlayerRows = () => {
+    const saved = G.save.data.run && G.runOf(G.save.data.run.code), at = saved && G.levelById(saved.level);
+    return [
+      { label: 'NEW GAME', act: () => G.setState(new G.Recruit()), help: () => 'FROM LEVEL 1' },
+      ...(at ? [{ label: 'CONTINUE', val: () => G.levelLabel(at).replace('LEVEL ', 'LV '), act: () => G.startRun(saved), help: () => at.name + ', WITH YOUR STUFF' }] : []),
+      { label: 'ENTER CODE', act: () => G.setState(new G.states.CodeEntry(G.state)), help: () => 'A LEVEL CODE FROM THE CLEAR SCREEN' },
+    ];
+  };
   const sub = (label, help, rows) => ({ label, sub: true, help: () => help, act() { G.setState(new SubMenu(label, rows(), G.state)); } });
   // TWEAKS (SETTINGS > GAME): your edits to maps, levels and tuning, kept in this browser when there's no dev server
   // (tweaks.js). Save them to a file, load one, or go back to the game's own. Results show as a toast.
@@ -13330,7 +13457,7 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
     items() {
       return [
-        { label: '1 PLAYER', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.Recruit()); } },
+        { label: '1 PLAYER', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new SubMenu('1 PLAYER', onePlayerRows(), G.state)); } },
         { label: '2 PLAYERS (ONE SCREEN)', act: () => G.setState(new G.states.Join()) },
         { label: 'ONLINE (UP TO 4)', act: () => { G.coop = null; I.controllers.length = 0; G.setState(new G.states.OnlineMenu()); } },
         sub('PRACTICE', 'TRY WEAPONS, ENEMIES, ANY LEVEL', () => [
@@ -13534,9 +13661,13 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
   class LevelSelect {
     constructor() { Object.assign(this, { menu: true, noToast: true, sel: 0, t: 0, top: 0 }); }
     items() {
-      const D = G.save.data.disks || {}, rows = G.LEVELS.map((L) => ({ L, label: L.num + '  ' + L.name, disk: L.disk ? !!D[L.id] : null }));
+      const D = G.save.data.disks || {}, rows = [];
+      for (const L of G.LEVELS) { // each world's levels, then its secret level
+        rows.push({ L, label: L.num + '  ' + L.name, disk: L.disk ? !!D[L.id] : null });
+        for (const S2 of G.SECRET_LEVELS) if (S2.after === L.id) rows.push({ L: S2, label: 'X  ' + S2.name, secret: true });
+      }
       for (const L of G.BONUS_LEVELS) rows.push({ L, label: 'B  ' + L.name, bonus: true });
-      for (const L of G.SECRET_LEVELS) rows.push({ L, label: 'X  ' + L.name, secret: true });
+      for (const L of G.SECRET_LEVELS) if (!rows.some((r) => r.L === L)) rows.push({ L, label: 'X  ' + L.name, secret: true });
       rows.push({ label: 'BACK', back: true });
       return rows;
     }
@@ -13559,16 +13690,16 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     draw(ctx) {
       sky(ctx, this.t);
       G.text('LEVEL SELECT', G.W / 2, 14, '#ffd23a', { align: 'center', scale: 2, shadow: '#140c1c' });
-      G.text('DATA DISKS ' + G.disksFound() + '/' + G.DISK_LEVELS().length + (G.secretUnlocked() ? '  SECRET OPEN' : ''), G.W / 2, 36, '#7ff0ff', { align: 'center', shadow: '#140c1c' });
+      G.text('DATA DISKS ' + G.disksFound() + '/' + G.DISK_LEVELS().length + '  SECRETS OPEN ' + G.SECRET_LEVELS.filter((d) => G.secretOpen(d)).length + '/' + G.SECRET_LEVELS.length, G.W / 2, 36, '#7ff0ff', { align: 'center', shadow: '#140c1c' });
       const all = this.items();
       if (this.top > 0) G.text('^', G.W / 2, 46, '#8a7aa8', { align: 'center' });
       if (this.top + ROWS < all.length) G.text('V', G.W / 2, 56 + ROWS * 16 - 6, '#8a7aa8', { align: 'center' });
       all.slice(this.top, this.top + ROWS).forEach((r, k) => {
         const i = this.top + k, y = 56 + k * 16, on = i === this.sel;
         if (on) { ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(20, y - 4, 216, 14); }
-        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.secret ? (G.secretUnlocked() ? '#ff9ad0' : '#6a5a8a') : r.bonus ? '#ffd23a' : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
+        G.text((on && (this.t >> 4) % 2 === 0 ? '> ' : '  ') + r.label, 28, y, on ? '#ffd23a' : r.secret ? (G.secretOpen(r.L) ? '#ff9ad0' : '#6a5a8a') : r.bonus ? '#ffd23a' : r.back ? '#8a7aa8' : '#ffffff', { shadow: '#140c1c' });
         if (r.disk !== null && r.disk !== undefined) { ctx.drawImage(G.art.icons.disk, 214, y - 3); if (!r.disk) { ctx.fillStyle = 'rgba(18,8,30,.7)'; ctx.fillRect(214, y - 3, 12, 12); } }
-        if (r.secret && !G.secretUnlocked()) G.text('LOCKED', 228, y, '#6a5a8a', { align: 'right' });
+        if (r.secret && !G.secretOpen(r.L)) G.text('LOCKED', 228, y, '#6a5a8a', { align: 'right' });
       });
       if (this.items()[this.sel] && this.items()[this.sel].L && this.items()[this.sel].L.time) {
         const [h, mm] = this.items()[this.sel].L.time;
@@ -13577,6 +13708,61 @@ body.levelmgr #touch, body.levelmgr #shell { display: none; }
     }
   }
   S.LevelSelect = LevelSelect;
+
+  // ===== Enter a level code (1 PLAYER > ENTER CODE; codes.js) =====
+  // Type it (letters and digits; the dashes are optional) or pick keys on the grid; GO starts that level with the
+  // stuff the code carries. A typo shows as NOT A CODE (the checksum).
+  class CodeEntry {
+    constructor(back) {
+      Object.assign(this, { menu: true, noToast: true, t: 0, back, code: '', sel: 0, err: '' });
+      this.keys = [...G.Codes.ALPHA, 'DEL', 'GO'];
+    }
+    press(k) {
+      this.err = '';
+      if (k === 'DEL') { this.code = this.code.slice(0, -1); G.sfx.play('blip'); }
+      else if (k === 'GO') {
+        const run = G.runOf(this.code);
+        if (!run) { this.err = 'NOT A CODE: CHECK IT'; G.sfx.play('deny'); return; }
+        G.sfx.play('confirm'); G.coop = null; I.controllers.length = 0; G.startRun(run);
+      } else if (this.code.length < 32) { this.code += k; G.sfx.play('blip'); }
+    }
+    update() {
+      this.t++;
+      if (I.menu.backP || I.hits.Escape) { G.sfx.play('pause'); G.setState(this.back); return; }
+      for (const k in I.hits) { // typing
+        if (!I.hits[k]) continue;
+        const ch = /^Key[A-Z]$/.test(k) ? k[3] : /^Digit\d$/.test(k) ? k[5] : null;
+        if (ch && G.Codes.ALPHA.includes(ch)) this.press(ch);
+        else if (k === 'Backspace') this.press('DEL');
+        else if (k === 'Enter') this.press('GO');
+      }
+      const m = I.menu, n = this.keys.length, cols = 8;
+      if (m.leftP) this.sel = (this.sel + n - 1) % n;
+      if (m.rightP) this.sel = (this.sel + 1) % n;
+      if (m.upP) this.sel = (this.sel + n - cols) % n;
+      if (m.downP) this.sel = (this.sel + cols) % n;
+      if (m.confirmP && !I.hits.Enter) this.press(this.keys[this.sel]);
+      for (const tp of I.taps) {
+        const cx = Math.floor((tp.x - 24) / 26), cy = Math.floor((tp.y - 92) / 18), i = cy * cols + cx;
+        if (tp.x >= 24 && cx < cols && cy >= 0 && i < n) { this.sel = i; this.press(this.keys[i]); }
+      }
+    }
+    draw(ctx) {
+      ctx.fillStyle = '#0b0614'; ctx.fillRect(0, 0, G.W, G.H);
+      G.text('ENTER CODE', G.W / 2, 14, '#ffd23a', { align: 'center', scale: 2, shadow: '#140c1c' });
+      const shown = (this.code.match(/.{1,4}/g) || []).join('-') + ((this.t >> 4) & 1 ? '_' : ' ');
+      G.box(12, 40, 232, 22);
+      G.text(shown, G.W / 2, 47, '#ffffff', { align: 'center' });
+      G.text(this.err || 'FROM THE LEVEL CLEAR SCREEN', G.W / 2, 72, this.err ? '#ff5a6a' : '#6a6aa8', { align: 'center' });
+      this.keys.forEach((k, i) => {
+        const x = 24 + (i % 8) * 26, y = 92 + Math.floor(i / 8) * 18, on = i === this.sel;
+        ctx.fillStyle = on ? '#3a2a10' : '#1a1230'; ctx.fillRect(x, y, 24, 15);
+        G.text(k, x + 12, y + 4, on ? '#ffd23a' : k === 'GO' ? '#38f0a0' : '#c8c0e0', { align: 'center' });
+      });
+      G.text('BACK: ESC / B', G.W / 2, 206, '#6a6aa8', { align: 'center' });
+    }
+  }
+  S.CodeEntry = CodeEntry;
 
   // ===== Game over: the attempt counter, what you managed, try again or quit =====
   const QUIPS = [
